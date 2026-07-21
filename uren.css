@@ -17,6 +17,7 @@ a{color:var(--rood-donker)}
 .kop{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:2px solid var(--inkt);margin-bottom:24px}
 .spark{width:34px;height:34px;border-radius:7px;background:var(--rood);display:grid;place-items:center;flex:none}
 .spark svg{width:20px;height:20px}
+.logo{height:38px;width:auto;flex:none;display:block}
 .kop h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.01em}
 .kop .sub{font-size:12px;color:var(--grijs);font-family:var(--mono)}
 .kop .rechts{margin-left:auto;display:flex;align-items:center;gap:12px}
