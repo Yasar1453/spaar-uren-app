@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Beheer — Urenregistratie Spaar Electra</title>
+  <link rel="stylesheet" href="uren.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="kop">
+      <span class="spark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg></span>
+      <div>
+        <h1>Urenregistratie — beheer</h1>
+        <div class="sub">Spaar Electra</div>
+      </div>
+      <div class="rechts">
+        <span id="wieBen" class="badge grijs verborgen"></span>
+        <button id="uitloggen" class="badge grijs verborgen" style="border:none;cursor:pointer">Uitloggen</button>
+      </div>
+    </div>
+
+    <!-- Login -->
+    <section id="login" class="kaart smal" style="margin:0 auto">
+      <h2>Inloggen</h2>
+      <div id="loginFout" class="melding fout verborgen"></div>
+      <label for="email">E-mail</label>
+      <input id="email" type="email" placeholder="jij@spaarelectra.nl" autocomplete="username">
+      <label for="wachtwoord">Wachtwoord</label>
+      <input id="wachtwoord" type="password" autocomplete="current-password">
+      <button id="loginBtn" class="btn btn-rood" style="margin-top:18px">Inloggen</button>
+    </section>
+
+    <!-- Dashboard -->
+    <main id="dash" class="verborgen">
+      <div class="tabs">
+        <button class="tab actief" data-tab="dashboard">Dashboard</button>
+        <button class="tab" data-tab="rooster">Rooster</button>
+        <button class="tab" data-tab="uren">Uren</button>
+        <button class="tab" data-tab="projecten">Werkbonnen</button>
+        <button class="tab" data-tab="medewerkers">Medewerkers</button>
+      </div>
+
+      <section data-view="dashboard">
+        <div class="kaart">
+          <h2>Nu ingeklokt <span class="telling" id="telIngeklokt"></span></h2>
+          <div class="tabelwrap"><table><thead><tr><th>Monteur</th><th>Werkbon</th><th>Sinds</th><th>Duur</th></tr></thead><tbody id="tbIngeklokt"></tbody></table></div>
+        </div>
+        <div class="kaart">
+          <h2>Recent geregistreerde uren</h2>
+          <div class="tabelwrap"><table><thead><tr><th>Datum</th><th>Monteur</th><th>Werkbon</th><th>Uren</th><th>Status</th><th>Omschrijving</th></tr></thead><tbody id="tbRecent"></tbody></table></div>
+        </div>
+      </section>
+
+      <section data-view="rooster" class="verborgen">
+        <div class="kaart">
+          <h2>Inplannen</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+            <div><label>Monteur</label><select id="rMedewerker"></select></div>
+            <div><label>Datum</label><input id="rDatum" type="date"></div>
+            <div><label>Werkbon</label><select id="rProject"></select></div>
+            <div><label>Dagdeel</label><select id="rDagdeel">
+              <option value="hele_dag">Hele dag</option>
+              <option value="ochtend">Ochtend</option>
+              <option value="middag">Middag</option>
+            </select></div>
+          </div>
+          <button id="rInplannen" class="btn btn-rood btn-klein" style="margin-top:14px">Inplannen</button>
+        </div>
+        <div class="kaart">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <h2 style="margin:0">Weekrooster</h2>
+            <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+              <button id="rVorige" class="btn btn-grijs btn-klein">&larr;</button>
+              <span id="rWeekLabel" class="mono" style="font-size:13px"></span>
+              <button id="rVolgende" class="btn btn-grijs btn-klein">&rarr;</button>
+            </div>
+          </div>
+          <div class="tabelwrap"><table id="rGrid"><thead></thead><tbody></tbody></table></div>
+        </div>
+      </section>
+
+      <section data-view="uren" class="verborgen">
+        <div class="kaart">
+          <h2>Alle uren</h2>
+          <div class="tabelwrap"><table><thead><tr><th>Datum</th><th>Monteur</th><th>Werkbon</th><th>Uren</th><th>Status</th><th>Omschrijving</th><th></th></tr></thead><tbody id="tbUren"></tbody></table></div>
+        </div>
+      </section>
+
+      <section data-view="projecten" class="verborgen">
+        <div class="kaart">
+          <h2>Werkbon toevoegen</h2>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label>Werkbon</label><input id="pWerkbon" placeholder="WE230…"></div>
+            <div><label>Naam</label><input id="pNaam" placeholder="Hotel A"></div>
+            <div><label>Locatie</label><input id="pLocatie" placeholder="Amsterdam"></div>
+            <div><label>Radius (m)</label><input id="pRadius" type="number" value="250"></div>
+            <div><label>Lat (optioneel)</label><input id="pLat" placeholder="52.3676"></div>
+            <div><label>Lng (optioneel)</label><input id="pLng" placeholder="4.9041"></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+            <button id="pToevoegen" class="btn btn-rood btn-klein">Toevoegen</button>
+            <button id="pZoekAdres" class="btn btn-grijs btn-klein">&#128269; Zoek co&ouml;rdinaten bij adres</button>
+            <button id="pMijnLocatie" class="btn btn-grijs btn-klein">&#128205; Huidige locatie gebruiken</button>
+          </div>
+          <div id="pGeoMelding" class="melding verborgen" style="margin-top:10px"></div>
+          <p style="font-size:12.5px;color:var(--grijs);margin:10px 0 0">Typ het adres bij <b>Locatie</b> (bv. "Poortland 34, Amsterdam") en klik <b>Zoek co&ouml;rdinaten</b> &mdash; de GPS-velden worden automatisch gevuld. Monteurs kunnen dan alleen binnen de radius inklokken. Lat/Lng leeg = geen locatie-eis.</p>
+        </div>
+        <div class="kaart">
+          <h2>Werkbonnen <span class="telling" id="telProjecten"></span></h2>
+          <div class="tabelwrap"><table><thead><tr><th>Werkbon</th><th>Naam</th><th>Locatie</th><th>GPS</th><th></th></tr></thead><tbody id="tbProjecten"></tbody></table></div>
+        </div>
+      </section>
+
+      <section data-view="medewerkers" class="verborgen">
+        <div class="kaart">
+          <h2>Monteur toevoegen</h2>
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
+            <div><label>Naam</label><input id="mNaam" placeholder="Voor- en achternaam"></div>
+            <div><label>Pincode</label><input id="mPin" class="pin-in" inputmode="numeric" maxlength="6" placeholder="••••"></div>
+          </div>
+          <button id="mToevoegen" class="btn btn-rood btn-klein" style="margin-top:14px">Toevoegen</button>
+        </div>
+        <div class="kaart">
+          <h2>Medewerkers <span class="telling" id="telMedewerkers"></span></h2>
+          <div class="tabelwrap"><table><thead><tr><th>Naam</th><th>Rol</th><th>Pincode</th><th></th></tr></thead><tbody id="tbMedewerkers"></tbody></table></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="beheer.js?v=3"></script>
+</body>
+</html>

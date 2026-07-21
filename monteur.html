@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inklokken — Spaar Electra</title>
+  <link rel="stylesheet" href="uren.css">
+</head>
+<body>
+  <div class="wrap smal">
+    <div class="kop">
+      <span class="spark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg></span>
+      <div>
+        <h1>Inklokken</h1>
+        <div class="sub">Spaar Electra</div>
+      </div>
+      <div class="rechts">
+        <button id="uitloggen" class="badge grijs verborgen" style="border:none;cursor:pointer">Uitloggen</button>
+      </div>
+    </div>
+
+    <!-- Inlogscherm -->
+    <section id="inlog" class="kaart">
+      <h2>Wie ben je?</h2>
+      <div id="inlogFout" class="melding fout verborgen"></div>
+      <label for="naam">Naam</label>
+      <select id="naam"><option value="">Kies je naam…</option></select>
+      <label for="pin">Pincode</label>
+      <input id="pin" class="pin-in" type="password" inputmode="numeric" maxlength="6" placeholder="••••">
+      <button id="inlogBtn" class="btn btn-rood" style="margin-top:18px">Inloggen</button>
+    </section>
+
+    <!-- Statusscherm -->
+    <section id="status" class="kaart verborgen">
+      <div id="statusFout" class="melding fout verborgen"></div>
+
+      <!-- Ingeklokt -->
+      <div id="ingeklokt" class="verborgen">
+        <div class="status-groot">
+          <span class="badge groen"><span class="dot"></span> Ingeklokt</span>
+          <div class="tijd" id="lopendeDuur">0:00</div>
+          <div class="op" id="ingeklokOp"></div>
+        </div>
+        <label for="omschrijving">Wat heb je gedaan?</label>
+        <textarea id="omschrijving" placeholder="Bv. groepenkast geplaatst, bekabeling 2e verdieping…"></textarea>
+        <button id="uitklokBtn" class="btn btn-rood" style="margin-top:14px">Uitklokken</button>
+      </div>
+
+      <!-- Uitgeklokt -->
+      <div id="uitgeklokt" class="verborgen">
+        <p style="margin:0 0 4px;font-weight:700" id="welkom"></p>
+        <div id="planBanner" class="melding ok verborgen" style="margin:8px 0"></div>
+        <p style="margin:0 0 10px;color:var(--grijs);font-size:14px">Kies je werkbon en klok in. Je locatie wordt gecontroleerd.</p>
+        <label for="werkbon">Werkbon</label>
+        <select id="werkbon"></select>
+        <button id="inklokBtn" class="btn btn-groen" style="margin-top:16px">Inklokken</button>
+        <div id="gpsMelding" class="melding verborgen" style="margin-top:12px"></div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="monteur.js?v=2"></script>
+</body>
+</html>

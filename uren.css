@@ -1,0 +1,79 @@
+/* Spaar Electra — Urenregistratie · gedeelde stijl (zwart/rood huisstijl) */
+:root{
+  --rood:#e10410; --rood-donker:#b3060f;
+  --inkt:#1c1718; --grijs:#6d635f; --lijn:#e4ddd9;
+  --vlak:#ffffff; --achtergrond:#f6f4f2; --zacht:#f0ecea;
+  --groen:#157a52; --groen-zacht:#e0f0e8; --amber:#9a6410;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font);background:var(--achtergrond);color:var(--inkt);line-height:1.5}
+a{color:var(--rood-donker)}
+.wrap{max-width:1000px;margin:0 auto;padding:20px}
+.smal{max-width:440px}
+
+/* Kop */
+.kop{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:2px solid var(--inkt);margin-bottom:24px}
+.spark{width:34px;height:34px;border-radius:7px;background:var(--rood);display:grid;place-items:center;flex:none}
+.spark svg{width:20px;height:20px}
+.kop h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.01em}
+.kop .sub{font-size:12px;color:var(--grijs);font-family:var(--mono)}
+.kop .rechts{margin-left:auto;display:flex;align-items:center;gap:12px}
+
+/* Kaart */
+.kaart{background:var(--vlak);border:1px solid var(--lijn);border-radius:14px;padding:22px;box-shadow:0 1px 2px rgba(28,23,24,.04),0 6px 20px rgba(28,23,24,.05);margin-bottom:18px}
+.kaart h2{font-size:16px;margin:0 0 14px;font-weight:800}
+.kaart h2 .telling{color:var(--grijs);font-weight:600;font-family:var(--mono);font-size:13px;margin-left:6px}
+
+/* Velden */
+label{display:block;font-size:13px;font-weight:600;color:var(--grijs);margin:14px 0 5px}
+input,select,textarea{width:100%;padding:12px 13px;border:1px solid var(--lijn);border-radius:10px;font-size:16px;font-family:inherit;background:#fff;color:var(--inkt)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--rood);outline-offset:1px;border-color:var(--rood)}
+textarea{resize:vertical;min-height:70px}
+.pin-in{font-family:var(--mono);letter-spacing:.5em;text-align:center;font-size:22px}
+
+/* Knoppen */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px 16px;border:none;border-radius:11px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-rood{background:var(--rood);color:#fff}
+.btn-rood:hover{background:var(--rood-donker)}
+.btn-groen{background:var(--groen);color:#fff}
+.btn-grijs{background:var(--zacht);color:var(--inkt);border:1px solid var(--lijn)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-klein{width:auto;padding:8px 14px;font-size:14px}
+.btn-rij{display:flex;gap:10px;margin-top:16px}
+
+/* Statuslabels */
+.badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
+.badge.groen{background:var(--groen-zacht);color:var(--groen)}
+.badge.rood{background:#fbe9e8;color:var(--rood-donker)}
+.badge.grijs{background:var(--zacht);color:var(--grijs)}
+.badge.amber{background:#f6ecd8;color:var(--amber)}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+/* Tabel */
+.tabelwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{text-align:left;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--grijs);font-weight:700;padding:9px 10px;border-bottom:1px solid var(--lijn);white-space:nowrap}
+td{padding:11px 10px;border-bottom:1px solid var(--lijn);vertical-align:top}
+td.sterk{font-weight:700}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.leeg{color:var(--grijs);font-size:14px;padding:16px 0}
+
+/* Meldingen */
+.melding{padding:11px 14px;border-radius:10px;font-size:14px;margin:12px 0}
+.melding.fout{background:#fbe9e8;color:var(--rood-donker)}
+.melding.ok{background:var(--groen-zacht);color:var(--groen)}
+.verborgen{display:none!important}
+
+/* Grote status (monteur) */
+.status-groot{text-align:center;padding:10px 0 4px}
+.status-groot .tijd{font-family:var(--mono);font-size:40px;font-weight:800;letter-spacing:-.02em}
+.status-groot .op{color:var(--grijs);font-size:15px;margin-top:2px}
+
+/* Tabs (beheer) */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+.tab{padding:9px 15px;border-radius:9px;border:1px solid var(--lijn);background:#fff;font-size:14px;font-weight:600;cursor:pointer;color:var(--grijs)}
+.tab.actief{background:var(--inkt);color:#fff;border-color:var(--inkt)}
+
+@media (max-width:520px){.wrap{padding:14px}.btn-rij{flex-direction:column}}
