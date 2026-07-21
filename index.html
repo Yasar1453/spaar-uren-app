@@ -62,8 +62,29 @@
         <div id="gpsMelding" class="melding verborgen" style="margin-top:12px"></div>
       </div>
     </section>
+
+    <!-- Verlof aanvragen -->
+    <section id="verlofKaart" class="kaart verborgen">
+      <h2>Verlof aanvragen</h2>
+      <div id="verlofMelding" class="melding verborgen"></div>
+      <label for="vaSoort">Soort</label>
+      <select id="vaSoort">
+        <option value="vakantie">Vakantie</option>
+        <option value="ziek">Ziekmelding</option>
+        <option value="onbetaald">Onbetaald verlof</option>
+        <option value="bijzonder">Bijzonder verlof</option>
+      </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label for="vaVan">Van</label><input id="vaVan" type="date"></div>
+        <div><label for="vaTot">Tot en met</label><input id="vaTot" type="date"></div>
+      </div>
+      <label for="vaReden">Opmerking (optioneel)</label>
+      <input id="vaReden" placeholder="Bv. familiebezoek">
+      <button id="vaVerstuur" class="btn btn-rood" style="margin-top:14px">Aanvraag versturen</button>
+      <div id="mijnVerlof" style="margin-top:18px"></div>
+    </section>
   </div>
 
-  <script type="module" src="monteur.js?v=3"></script>
+  <script type="module" src="monteur.js?v=4"></script>
 </body>
 </html>

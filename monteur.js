@@ -78,8 +78,10 @@ $("uitloggen").addEventListener("click", () => {
 async function naarStatus() {
   $("inlog").classList.add("verborgen");
   $("status").classList.remove("verborgen");
+  $("verlofKaart").classList.remove("verborgen");
   $("uitloggen").classList.remove("verborgen");
   await verversStatus();
+  laadMijnVerlof();
 }
 
 async function verversStatus() {
@@ -210,6 +212,54 @@ $("uitklokBtn").addEventListener("click", async () => {
     $("uitklokBtn").disabled = false;
   }
 });
+
+// ── Verlof aanvragen ────────────────────────────────────────────────────────
+const SOORT_LABEL = { vakantie: "Vakantie", ziek: "Ziek", onbetaald: "Onbetaald verlof", bijzonder: "Bijzonder verlof" };
+
+$("vaVerstuur").addEventListener("click", async () => {
+  const meld = $("verlofMelding");
+  const soort = $("vaSoort").value;
+  const van = $("vaVan").value, tot = $("vaTot").value || $("vaVan").value;
+  if (!van) return toonMelding(meld, "fout", "Kies een begindatum.");
+  if (tot < van) return toonMelding(meld, "fout", "De einddatum ligt vóór de begindatum.");
+  $("vaVerstuur").disabled = true;
+  try {
+    const { error } = await db.from("afwezigheid").insert({
+      medewerker_id: mij.medewerker_id, soort,
+      van_datum: van, tot_datum: tot,
+      reden: $("vaReden").value.trim() || null,
+      status: "onbeslist",
+      aangemaakt_door: mij.medewerker_id,
+    });
+    if (error) throw error;
+    toonMelding(meld, "ok", "Aanvraag verstuurd. Je ziet hieronder de status zodra ernaar gekeken is.");
+    $("vaVan").value = ""; $("vaTot").value = ""; $("vaReden").value = "";
+    laadMijnVerlof();
+  } catch (e) {
+    toonMelding(meld, "fout", "Versturen mislukt: " + e.message);
+  } finally {
+    $("vaVerstuur").disabled = false;
+  }
+});
+
+async function laadMijnVerlof() {
+  const { data } = await db.from("afwezigheid")
+    .select("soort, van_datum, tot_datum, status")
+    .is("verwijderd_op", null).order("van_datum", { ascending: false }).limit(10);
+  const el = $("mijnVerlof");
+  if (!data || !data.length) { el.innerHTML = ""; return; }
+  const badge = (s) => {
+    const kleur = { onbeslist: "amber", goedgekeurd: "groen", afgekeurd: "rood" }[s] || "grijs";
+    const tekst = { onbeslist: "in behandeling", goedgekeurd: "goedgekeurd", afgekeurd: "afgewezen" }[s] || s;
+    return `<span class="badge ${kleur}">${tekst}</span>`;
+  };
+  el.innerHTML = `<label style="margin-top:0">Mijn aanvragen</label>` + data.map((r) =>
+    `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--lijn);font-size:14px">
+       <span style="flex:1">${SOORT_LABEL[r.soort] || r.soort} · <span class="mono">${datumKort(r.van_datum)}${r.van_datum !== r.tot_datum ? " – " + datumKort(r.tot_datum) : ""}</span></span>
+       ${badge(r.status)}
+     </div>`).join("");
+}
+function datumKort(d) { return new Date(d + "T12:00:00").toLocaleDateString("nl-NL", { day: "2-digit", month: "short" }); }
 
 // ── Hulpjes ─────────────────────────────────────────────────────────────────
 async function laadProjectNaam(id) {
