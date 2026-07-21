@@ -7,14 +7,15 @@
   <title>Inklokken — Spaar Electra</title>
   <link rel="icon" type="image/svg+xml" href="spaarlogo.svg">
   <link rel="apple-touch-icon" href="spaarlogo.svg">
-  <link rel="stylesheet" href="uren.css?v=7">
+  <link rel="stylesheet" href="uren.css?v=8">
 </head>
 <body>
   <div class="wrap smal">
     <div class="kop">
+      <button id="mMenuKnop" class="menu-knop verborgen" aria-label="Menu" style="display:inline-block">&#9776;</button>
       <img class="logo" src="spaarlogo.svg" alt="Spaar Electra">
       <div>
-        <h1>Inklokken</h1>
+        <h1 id="mTitel">Inklokken</h1>
         <div class="sub">Urenregistratie</div>
       </div>
       <div class="rechts">
@@ -33,58 +34,76 @@
       <button id="inlogBtn" class="btn btn-rood" style="margin-top:18px">Inloggen</button>
     </section>
 
-    <!-- Statusscherm -->
-    <section id="status" class="kaart verborgen">
-      <div id="statusFout" class="melding fout verborgen"></div>
+    <!-- Weergave: Inklokken -->
+    <div data-mview="klok">
+      <section id="status" class="kaart verborgen">
+        <div id="statusFout" class="melding fout verborgen"></div>
 
-      <!-- Ingeklokt -->
-      <div id="ingeklokt" class="verborgen">
-        <div class="status-groot">
-          <span class="badge groen"><span class="dot"></span> Ingeklokt</span>
-          <div class="tijd" id="lopendeDuur">0:00</div>
-          <div class="op" id="ingeklokOp"></div>
+        <!-- Ingeklokt -->
+        <div id="ingeklokt" class="verborgen">
+          <div class="status-groot">
+            <span class="badge groen"><span class="dot"></span> Ingeklokt</span>
+            <div class="tijd" id="lopendeDuur">0:00</div>
+            <div class="op" id="ingeklokOp"></div>
+          </div>
+          <label for="omschrijving">Wat heb je gedaan?</label>
+          <textarea id="omschrijving" placeholder="Bv. groepenkast geplaatst, bekabeling 2e verdieping…"></textarea>
+          <label for="km">Gereden kilometers (optioneel)</label>
+          <input id="km" type="number" inputmode="numeric" min="0" placeholder="Bv. 24">
+          <button id="uitklokBtn" class="btn btn-rood" style="margin-top:14px">Uitklokken</button>
         </div>
-        <label for="omschrijving">Wat heb je gedaan?</label>
-        <textarea id="omschrijving" placeholder="Bv. groepenkast geplaatst, bekabeling 2e verdieping…"></textarea>
-        <label for="km">Gereden kilometers (optioneel)</label>
-        <input id="km" type="number" inputmode="numeric" min="0" placeholder="Bv. 24">
-        <button id="uitklokBtn" class="btn btn-rood" style="margin-top:14px">Uitklokken</button>
-      </div>
 
-      <!-- Uitgeklokt -->
-      <div id="uitgeklokt" class="verborgen">
-        <p style="margin:0 0 4px;font-weight:700" id="welkom"></p>
-        <div id="planBanner" class="melding ok verborgen" style="margin:8px 0"></div>
-        <p style="margin:0 0 10px;color:var(--grijs);font-size:14px">Kies je werkbon en klok in. Je locatie wordt gecontroleerd.</p>
-        <label for="werkbon">Werkbon</label>
-        <select id="werkbon"></select>
-        <button id="inklokBtn" class="btn btn-groen" style="margin-top:16px">Inklokken</button>
-        <div id="gpsMelding" class="melding verborgen" style="margin-top:12px"></div>
-      </div>
-    </section>
+        <!-- Uitgeklokt -->
+        <div id="uitgeklokt" class="verborgen">
+          <p style="margin:0 0 4px;font-weight:700" id="welkom"></p>
+          <div id="planBanner" class="melding ok verborgen" style="margin:8px 0"></div>
+          <p style="margin:0 0 10px;color:var(--grijs);font-size:14px">Kies je werkbon en klok in. Je locatie wordt gecontroleerd.</p>
+          <label for="werkbon">Werkbon</label>
+          <select id="werkbon"></select>
+          <button id="inklokBtn" class="btn btn-groen" style="margin-top:16px">Inklokken</button>
+          <div id="gpsMelding" class="melding verborgen" style="margin-top:12px"></div>
+        </div>
+      </section>
+    </div>
 
-    <!-- Verlof aanvragen -->
-    <section id="verlofKaart" class="kaart verborgen">
-      <h2>Verlof aanvragen</h2>
-      <div id="verlofMelding" class="melding verborgen"></div>
-      <label for="vaSoort">Soort</label>
-      <select id="vaSoort">
-        <option value="vakantie">Vakantie</option>
-        <option value="ziek">Ziekmelding</option>
-        <option value="onbetaald">Onbetaald verlof</option>
-        <option value="bijzonder">Bijzonder verlof</option>
-      </select>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div><label for="vaVan">Van</label><input id="vaVan" type="date"></div>
-        <div><label for="vaTot">Tot en met</label><input id="vaTot" type="date"></div>
-      </div>
-      <label for="vaReden">Opmerking (optioneel)</label>
-      <input id="vaReden" placeholder="Bv. familiebezoek">
-      <button id="vaVerstuur" class="btn btn-rood" style="margin-top:14px">Aanvraag versturen</button>
-      <div id="mijnVerlof" style="margin-top:18px"></div>
-    </section>
+    <!-- Weergave: Verlof -->
+    <div data-mview="verlof" class="verborgen">
+      <section id="verlofKaart" class="kaart">
+        <h2>Verlof aanvragen</h2>
+        <div id="verlofMelding" class="melding verborgen"></div>
+        <label for="vaSoort">Soort</label>
+        <select id="vaSoort">
+          <option value="vakantie">Vakantie</option>
+          <option value="ziek">Ziekmelding</option>
+          <option value="onbetaald">Onbetaald verlof</option>
+          <option value="bijzonder">Bijzonder verlof</option>
+        </select>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><label for="vaVan">Van</label><input id="vaVan" type="date"></div>
+          <div><label for="vaTot">Tot en met</label><input id="vaTot" type="date"></div>
+        </div>
+        <label for="vaReden">Opmerking (optioneel)</label>
+        <input id="vaReden" placeholder="Bv. familiebezoek">
+        <button id="vaVerstuur" class="btn btn-rood" style="margin-top:14px">Aanvraag versturen</button>
+        <div id="mijnVerlof" style="margin-top:18px"></div>
+      </section>
+    </div>
   </div>
 
-  <script type="module" src="monteur.js?v=4"></script>
+  <!-- Inklapbaar menu (lade) -->
+  <div id="mLade" class="lade-overlay verborgen">
+    <nav class="lade">
+      <div class="lade-kop">
+        <img class="zb-logo" src="spaarlogo.svg" alt="Spaar Electra">
+        <span id="ladeNaam" class="lade-naam"></span>
+      </div>
+      <button class="nav actief" data-mnav="klok"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/></svg></span> Inklokken</button>
+      <button class="nav" data-mnav="verlof"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="7" y2="7"/><line x1="17" y1="17" x2="19" y2="19"/><line x1="5" y1="19" x2="7" y2="17"/><line x1="17" y1="7" x2="19" y2="5"/></svg></span> Verlof aanvragen</button>
+      <div style="flex:1"></div>
+      <button id="ladeUitloggen" class="btn btn-grijs btn-klein" style="width:100%">Uitloggen</button>
+    </nav>
+  </div>
+
+  <script type="module" src="monteur.js?v=5"></script>
 </body>
 </html>

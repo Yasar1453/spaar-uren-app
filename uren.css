@@ -114,6 +114,13 @@ td.sterk{font-weight:700}
 .tab{padding:9px 15px;border-radius:9px;border:1px solid var(--lijn);background:#fff;font-size:14px;font-weight:600;cursor:pointer;color:var(--grijs)}
 .tab.actief{background:var(--inkt);color:#fff;border-color:var(--inkt)}
 
+/* Inklapbaar menu voor de monteur-app (lade) */
+.lade-overlay{position:fixed;inset:0;background:rgba(28,23,24,.45);z-index:300}
+.lade{position:absolute;left:0;top:0;bottom:0;width:250px;background:var(--inkt);color:#fff;display:flex;flex-direction:column;gap:3px;padding:18px 14px;box-shadow:0 0 40px rgba(0,0,0,.35);animation:lade-in .18s ease}
+@keyframes lade-in{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+.lade-kop{display:flex;align-items:center;gap:10px;padding:4px 6px 16px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:12px}
+.lade-naam{font-size:13.5px;font-weight:700;word-break:break-word}
+
 /* Chips (wie niet ingeklokt) */
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{display:inline-flex;align-items:center;gap:6px;background:var(--zacht);border:1px solid var(--lijn);color:var(--inkt);font-size:14px;font-weight:600;padding:6px 12px;border-radius:999px}

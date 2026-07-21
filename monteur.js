@@ -78,11 +78,30 @@ $("uitloggen").addEventListener("click", () => {
 async function naarStatus() {
   $("inlog").classList.add("verborgen");
   $("status").classList.remove("verborgen");
-  $("verlofKaart").classList.remove("verborgen");
   $("uitloggen").classList.remove("verborgen");
+  $("mMenuKnop").classList.remove("verborgen");
+  $("ladeNaam").textContent = mij.naam;
   await verversStatus();
   laadMijnVerlof();
 }
+
+// ── Inklapbaar menu ─────────────────────────────────────────────────────────
+const MVIEW_TITEL = { klok: "Inklokken", verlof: "Verlof" };
+$("mMenuKnop").addEventListener("click", () => $("mLade").classList.remove("verborgen"));
+$("mLade").addEventListener("click", (e) => { if (e.target === $("mLade")) $("mLade").classList.add("verborgen"); });
+document.querySelectorAll("[data-mnav]").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-mnav]").forEach((x) => x.classList.remove("actief"));
+  b.classList.add("actief");
+  const view = b.dataset.mnav;
+  document.querySelectorAll("[data-mview]").forEach((v) => v.classList.toggle("verborgen", v.dataset.mview !== view));
+  $("mTitel").textContent = MVIEW_TITEL[view] || "";
+  $("mLade").classList.add("verborgen");
+  if (view === "verlof") laadMijnVerlof();
+}));
+$("ladeUitloggen").addEventListener("click", () => {
+  sessionStorage.removeItem("spaar-uren-monteur");
+  location.reload();
+});
 
 async function verversStatus() {
   verberg($("statusFout"));
