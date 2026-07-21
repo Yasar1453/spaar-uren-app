@@ -7,7 +7,9 @@
   <title>Beheer — Urenregistratie Spaar Electra</title>
   <link rel="icon" type="image/svg+xml" href="spaarlogo.svg">
   <link rel="apple-touch-icon" href="spaarlogo.svg">
-  <link rel="stylesheet" href="uren.css?v=2">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="uren.css?v=3">
 </head>
 <body>
   <div class="wrap">
@@ -132,6 +134,35 @@
     </main>
   </div>
 
-  <script type="module" src="beheer.js?v=3"></script>
+  <!-- Locatie-kiezer: adres zoeken + speld op de kaart -->
+  <div id="locModal" class="modal-overlay verborgen">
+    <div class="modal">
+      <div class="modal-kop">
+        <h2 id="locTitel">Locatie instellen</h2>
+        <button id="locSluit" class="modal-x" aria-label="Sluiten">&times;</button>
+      </div>
+      <label for="locAdres">Adres (straat, huisnummer, plaats)</label>
+      <div style="display:flex;gap:8px">
+        <input id="locAdres" placeholder="Bv. Poortland 34, Amsterdam" style="flex:1">
+        <button id="locZoek" class="btn btn-rood btn-klein" style="flex:none">&#128269; Zoek</button>
+      </div>
+      <div id="locMelding" class="melding verborgen" style="margin:10px 0 0"></div>
+      <div id="locKaart" class="kaart-map"></div>
+      <p class="map-hint">Sleep de speld naar de juiste plek, of klik op de kaart. Monteurs kunnen alleen binnen de rode cirkel inklokken.</p>
+      <div class="loc-radius">
+        <label for="locRadius" style="margin:0">Straal (meter)</label>
+        <input id="locRadius" type="number" min="25" step="25" value="250" style="width:110px">
+      </div>
+      <div class="modal-acties">
+        <button id="locGeen" class="btn btn-grijs btn-klein">Geen locatie-eis</button>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button id="locAnnuleer" class="btn btn-grijs btn-klein">Annuleren</button>
+          <button id="locOpslaan" class="btn btn-rood btn-klein">Opslaan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="beheer.js?v=4"></script>
 </body>
 </html>

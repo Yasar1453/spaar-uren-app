@@ -102,6 +102,7 @@ async function keur(id, status) {
 // ── Werkbonnen ──────────────────────────────────────────────────────────────
 async function laadProjecten() {
   const { data } = await db.from("projecten").select("*").is("verwijderd_op", null).order("naam");
+  window._projecten = data || [];
   $("telProjecten").textContent = (data || []).length ? "(" + data.length + ")" : "";
   $("tbProjecten").innerHTML = (data || []).map((p) =>
     `<tr><td class="mono sterk">${esc(p.werkbon || "—")}</td><td>${esc(p.naam)}</td>
@@ -116,19 +117,15 @@ async function laadProjecten() {
     await db.from("projecten").update({ verwijderd_op: new Date().toISOString() }).eq("id", b.dataset.delProject);
     laadProjecten();
   }));
-  // Locatie instellen op een bestaande werkbon: adres invoeren → geocoderen → opslaan
-  document.querySelectorAll("[data-loc-project]").forEach((b) => b.addEventListener("click", async () => {
-    const adres = prompt("Adres van \"" + b.dataset.locNaam + "\" (bv. \"Poortland 34, Amsterdam\"):", b.dataset.locAdres || "");
-    if (adres === null) return;
-    if (!adres.trim()) { // leeg = locatie-eis weghalen
-      await db.from("projecten").update({ lat: null, lng: null }).eq("id", b.dataset.locProject);
-      return laadProjecten();
-    }
-    const r = await geocodeer(adres.trim()).catch(() => null);
-    if (!r) return alert("Adres niet gevonden. Probeer het voluit met plaatsnaam.");
-    if (!confirm("Gevonden:\n" + r.naam + "\n\nGeofence hier instellen?")) return;
-    await db.from("projecten").update({ lat: r.lat, lng: r.lng, locatie: adres.trim() }).eq("id", b.dataset.locProject);
-    laadProjecten();
+  // Locatie instellen op een bestaande werkbon: kaart-kiezer openen
+  document.querySelectorAll("[data-loc-project]").forEach((b) => b.addEventListener("click", () => {
+    const p = (window._projecten || []).find((x) => x.id === b.dataset.locProject) || {};
+    openLocatieKiezer({
+      id: b.dataset.locProject,
+      naam: b.dataset.locNaam,
+      adres: b.dataset.locAdres || "",
+      lat: p.lat, lng: p.lng, radius_m: p.radius_m,
+    });
   }));
 }
 $("pToevoegen").addEventListener("click", async () => {
@@ -266,6 +263,91 @@ async function geocodeer(adres) {
   if (!data.length) return null;
   return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), naam: data[0].display_name };
 }
+
+// ── Kaart-kiezer (Leaflet): adres zoeken of speld slepen ────────────────────
+let locMap = null, locMarker = null, locCirkel = null, locProjectId = null;
+const AMS = [52.3676, 4.9041];
+
+function openLocatieKiezer(p) {
+  locProjectId = p.id;
+  $("locTitel").textContent = "Locatie — " + p.naam;
+  $("locAdres").value = p.adres || "";
+  $("locRadius").value = p.radius_m || 250;
+  verberg($("locMelding"));
+  $("locModal").classList.remove("verborgen");
+
+  const heeftPunt = p.lat != null && p.lng != null;
+  const start = heeftPunt ? [p.lat, p.lng] : AMS;
+  const zoom = heeftPunt ? 16 : 12;
+
+  if (!locMap) {
+    locMap = L.map("locKaart");
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19, attribution: "&copy; OpenStreetMap",
+    }).addTo(locMap);
+    locMap.on("click", (e) => zetSpeld(e.latlng.lat, e.latlng.lng, false));
+  }
+  locMap.setView(start, zoom);
+  if (heeftPunt) zetSpeld(p.lat, p.lng, false);
+  else if (locMarker) { locMap.removeLayer(locMarker); locMap.removeLayer(locCirkel); locMarker = null; locCirkel = null; }
+
+  // Leaflet moet z'n grootte opnieuw meten nadat de modal zichtbaar is
+  setTimeout(() => locMap.invalidateSize(), 60);
+}
+
+function zetSpeld(lat, lng, herschik) {
+  if (!locMarker) {
+    locMarker = L.marker([lat, lng], { draggable: true }).addTo(locMap);
+    locCirkel = L.circle([lat, lng], { radius: radiusNu(), color: "#e10410", weight: 1, fillColor: "#e10410", fillOpacity: .12 }).addTo(locMap);
+    locMarker.on("drag", (e) => { const ll = e.target.getLatLng(); locCirkel.setLatLng(ll); });
+  } else {
+    locMarker.setLatLng([lat, lng]);
+    locCirkel.setLatLng([lat, lng]);
+  }
+  if (herschik) locMap.setView([lat, lng], Math.max(locMap.getZoom(), 16));
+}
+function radiusNu() { return parseInt($("locRadius").value) || 250; }
+
+$("locRadius").addEventListener("input", () => { if (locCirkel) locCirkel.setRadius(radiusNu()); });
+
+$("locZoek").addEventListener("click", async () => {
+  const adres = $("locAdres").value.trim();
+  const meld = $("locMelding");
+  if (!adres) return toonMeld(meld, "fout", "Typ eerst een adres.");
+  toonMeld(meld, "", "Adres opzoeken…");
+  try {
+    const r = await geocodeer(adres);
+    if (!r) return toonMeld(meld, "fout", "Adres niet gevonden. Probeer het voluit, bv. \"Poortland 34, Amsterdam\".");
+    zetSpeld(r.lat, r.lng, true);
+    toonMeld(meld, "ok", "Gevonden: " + r.naam);
+  } catch (_) {
+    toonMeld(meld, "fout", "Opzoeken mislukt. Controleer je internetverbinding.");
+  }
+});
+$("locAdres").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("locZoek").click(); } });
+
+function sluitLocModal() { $("locModal").classList.add("verborgen"); }
+$("locSluit").addEventListener("click", sluitLocModal);
+$("locAnnuleer").addEventListener("click", sluitLocModal);
+$("locModal").addEventListener("click", (e) => { if (e.target === $("locModal")) sluitLocModal(); });
+
+$("locGeen").addEventListener("click", async () => {
+  await db.from("projecten").update({ lat: null, lng: null, radius_m: radiusNu() }).eq("id", locProjectId);
+  sluitLocModal();
+  laadProjecten();
+});
+
+$("locOpslaan").addEventListener("click", async () => {
+  if (!locMarker) return toonMeld($("locMelding"), "fout", "Zet eerst een speld op de kaart (zoek een adres of klik op de kaart).");
+  const ll = locMarker.getLatLng();
+  const upd = { lat: +ll.lat.toFixed(6), lng: +ll.lng.toFixed(6), radius_m: radiusNu() };
+  const adres = $("locAdres").value.trim();
+  if (adres) upd.locatie = adres;
+  const { error } = await db.from("projecten").update(upd).eq("id", locProjectId);
+  if (error) return toonMeld($("locMelding"), "fout", "Opslaan mislukt: " + error.message);
+  sluitLocModal();
+  laadProjecten();
+});
 
 $("pZoekAdres").addEventListener("click", async () => {
   const adres = $("pLocatie").value.trim();
