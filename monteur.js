@@ -192,6 +192,7 @@ $("uitklokBtn").addEventListener("click", async () => {
       eind_tijd: new Date().toISOString(),
       uren,
       omschrijving: $("omschrijving").value.trim() || null,
+      km: parseInt($("km").value) || null,
       bron: "klok",
       in_lat: openSessie.in_lat,
       in_lng: openSessie.in_lng,
@@ -201,6 +202,7 @@ $("uitklokBtn").addEventListener("click", async () => {
     const { error: e2 } = await db.from("kloksessies").delete().eq("id", openSessie.id);
     if (e2) throw e2;
     $("omschrijving").value = "";
+    $("km").value = "";
     await verversStatus();
   } catch (e) {
     toon($("statusFout"), "Uitklokken mislukt: " + e.message);

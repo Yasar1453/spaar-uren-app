@@ -7,7 +7,7 @@
   <title>Inklokken — Spaar Electra</title>
   <link rel="icon" type="image/svg+xml" href="spaarlogo.svg">
   <link rel="apple-touch-icon" href="spaarlogo.svg">
-  <link rel="stylesheet" href="uren.css?v=2">
+  <link rel="stylesheet" href="uren.css?v=6">
 </head>
 <body>
   <div class="wrap smal">
@@ -46,6 +46,8 @@
         </div>
         <label for="omschrijving">Wat heb je gedaan?</label>
         <textarea id="omschrijving" placeholder="Bv. groepenkast geplaatst, bekabeling 2e verdieping…"></textarea>
+        <label for="km">Gereden kilometers (optioneel)</label>
+        <input id="km" type="number" inputmode="numeric" min="0" placeholder="Bv. 24">
         <button id="uitklokBtn" class="btn btn-rood" style="margin-top:14px">Uitklokken</button>
       </div>
 
@@ -62,6 +64,6 @@
     </section>
   </div>
 
-  <script type="module" src="monteur.js?v=2"></script>
+  <script type="module" src="monteur.js?v=3"></script>
 </body>
 </html>

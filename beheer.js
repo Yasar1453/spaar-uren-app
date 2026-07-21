@@ -1,14 +1,20 @@
 // ============================================================================
 //  Spaar Electra — Urenregistratie · beheer-dashboard
-//  Beheerder logt in (Supabase e-mail/wachtwoord). "Nu ingeklokt" live,
-//  uren bekijken/goedkeuren, werkbonnen en medewerkers beheren.
-//  Bouwt voort op ../../admin.js, nu op Supabase.
+//  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
+//  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
 import { beheerClient } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
 const db = beheerClient();
 let tikker = null;
+
+const PAGINA_TITEL = {
+  dashboard: "Dashboard", rooster: "Rooster", uren: "Urenregistratie",
+  verlof: "Verlof", projecten: "Werkbonnen", medewerkers: "Medewerkers",
+  rapporten: "Rapportages",
+};
+const SOORT_LABEL = { vakantie: "Vakantie", ziek: "Ziek", onbetaald: "Onbetaald verlof", bijzonder: "Bijzonder verlof" };
 
 // ── Login ───────────────────────────────────────────────────────────────────
 $("loginBtn").addEventListener("click", inloggen);
@@ -26,7 +32,6 @@ async function inloggen() {
   naarDash();
 }
 
-// Sessie al actief?
 (async function () {
   const { data } = await db.auth.getSession();
   if (data.session) naarDash();
@@ -35,23 +40,27 @@ async function inloggen() {
 $("uitloggen").addEventListener("click", async () => { await db.auth.signOut(); location.reload(); });
 
 async function naarDash() {
-  $("login").classList.add("verborgen");
-  $("dash").classList.remove("verborgen");
-  $("uitloggen").classList.remove("verborgen");
+  $("loginScherm").classList.add("verborgen");
+  $("app").classList.remove("verborgen");
   const { data } = await db.auth.getUser();
-  if (data?.user) { $("wieBen").textContent = data.user.email; $("wieBen").classList.remove("verborgen"); }
-  await Promise.all([laadIngeklokt(), laadUren(), laadProjecten(), laadMedewerkers(), laadRooster()]);
+  if (data?.user) $("wieBen").textContent = data.user.email;
+  await Promise.all([laadIngeklokt(), laadUren(), laadProjecten(), laadMedewerkers(), laadRooster(), laadVerlof()]);
+  standaardPeriode();
   if (tikker) clearInterval(tikker);
   tikker = setInterval(laadIngeklokt, 30000);
 }
 
-// ── Tabs ────────────────────────────────────────────────────────────────────
-document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
-  document.querySelectorAll(".tab").forEach((x) => x.classList.remove("actief"));
+// ── Navigatie (zijbalk) ──────────────────────────────────────────────────────
+document.querySelectorAll(".nav").forEach((t) => t.addEventListener("click", () => {
+  document.querySelectorAll(".nav").forEach((x) => x.classList.remove("actief"));
   t.classList.add("actief");
-  document.querySelectorAll("[data-view]").forEach((v) =>
-    v.classList.toggle("verborgen", v.dataset.view !== t.dataset.tab));
+  const tab = t.dataset.tab;
+  document.querySelectorAll("[data-view]").forEach((v) => v.classList.toggle("verborgen", v.dataset.view !== tab));
+  $("paginaTitel").textContent = PAGINA_TITEL[tab] || "";
+  $("app").classList.remove("open"); // mobiel menu sluiten
 }));
+$("menuKnop").addEventListener("click", () => $("app").classList.toggle("open"));
+$("app").addEventListener("click", (e) => { if (e.target === $("app")) $("app").classList.remove("open"); });
 
 // ── Nu ingeklokt + wie niet ─────────────────────────────────────────────────
 async function laadIngeklokt() {
@@ -64,7 +73,6 @@ async function laadIngeklokt() {
   const tb = $("tbIngeklokt");
   if (error) { tb.innerHTML = rijLeeg(4, "Kon niet laden."); return; }
 
-  // Ingeklokt-tabel
   $("telIngeklokt").textContent = (data || []).length ? "(" + data.length + ")" : "";
   tb.innerHTML = (data || []).length
     ? data.map((k) => `<tr><td class="sterk">${esc(k.medewerkers?.naam)}</td>
@@ -73,44 +81,120 @@ async function laadIngeklokt() {
         <td><span class="badge groen"><span class="dot"></span> ${duurTekst(k.ingeklokt_op)}</span></td></tr>`).join("")
     : rijLeeg(4, "Niemand is nu ingeklokt.");
 
-  // Niet-ingeklokt: alle monteurs minus wie een open sessie heeft
   const bezet = new Set((data || []).map((k) => k.medewerker_id));
   const vrij = (monteurs || []).filter((m) => !bezet.has(m.id));
   $("telNietIngeklokt").textContent = vrij.length ? "(" + vrij.length + ")" : "";
   $("chipsNiet").innerHTML = vrij.length
     ? vrij.map((m) => `<span class="chip">${esc(m.naam)}</span>`).join("")
-    : `<span class="leeg">Iedereen is ingeklokt ✅</span>`;
+    : `<span class="leeg">Iedereen is ingeklokt.</span>`;
 }
 
-// ── Uren (recent + alle) ────────────────────────────────────────────────────
+// ── Urenregistratie ──────────────────────────────────────────────────────────
+let _uren = [];
 async function laadUren() {
-  const { data, error } = await db.from("v_urenregels").select("*").order("datum", { ascending: false }).limit(200);
+  const { data, error } = await db.from("urenregels")
+    .select("id, datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, medewerkers(naam), projecten(werkbon, naam)")
+    .is("verwijderd_op", null).order("datum", { ascending: false }).order("start_tijd", { ascending: false }).limit(400);
   if (error) return;
-  const rijen = (data || []);
-  $("tbRecent").innerHTML = rijen.slice(0, 8).map(urenRij).join("") || rijLeeg(6, "Nog geen uren.");
-  $("tbUren").innerHTML = rijen.map((u) => urenRij(u, true)).join("") || rijLeeg(7, "Nog geen uren.");
-  // knoppen koppelen
+  _uren = data || [];
+  $("tbRecent").innerHTML = _uren.slice(0, 8).map(recentRij).join("") || rijLeeg(6, "Nog geen uren.");
+  $("tbUren").innerHTML = _uren.map(urenRij).join("") || rijLeeg(11, "Nog geen uren.");
   document.querySelectorAll("[data-keur]").forEach((b) => b.addEventListener("click", () => keur(b.dataset.id, b.dataset.keur)));
 }
-function urenRij(u, metActie) {
-  const st = { onbeslist: "amber", goedgekeurd: "groen", afgekeurd: "rood" }[u.status] || "grijs";
-  const actie = metActie && u.status === "onbeslist"
-    ? `<td><button class="btn btn-groen btn-klein" data-keur="goedgekeurd" data-id="${u.id}">Keur goed</button>
-         <button class="btn btn-grijs btn-klein" data-keur="afgekeurd" data-id="${u.id}">Afkeuren</button></td>`
-    : (metActie ? "<td></td>" : "");
-  return `<tr><td class="mono">${datum(u.datum)}</td><td class="sterk">${esc(u.medewerker_naam)}</td>
-    <td class="mono">${esc(u.werkbon || "")} ${esc(u.project_naam)}</td>
+function statusBadge(s) {
+  const st = { onbeslist: "amber", goedgekeurd: "groen", afgekeurd: "rood" }[s] || "grijs";
+  return `<span class="badge ${st}">${s}</span>`;
+}
+function recentRij(u) {
+  return `<tr><td class="mono">${datum(u.datum)}</td><td class="sterk">${esc(u.medewerkers?.naam)}</td>
+    <td class="mono">${esc(werkbonTekst(u.projecten))}</td>
     <td class="sterk mono">${Number(u.uren).toFixed(2)} u</td>
-    <td><span class="badge ${st}">${u.status}</span></td>
+    <td>${statusBadge(u.status)}</td><td>${esc(u.omschrijving || "")}</td></tr>`;
+}
+function pauzeTekst(u) {
+  const o = u.pauze_onbetaald_min || 0, b = u.pauze_betaald_min || 0;
+  if (!o && !b) return "—";
+  return (o ? o + "m" : "") + (o && b ? " / " : "") + (b ? b + "m betaald" : "");
+}
+function urenRij(u) {
+  const actie = u.status === "onbeslist"
+    ? `<td style="white-space:nowrap"><button class="btn btn-groen btn-klein" data-keur="goedgekeurd" data-id="${u.id}">Keur goed</button>
+         <button class="btn btn-grijs btn-klein" data-keur="afgekeurd" data-id="${u.id}">Afkeuren</button></td>`
+    : "<td></td>";
+  return `<tr><td class="mono">${datum(u.datum)}</td><td class="sterk">${esc(u.medewerkers?.naam)}</td>
+    <td class="mono">${esc(werkbonTekst(u.projecten))}</td>
+    <td class="mono">${u.start_tijd ? tijd(u.start_tijd) : "—"}</td>
+    <td class="mono">${u.eind_tijd ? tijd(u.eind_tijd) : "—"}</td>
+    <td class="mono">${pauzeTekst(u)}</td>
+    <td class="mono">${u.km != null ? u.km : "—"}</td>
+    <td class="sterk mono">${Number(u.uren).toFixed(2)}</td>
+    <td>${statusBadge(u.status)}</td>
     <td>${esc(u.omschrijving || "")}</td>${actie}</tr>`;
 }
 async function keur(id, status) {
-  const { data: me } = await db.auth.getUser();
-  await db.from("urenregels").update({
-    status, nagekeken_op: new Date().toISOString(),
-  }).eq("id", id);
+  await db.from("urenregels").update({ status, nagekeken_op: new Date().toISOString() }).eq("id", id);
   await laadUren();
 }
+$("urenExport").addEventListener("click", () => {
+  const rijen = _uren.map((u) => [
+    u.datum, u.medewerkers?.naam || "", werkbonTekst(u.projecten),
+    u.start_tijd ? tijd(u.start_tijd) : "", u.eind_tijd ? tijd(u.eind_tijd) : "",
+    u.pauze_onbetaald_min || 0, u.pauze_betaald_min || 0, u.km != null ? u.km : "",
+    Number(u.uren).toFixed(2), u.status, u.omschrijving || "",
+  ]);
+  csvDownload(["Datum", "Monteur", "Werkbon", "Start", "Eind", "Pauze onbetaald (min)", "Pauze betaald (min)", "Km", "Uren", "Status", "Omschrijving"], rijen, "uren");
+});
+
+// ── Verlof / afwezigheid ─────────────────────────────────────────────────────
+async function laadVerlof() {
+  const [{ data: mws }, { data }] = await Promise.all([
+    db.from("medewerkers").select("id, naam").eq("rol", "monteur").is("verwijderd_op", null).order("naam"),
+    db.from("afwezigheid").select("id, soort, van_datum, tot_datum, reden, status, medewerkers(naam)")
+      .is("verwijderd_op", null).order("van_datum", { ascending: false }),
+  ]);
+  vulSelect("vMedewerker", (mws || []).map((m) => [m.id, m.naam]));
+
+  const rijen = data || [];
+  $("telVerlof").textContent = rijen.length ? "(" + rijen.length + ")" : "";
+  const open = rijen.filter((r) => r.status === "onbeslist").length;
+  const badge = $("verlofBadge");
+  if (open) { badge.textContent = open; badge.classList.remove("verborgen"); } else badge.classList.add("verborgen");
+
+  $("tbVerlof").innerHTML = rijen.length ? rijen.map((r) => {
+    const actie = r.status === "onbeslist"
+      ? `<button class="btn btn-groen btn-klein" data-vkeur="goedgekeurd" data-id="${r.id}">Goedkeuren</button>
+         <button class="btn btn-grijs btn-klein" data-vkeur="afgekeurd" data-id="${r.id}">Afwijzen</button>`
+      : `<button class="btn btn-grijs btn-klein" data-vdel="${r.id}">Verwijder</button>`;
+    return `<tr><td class="sterk">${esc(r.medewerkers?.naam)}</td>
+      <td>${SOORT_LABEL[r.soort] || r.soort}</td>
+      <td class="mono">${datum(r.van_datum)}</td><td class="mono">${datum(r.tot_datum)}</td>
+      <td class="mono">${dagenTussen(r.van_datum, r.tot_datum)}</td>
+      <td>${esc(r.reden || "")}</td><td>${statusBadge(r.status)}</td>
+      <td style="white-space:nowrap">${actie}</td></tr>`;
+  }).join("") : rijLeeg(8, "Nog geen verlof of afwezigheid.");
+
+  document.querySelectorAll("[data-vkeur]").forEach((b) => b.addEventListener("click", async () => {
+    await db.from("afwezigheid").update({ status: b.dataset.vkeur }).eq("id", b.dataset.id);
+    laadVerlof();
+  }));
+  document.querySelectorAll("[data-vdel]").forEach((b) => b.addEventListener("click", async () => {
+    await db.from("afwezigheid").update({ verwijderd_op: new Date().toISOString() }).eq("id", b.dataset.vdel);
+    laadVerlof();
+  }));
+}
+$("vToevoegen").addEventListener("click", async () => {
+  const medewerker_id = $("vMedewerker").value, soort = $("vSoort").value;
+  const van = $("vVan").value, tot = $("vTot").value || $("vVan").value;
+  if (!medewerker_id || !van) return alert("Kies een monteur en een begindatum.");
+  if (tot < van) return alert("De einddatum ligt vóór de begindatum.");
+  const { error } = await db.from("afwezigheid").insert({
+    medewerker_id, soort, van_datum: van, tot_datum: tot,
+    reden: $("vReden").value.trim() || null, status: "goedgekeurd",
+  });
+  if (error) return alert("Mislukt: " + error.message);
+  $("vReden").value = "";
+  laadVerlof();
+});
 
 // ── Werkbonnen ──────────────────────────────────────────────────────────────
 async function laadProjecten() {
@@ -120,43 +204,46 @@ async function laadProjecten() {
   $("tbProjecten").innerHTML = (data || []).map((p) =>
     `<tr><td class="mono sterk">${esc(p.werkbon || "—")}</td><td>${esc(p.naam)}</td>
      <td>${esc(p.locatie || "")}</td>
-     <td>${p.lat != null ? `<span class="badge groen">geofence ${p.radius_m}m</span>` : `<span class="badge grijs">geen</span>`}</td>
+     <td>${p.lat != null ? `<span class="badge groen">binnen ${p.radius_m} m</span>` : `<span class="badge grijs">geen</span>`}</td>
      <td style="white-space:nowrap">
-       <button class="btn btn-grijs btn-klein" data-loc-project="${p.id}" data-loc-adres="${esc(p.locatie || "")}" data-loc-naam="${esc(p.naam)}">&#128205; Locatie</button>
+       <button class="btn btn-grijs btn-klein" data-loc-project="${p.id}" data-loc-adres="${esc(p.locatie || "")}" data-loc-naam="${esc(p.naam)}">Locatie</button>
        <button class="btn btn-grijs btn-klein" data-del-project="${p.id}">Verwijder</button>
      </td></tr>`
   ).join("") || rijLeeg(5, "Nog geen werkbonnen.");
   document.querySelectorAll("[data-del-project]").forEach((b) => b.addEventListener("click", async () => {
+    if (!confirm("Deze werkbon verwijderen?")) return;
     await db.from("projecten").update({ verwijderd_op: new Date().toISOString() }).eq("id", b.dataset.delProject);
     laadProjecten();
   }));
-  // Locatie instellen op een bestaande werkbon: kaart-kiezer openen
   document.querySelectorAll("[data-loc-project]").forEach((b) => b.addEventListener("click", () => {
     const p = (window._projecten || []).find((x) => x.id === b.dataset.locProject) || {};
-    openLocatieKiezer({
-      id: b.dataset.locProject,
-      naam: b.dataset.locNaam,
-      adres: b.dataset.locAdres || "",
-      lat: p.lat, lng: p.lng, radius_m: p.radius_m,
-    });
+    openLocatieKiezer({ id: b.dataset.locProject, naam: b.dataset.locNaam, adres: b.dataset.locAdres || "", lat: p.lat, lng: p.lng, radius_m: p.radius_m });
   }));
 }
 $("pToevoegen").addEventListener("click", async () => {
   const naam = $("pNaam").value.trim();
   if (!naam) return alert("Geef de werkbon een naam.");
-  const lat = parseFloat($("pLat").value), lng = parseFloat($("pLng").value);
+  let lat = parseFloat($("pLat").value), lng = parseFloat($("pLng").value);
+  const locatie = $("pLocatie").value.trim();
+  // Geen coördinaten maar wel adres? Dan automatisch opzoeken.
+  if ((isNaN(lat) || isNaN(lng)) && locatie) {
+    const r = await geocodeer(locatie).catch(() => null);
+    if (r) { lat = r.lat; lng = r.lng; }
+  }
   const { error } = await db.from("projecten").insert({
-    werkbon: $("pWerkbon").value.trim() || null,
-    naam,
-    locatie: $("pLocatie").value.trim() || null,
-    radius_m: parseInt($("pRadius").value) || 250,
-    lat: isNaN(lat) ? null : lat,
-    lng: isNaN(lng) ? null : lng,
-    status: "lopend",
+    werkbon: $("pWerkbon").value.trim() || null, naam,
+    locatie: locatie || null, radius_m: parseInt($("pRadius").value) || 250,
+    lat: isNaN(lat) ? null : lat, lng: isNaN(lng) ? null : lng, status: "lopend",
   });
   if (error) return alert("Mislukt: " + error.message);
   ["pWerkbon", "pNaam", "pLocatie", "pLat", "pLng"].forEach((id) => $(id).value = "");
+  $("pRadius").value = 250;
+  verberg($("pGeoMelding"));
   laadProjecten();
+});
+$("pKaart").addEventListener("click", () => {
+  openLocatieKiezer({ modus: "nieuw", naam: $("pNaam").value.trim() || "nieuwe werkbon", adres: $("pLocatie").value.trim(),
+    lat: parseFloat($("pLat").value) || null, lng: parseFloat($("pLng").value) || null, radius_m: parseInt($("pRadius").value) || 250 });
 });
 
 // ── Medewerkers ─────────────────────────────────────────────────────────────
@@ -188,23 +275,21 @@ $("mToevoegen").addEventListener("click", async () => {
   laadMedewerkers();
 });
 
-// ── Rooster (weekplanning, zoals Shiftbase) ─────────────────────────────────
+// ── Rooster (weekplanning) ───────────────────────────────────────────────────
 let weekStart = maandagVan(new Date());
 
 function maandagVan(d) {
-  const x = new Date(d); const dag = (x.getDay() + 6) % 7; // ma=0
+  const x = new Date(d); const dag = (x.getDay() + 6) % 7;
   x.setDate(x.getDate() - dag); x.setHours(0, 0, 0, 0);
   return x;
 }
 function isoDatum(d) {
-  // lokale datum (niet UTC) — anders schuift de week 's zomers een dag op
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
 const DAGEN = ["ma", "di", "wo", "do", "vr", "za", "zo"];
 const DAGDEEL_LABEL = { hele_dag: "hele dag", ochtend: "ochtend", middag: "middag" };
 
 async function laadRooster() {
-  // selects vullen (monteurs + werkbonnen)
   const [{ data: mws }, { data: prj }] = await Promise.all([
     db.from("medewerkers").select("id, naam").eq("rol", "monteur").is("verwijderd_op", null).order("naam"),
     db.from("projecten").select("id, werkbon, naam").is("verwijderd_op", null).neq("status", "afgerond").order("naam"),
@@ -229,12 +314,10 @@ async function tekenWeek(mws) {
     .select("id, medewerker_id, datum, dagdeel, projecten(werkbon, naam)")
     .gte("datum", van).lte("datum", tot).is("verwijderd_op", null);
 
-  // kop
   const dagen = [...Array(7)].map((_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d; });
   document.querySelector("#rGrid thead").innerHTML =
     "<tr><th>Monteur</th>" + dagen.map((d, i) => `<th>${DAGEN[i]} ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}</th>`).join("") + "</tr>";
 
-  // rijen
   document.querySelector("#rGrid tbody").innerHTML = mws.map((m) => {
     const cellen = dagen.map((d) => {
       const dat = isoDatum(d);
@@ -260,69 +343,114 @@ $("rInplannen").addEventListener("click", async () => {
   if (!medewerker_id || !project_id || !datum) return alert("Kies monteur, datum en werkbon.");
   const { error } = await db.from("planning").insert({ medewerker_id, project_id, datum, dagdeel });
   if (error) return alert("Inplannen mislukt: " + error.message);
-  // spring naar de week van de geplande datum
   weekStart = maandagVan(new Date(datum + "T12:00:00"));
   tekenWeek();
 });
 $("rVorige").addEventListener("click", () => { weekStart.setDate(weekStart.getDate() - 7); tekenWeek(); });
 $("rVolgende").addEventListener("click", () => { weekStart.setDate(weekStart.getDate() + 7); tekenWeek(); });
 
-// ── Locatie instellen zoals Shiftbase: adres typen → coördinaten ────────────
-// Geocoderen via OpenStreetMap Nominatim (gratis, geen sleutel).
-async function geocodeer(adres) {
-  const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=nl&q=" + encodeURIComponent(adres);
-  const res = await fetch(url, { headers: { "Accept-Language": "nl" } });
-  const data = await res.json();
-  if (!data.length) return null;
-  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), naam: data[0].display_name };
+// ── Rapportages ──────────────────────────────────────────────────────────────
+let _rapMonteur = [];
+function standaardPeriode() {
+  const nu = new Date();
+  const eerste = new Date(nu.getFullYear(), nu.getMonth(), 1);
+  const laatste = new Date(nu.getFullYear(), nu.getMonth() + 1, 0);
+  $("rapVan").value = isoDatum(eerste);
+  $("rapTot").value = isoDatum(laatste);
 }
+document.querySelectorAll(".rap-snel").forEach((b) => b.addEventListener("click", () => {
+  const nu = new Date();
+  let van, tot;
+  if (b.dataset.snel === "week") { van = maandagVan(nu); tot = new Date(van); tot.setDate(tot.getDate() + 6); }
+  else if (b.dataset.snel === "maand") { van = new Date(nu.getFullYear(), nu.getMonth(), 1); tot = new Date(nu.getFullYear(), nu.getMonth() + 1, 0); }
+  else { van = new Date(nu.getFullYear(), nu.getMonth() - 1, 1); tot = new Date(nu.getFullYear(), nu.getMonth(), 0); }
+  $("rapVan").value = isoDatum(van); $("rapTot").value = isoDatum(tot);
+  toonRapport();
+}));
+$("rapToon").addEventListener("click", toonRapport);
 
-// ── Kaart-kiezer (Leaflet): adres zoeken of speld slepen ────────────────────
-let locMap = null, locMarker = null, locCirkel = null, locProjectId = null;
+async function toonRapport() {
+  const van = $("rapVan").value, tot = $("rapTot").value;
+  if (!van || !tot) return alert("Kies een periode.");
+  const [{ data: uren }, { data: afw }] = await Promise.all([
+    db.from("urenregels").select("datum, uren, km, medewerkers(naam), projecten(werkbon, naam)")
+      .is("verwijderd_op", null).gte("datum", van).lte("datum", tot),
+    db.from("afwezigheid").select("van_datum, tot_datum, medewerkers(naam)")
+      .is("verwijderd_op", null).eq("status", "goedgekeurd").lte("van_datum", tot).gte("tot_datum", van),
+  ]);
+
+  // Per monteur
+  const perM = {};
+  (uren || []).forEach((u) => {
+    const naam = u.medewerkers?.naam || "onbekend";
+    perM[naam] = perM[naam] || { naam, dagen: new Set(), uren: 0, km: 0, verlof: 0 };
+    perM[naam].dagen.add(u.datum);
+    perM[naam].uren += Number(u.uren) || 0;
+    perM[naam].km += Number(u.km) || 0;
+  });
+  (afw || []).forEach((a) => {
+    const naam = a.medewerkers?.naam || "onbekend";
+    perM[naam] = perM[naam] || { naam, dagen: new Set(), uren: 0, km: 0, verlof: 0 };
+    perM[naam].verlof += overlapDagen(a.van_datum, a.tot_datum, van, tot);
+  });
+  _rapMonteur = Object.values(perM).sort((a, b) => a.naam.localeCompare(b.naam));
+  $("tbRapMonteur").innerHTML = _rapMonteur.length ? _rapMonteur.map((m) =>
+    `<tr><td class="sterk">${esc(m.naam)}</td><td class="mono">${m.dagen.size}</td>
+     <td class="sterk mono">${m.uren.toFixed(2)}</td><td class="mono">${m.km || 0}</td>
+     <td class="mono">${m.verlof || 0}</td></tr>`).join("") : rijLeeg(5, "Geen gegevens in deze periode.");
+
+  // Per werkbon
+  const perP = {};
+  (uren || []).forEach((u) => {
+    const key = (u.projecten?.werkbon || "—") + "|" + (u.projecten?.naam || "");
+    perP[key] = perP[key] || { werkbon: u.projecten?.werkbon || "—", naam: u.projecten?.naam || "", uren: 0 };
+    perP[key].uren += Number(u.uren) || 0;
+  });
+  const projRijen = Object.values(perP).sort((a, b) => b.uren - a.uren);
+  $("tbRapProject").innerHTML = projRijen.length ? projRijen.map((p) =>
+    `<tr><td class="mono sterk">${esc(p.werkbon)}</td><td>${esc(p.naam)}</td><td class="sterk mono">${p.uren.toFixed(2)}</td></tr>`).join("") : rijLeeg(3, "Geen gegevens in deze periode.");
+}
+$("rapExportMonteur").addEventListener("click", () => {
+  if (!_rapMonteur.length) return alert("Toon eerst een overzicht.");
+  const rijen = _rapMonteur.map((m) => [m.naam, m.dagen.size, m.uren.toFixed(2), m.km || 0, m.verlof || 0]);
+  csvDownload(["Monteur", "Dagen gewerkt", "Uren", "Km", "Verlofdagen"], rijen, "rapport-" + $("rapVan").value + "_" + $("rapTot").value);
+});
+
+// ── Kaart-kiezer (Leaflet) ───────────────────────────────────────────────────
+let locMap = null, locMarker = null, locCirkel = null, locProjectId = null, locModus = "bestaand";
 const AMS = [52.3676, 4.9041];
 
 function openLocatieKiezer(p) {
-  locProjectId = p.id;
-  $("locTitel").textContent = "Locatie — " + p.naam;
+  locModus = p.modus === "nieuw" ? "nieuw" : "bestaand";
+  locProjectId = p.id || null;
+  $("locTitel").textContent = "Locatie — " + (p.naam || "");
   $("locAdres").value = p.adres || "";
   $("locRadius").value = p.radius_m || 250;
   verberg($("locMelding"));
   $("locModal").classList.remove("verborgen");
 
-  const heeftPunt = p.lat != null && p.lng != null;
+  const heeftPunt = p.lat != null && p.lng != null && !isNaN(p.lat) && !isNaN(p.lng);
   const start = heeftPunt ? [p.lat, p.lng] : AMS;
-  const zoom = heeftPunt ? 16 : 12;
-
   if (!locMap) {
     locMap = L.map("locKaart");
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19, attribution: "&copy; OpenStreetMap",
-    }).addTo(locMap);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(locMap);
     locMap.on("click", (e) => zetSpeld(e.latlng.lat, e.latlng.lng, false));
   }
-  locMap.setView(start, zoom);
+  locMap.setView(start, heeftPunt ? 16 : 12);
   if (heeftPunt) zetSpeld(p.lat, p.lng, false);
   else if (locMarker) { locMap.removeLayer(locMarker); locMap.removeLayer(locCirkel); locMarker = null; locCirkel = null; }
-
-  // Leaflet moet z'n grootte opnieuw meten nadat de modal zichtbaar is
   setTimeout(() => locMap.invalidateSize(), 60);
 }
-
 function zetSpeld(lat, lng, herschik) {
   if (!locMarker) {
     locMarker = L.marker([lat, lng], { draggable: true }).addTo(locMap);
     locCirkel = L.circle([lat, lng], { radius: radiusNu(), color: "#e10410", weight: 1, fillColor: "#e10410", fillOpacity: .12 }).addTo(locMap);
-    locMarker.on("drag", (e) => { const ll = e.target.getLatLng(); locCirkel.setLatLng(ll); });
-  } else {
-    locMarker.setLatLng([lat, lng]);
-    locCirkel.setLatLng([lat, lng]);
-  }
+    locMarker.on("drag", (e) => locCirkel.setLatLng(e.target.getLatLng()));
+  } else { locMarker.setLatLng([lat, lng]); locCirkel.setLatLng([lat, lng]); }
   if (herschik) locMap.setView([lat, lng], Math.max(locMap.getZoom(), 16));
 }
 function radiusNu() { return parseInt($("locRadius").value) || 250; }
-
 $("locRadius").addEventListener("input", () => { if (locCirkel) locCirkel.setRadius(radiusNu()); });
-
 $("locZoek").addEventListener("click", async () => {
   const adres = $("locAdres").value.trim();
   const meld = $("locMelding");
@@ -333,77 +461,72 @@ $("locZoek").addEventListener("click", async () => {
     if (!r) return toonMeld(meld, "fout", "Adres niet gevonden. Probeer het voluit, bv. \"Poortland 34, Amsterdam\".");
     zetSpeld(r.lat, r.lng, true);
     toonMeld(meld, "ok", "Gevonden: " + r.naam);
-  } catch (_) {
-    toonMeld(meld, "fout", "Opzoeken mislukt. Controleer je internetverbinding.");
-  }
+  } catch (_) { toonMeld(meld, "fout", "Opzoeken mislukt. Controleer je internetverbinding."); }
 });
 $("locAdres").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("locZoek").click(); } });
-
 function sluitLocModal() { $("locModal").classList.add("verborgen"); }
 $("locSluit").addEventListener("click", sluitLocModal);
 $("locAnnuleer").addEventListener("click", sluitLocModal);
 $("locModal").addEventListener("click", (e) => { if (e.target === $("locModal")) sluitLocModal(); });
-
 $("locGeen").addEventListener("click", async () => {
+  if (locModus === "nieuw") {
+    $("pLat").value = ""; $("pLng").value = ""; $("pRadius").value = radiusNu();
+    toonMeld($("pGeoMelding"), "", "Geen locatie-eis voor deze werkbon.");
+    return sluitLocModal();
+  }
   await db.from("projecten").update({ lat: null, lng: null, radius_m: radiusNu() }).eq("id", locProjectId);
-  sluitLocModal();
-  laadProjecten();
+  sluitLocModal(); laadProjecten();
 });
-
 $("locOpslaan").addEventListener("click", async () => {
-  if (!locMarker) return toonMeld($("locMelding"), "fout", "Zet eerst een speld op de kaart (zoek een adres of klik op de kaart).");
+  if (!locMarker) return toonMeld($("locMelding"), "fout", "Zet eerst een speld (zoek een adres of klik op de kaart).");
   const ll = locMarker.getLatLng();
-  const upd = { lat: +ll.lat.toFixed(6), lng: +ll.lng.toFixed(6), radius_m: radiusNu() };
-  const adres = $("locAdres").value.trim();
+  const lat = +ll.lat.toFixed(6), lng = +ll.lng.toFixed(6), adres = $("locAdres").value.trim();
+  if (locModus === "nieuw") {
+    $("pLat").value = lat; $("pLng").value = lng; $("pRadius").value = radiusNu();
+    if (adres) $("pLocatie").value = adres;
+    toonMeld($("pGeoMelding"), "ok", "Locatie gekozen. Klik op Toevoegen om de werkbon op te slaan.");
+    return sluitLocModal();
+  }
+  const upd = { lat, lng, radius_m: radiusNu() };
   if (adres) upd.locatie = adres;
   const { error } = await db.from("projecten").update(upd).eq("id", locProjectId);
   if (error) return toonMeld($("locMelding"), "fout", "Opslaan mislukt: " + error.message);
-  sluitLocModal();
-  laadProjecten();
+  sluitLocModal(); laadProjecten();
 });
 
-$("pZoekAdres").addEventListener("click", async () => {
-  const adres = $("pLocatie").value.trim();
-  const meld = $("pGeoMelding");
-  if (!adres) { toonMeld(meld, "fout", "Typ eerst het adres in het veld Locatie."); return; }
-  toonMeld(meld, "", "Adres opzoeken…");
-  try {
-    const r = await geocodeer(adres);
-    if (!r) return toonMeld(meld, "fout", "Adres niet gevonden. Probeer het voluit, bv. \"Poortland 34, Amsterdam\".");
-    $("pLat").value = r.lat.toFixed(6);
-    $("pLng").value = r.lng.toFixed(6);
-    toonMeld(meld, "ok", "Gevonden: " + r.naam);
-  } catch (_) {
-    toonMeld(meld, "fout", "Opzoeken mislukt. Controleer je internetverbinding.");
-  }
-});
-
-// Huidige locatie in het werkbon-formulier zetten (geofence instellen op locatie)
-$("pMijnLocatie").addEventListener("click", () => {
-  if (!("geolocation" in navigator)) return alert("Geen GPS beschikbaar in deze browser.");
-  navigator.geolocation.getCurrentPosition(
-    (p) => {
-      $("pLat").value = p.coords.latitude.toFixed(6);
-      $("pLng").value = p.coords.longitude.toFixed(6);
-      toonMeld($("pGeoMelding"), "ok", "Huidige locatie ingevuld.");
-    },
-    () => alert("Kon je locatie niet bepalen. Zet locatietoegang aan voor deze site."),
-    { enableHighAccuracy: true, timeout: 12000 },
-  );
-});
-
-function toonMeld(el, soort, msg) {
-  el.className = "melding" + (soort ? " " + soort : "");
-  el.textContent = msg;
-  el.classList.remove("verborgen");
-}
-
-function vulSelect(id, paren) {
-  const sel = $(id); sel.innerHTML = "";
-  paren.forEach(([v, t]) => { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); });
+async function geocodeer(adres) {
+  const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=nl&q=" + encodeURIComponent(adres);
+  const res = await fetch(url, { headers: { "Accept-Language": "nl" } });
+  const data = await res.json();
+  if (!data.length) return null;
+  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), naam: data[0].display_name };
 }
 
 // ── Hulpjes ─────────────────────────────────────────────────────────────────
+function csvDownload(koppen, rijen, naam) {
+  const q = (v) => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`;
+  const csv = "﻿" + [koppen, ...rijen].map((r) => r.map(q).join(";")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = naam + ".csv"; a.click();
+  URL.revokeObjectURL(url);
+}
+function dagenTussen(van, tot) {
+  const d = Math.round((new Date(tot) - new Date(van)) / 86400000) + 1;
+  return d > 0 ? d : 1;
+}
+function overlapDagen(van, tot, pVan, pTot) {
+  const a = new Date(Math.max(new Date(van), new Date(pVan)));
+  const b = new Date(Math.min(new Date(tot), new Date(pTot)));
+  const d = Math.round((b - a) / 86400000) + 1;
+  return d > 0 ? d : 0;
+}
+function toonMeld(el, soort, msg) { el.className = "melding" + (soort ? " " + soort : ""); el.textContent = msg; el.classList.remove("verborgen"); }
+function vulSelect(id, paren) {
+  const sel = $(id); const huidig = sel.value; sel.innerHTML = "";
+  paren.forEach(([v, t]) => { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); });
+  if (huidig) sel.value = huidig;
+}
 function werkbonTekst(p) { return p ? (p.werkbon ? p.werkbon + " · " : "") + p.naam : ""; }
 function tijd(iso) { return new Date(iso).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }); }
 function datum(d) { return new Date(d).toLocaleDateString("nl-NL", { day: "2-digit", month: "short" }); }
