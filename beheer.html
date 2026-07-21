@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="spaarlogo.svg">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=3">
+  <link rel="stylesheet" href="uren.css?v=4">
 </head>
 <body>
   <div class="wrap">
@@ -50,6 +50,10 @@
         <div class="kaart">
           <h2>Nu ingeklokt <span class="telling" id="telIngeklokt"></span></h2>
           <div class="tabelwrap"><table><thead><tr><th>Monteur</th><th>Werkbon</th><th>Sinds</th><th>Duur</th></tr></thead><tbody id="tbIngeklokt"></tbody></table></div>
+        </div>
+        <div class="kaart">
+          <h2>Niet ingeklokt <span class="telling" id="telNietIngeklokt"></span></h2>
+          <div id="chipsNiet" class="chips"></div>
         </div>
         <div class="kaart">
           <h2>Recent geregistreerde uren</h2>
@@ -163,6 +167,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=4"></script>
+  <script type="module" src="beheer.js?v=5"></script>
 </body>
 </html>

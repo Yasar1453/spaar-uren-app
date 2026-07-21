@@ -53,13 +53,18 @@ document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () 
     v.classList.toggle("verborgen", v.dataset.view !== t.dataset.tab));
 }));
 
-// ── Nu ingeklokt ────────────────────────────────────────────────────────────
+// ── Nu ingeklokt + wie niet ─────────────────────────────────────────────────
 async function laadIngeklokt() {
-  const { data, error } = await db.from("kloksessies")
-    .select("id, ingeklokt_op, medewerkers(naam), projecten(werkbon, naam)")
-    .order("ingeklokt_op");
+  const [{ data, error }, { data: monteurs }] = await Promise.all([
+    db.from("kloksessies")
+      .select("id, medewerker_id, ingeklokt_op, medewerkers(naam), projecten(werkbon, naam)")
+      .order("ingeklokt_op"),
+    db.from("medewerkers").select("id, naam").eq("rol", "monteur").is("verwijderd_op", null).order("naam"),
+  ]);
   const tb = $("tbIngeklokt");
   if (error) { tb.innerHTML = rijLeeg(4, "Kon niet laden."); return; }
+
+  // Ingeklokt-tabel
   $("telIngeklokt").textContent = (data || []).length ? "(" + data.length + ")" : "";
   tb.innerHTML = (data || []).length
     ? data.map((k) => `<tr><td class="sterk">${esc(k.medewerkers?.naam)}</td>
@@ -67,6 +72,14 @@ async function laadIngeklokt() {
         <td class="mono">${tijd(k.ingeklokt_op)}</td>
         <td><span class="badge groen"><span class="dot"></span> ${duurTekst(k.ingeklokt_op)}</span></td></tr>`).join("")
     : rijLeeg(4, "Niemand is nu ingeklokt.");
+
+  // Niet-ingeklokt: alle monteurs minus wie een open sessie heeft
+  const bezet = new Set((data || []).map((k) => k.medewerker_id));
+  const vrij = (monteurs || []).filter((m) => !bezet.has(m.id));
+  $("telNietIngeklokt").textContent = vrij.length ? "(" + vrij.length + ")" : "";
+  $("chipsNiet").innerHTML = vrij.length
+    ? vrij.map((m) => `<span class="chip">${esc(m.naam)}</span>`).join("")
+    : `<span class="leeg">Iedereen is ingeklokt ✅</span>`;
 }
 
 // ── Uren (recent + alle) ────────────────────────────────────────────────────
