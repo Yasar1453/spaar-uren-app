@@ -167,8 +167,8 @@ async function toonUitgeklokt() {
 $("inklokBtn").addEventListener("click", async () => {
   const projectId = $("werkbon").value;
   const project = (window._projecten || []).find((p) => p.id === projectId);
-  if (!project) return;
   const gm = $("gpsMelding");
+  if (!project) return toonMelding(gm, "fout", "Kies eerst een werkbon. Staat er geen? Vraag de beheerder er een aan te maken.");
   $("inklokBtn").disabled = true;
 
   try {
@@ -203,12 +203,14 @@ $("uitklokBtn").addEventListener("click", async () => {
   if (!openSessie) return;
   $("uitklokBtn").disabled = true;
   try {
-    const startMs = new Date(openSessie.ingeklokt_op).getTime();
-    const uren = Math.max(0.25, Math.round(((Date.now() - startMs) / 3600000) * 4) / 4); // kwartier
+    const start = new Date(openSessie.ingeklokt_op);
+    const uren = Math.max(0.25, Math.round(((Date.now() - start.getTime()) / 3600000) * 4) / 4); // kwartier
+    // Lokale kalenderdatum (niet UTC) — anders belandt een late/nachtdienst op de verkeerde dag.
+    const datumLokaal = start.getFullYear() + "-" + String(start.getMonth() + 1).padStart(2, "0") + "-" + String(start.getDate()).padStart(2, "0");
     const { error: e1 } = await db.from("urenregels").insert({
       medewerker_id: mij.medewerker_id,
       project_id: openSessie.project_id,
-      datum: openSessie.ingeklokt_op.slice(0, 10),
+      datum: datumLokaal,
       start_tijd: openSessie.ingeklokt_op,
       eind_tijd: new Date().toISOString(),
       uren,
