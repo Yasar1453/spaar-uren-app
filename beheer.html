@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="spaarlogo.svg">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=10">
+  <link rel="stylesheet" href="uren.css?v=11">
 </head>
 <body>
 
@@ -223,8 +223,10 @@
         <button id="medSluit" class="modal-x" aria-label="Sluiten">&times;</button>
       </div>
       <div id="medMelding" class="melding verborgen"></div>
-      <label>Naam</label>
-      <input id="medNaam">
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
+        <div><label>Naam</label><input id="medNaam"></div>
+        <div><label>Geboortedatum</label><input id="medGeboortedatum" type="date"></div>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
         <div><label>Contracttype</label><select id="medContractType">
           <option value="">—</option>
@@ -276,6 +278,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=7"></script>
+  <script type="module" src="beheer.js?v=8"></script>
 </body>
 </html>

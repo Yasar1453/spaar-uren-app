@@ -342,6 +342,7 @@ function openMedewerker(id) {
   medBewerkId = id;
   $("medTitel").textContent = "Medewerker — " + m.naam;
   $("medNaam").value = m.naam || "";
+  $("medGeboortedatum").value = m.geboortedatum || "";
   $("medContractType").value = m.contract_type || "";
   $("medContractStart").value = m.contract_start || "";
   $("medContractEind").value = m.contract_eind || "";
@@ -359,12 +360,17 @@ $("medOpslaan").addEventListener("click", async () => {
   if (!naam) return toonMeld($("medMelding"), "fout", "De naam mag niet leeg zijn.");
   const { error } = await db.from("medewerkers").update({
     naam,
+    geboortedatum: $("medGeboortedatum").value || null,
     contract_type: $("medContractType").value || null,
     contract_start: $("medContractStart").value || null,
     contract_eind: $("medContractEind").value || null,
     contract_uren: leesUrenWeek("medUrenWeek"),
   }).eq("id", medBewerkId);
-  if (error) return toonMeld($("medMelding"), "fout", "Opslaan mislukt: " + error.message);
+  if (error) {
+    const hint = /contract|geboortedatum/i.test(error.message)
+      ? " (Draai eerst de database-migratie contract-en-fix.sql in de Supabase SQL-editor.)" : "";
+    return toonMeld($("medMelding"), "fout", "Opslaan mislukt: " + error.message + hint);
+  }
   sluitMedModal();
   laadMedewerkers();
 });

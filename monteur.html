@@ -7,7 +7,7 @@
   <title>Inklokken — Spaar Electra</title>
   <link rel="icon" type="image/svg+xml" href="spaarlogo.svg">
   <link rel="apple-touch-icon" href="spaarlogo.svg">
-  <link rel="stylesheet" href="uren.css?v=10">
+  <link rel="stylesheet" href="uren.css?v=11">
 </head>
 <body>
   <div class="wrap smal" id="appWrap">
@@ -72,6 +72,28 @@
           <button id="inklokBtn" class="btn btn-groen" style="margin-top:16px">Inklokken</button>
           <div id="gpsMelding" class="melding verborgen" style="margin-top:12px"></div>
         </div>
+      </section>
+
+      <!-- Home-kaarten (zoals Shiftbase) -->
+      <section class="kaart verborgen home-kaart" id="homeRoosterKaart">
+        <h2>Mijn rooster</h2>
+        <div id="homeRooster"></div>
+      </section>
+      <section class="kaart verborgen home-kaart" id="homeUrenKaart">
+        <h2>Mijn gewerkte uren</h2>
+        <div id="homeUren"></div>
+      </section>
+      <section class="kaart verborgen home-kaart" id="homeAfwKaart">
+        <h2 id="homeAfwTitel">Mijn afwezigheid</h2>
+        <div id="homeAfw" class="chips"></div>
+      </section>
+      <section class="kaart verborgen home-kaart" id="homeCollegasKaart">
+        <h2>Afwezigheid collega's</h2>
+        <div id="homeCollegas"></div>
+      </section>
+      <section class="kaart verborgen home-kaart" id="homeJarigKaart">
+        <h2>Verjaardagen</h2>
+        <div id="homeJarig"></div>
       </section>
     </div>
 
@@ -146,6 +168,6 @@
     </button>
   </nav>
 
-  <script type="module" src="monteur.js?v=8"></script>
+  <script type="module" src="monteur.js?v=9"></script>
 </body>
 </html>

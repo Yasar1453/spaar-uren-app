@@ -139,6 +139,12 @@ td.sterk{font-weight:700}
 .kies-optie.gekozen .nr,.kies-optie.gekozen .nm{color:#fff}
 .kies-leeg{padding:14px;color:var(--grijs);font-size:14px;text-align:center}
 
+/* Compat: oude lade-stijlen (voor gecachte HTML-versies) */
+.lade-overlay{position:fixed;inset:0;background:rgba(28,23,24,.45);z-index:300}
+.lade{position:absolute;left:0;top:0;bottom:0;width:250px;background:var(--inkt);color:#fff;display:flex;flex-direction:column;gap:3px;padding:18px 14px}
+.lade-kop{display:flex;align-items:center;gap:10px;padding:4px 6px 16px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:12px}
+.lade-naam{font-size:13.5px;font-weight:700}
+
 /* Tabbalk onderin de monteur-app (zoals Shiftbase) */
 .tabbalk{position:fixed;left:0;right:0;bottom:0;z-index:200;display:flex;background:var(--vlak);border-top:1px solid var(--lijn);padding:6px 4px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -4px 18px rgba(28,23,24,.06)}
 .tb{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:700;color:var(--grijs);padding:5px 2px;border-radius:10px}

@@ -83,6 +83,106 @@ async function naarStatus() {
   document.getElementById("appWrap").classList.add("met-tabbalk");
   await verversStatus();
   laadMijnVerlof();
+  laadHome();
+}
+
+// ── Home-kaarten (zoals Shiftbase) ──────────────────────────────────────────
+async function laadHome() {
+  const iso = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const vandaag = new Date();
+
+  // Mijn rooster (eerstvolgende 3)
+  try {
+    const tot = new Date(); tot.setDate(tot.getDate() + 13);
+    const { data } = await db.from("planning")
+      .select("datum, dagdeel, projecten(werkbon, naam)")
+      .gte("datum", iso(vandaag)).lte("datum", iso(tot))
+      .is("verwijderd_op", null).order("datum").limit(3);
+    const DD = { hele_dag: "hele dag", ochtend: "ochtend", middag: "middag" };
+    $("homeRooster").innerHTML = (data && data.length)
+      ? data.map((p) => {
+          const d = new Date(p.datum + "T12:00:00");
+          const naam = (p.projecten?.werkbon ? p.projecten.werkbon + " · " : "") + (p.projecten?.naam || "");
+          return `<div class="lijst-rij">
+            <div class="lijst-datum"><span class="ld-dag">${d.toLocaleDateString("nl-NL", { weekday: "short" })}</span><span class="ld-nr">${d.toLocaleDateString("nl-NL", { day: "2-digit", month: "short" })}</span></div>
+            <div class="lijst-body"><span class="lb-titel">${esc(naam)}</span><span class="lb-sub">${DD[p.dagdeel] || p.dagdeel}</span></div>
+          </div>`;
+        }).join("")
+      : `<div class="leeg">Je rooster is leeg.</div>`;
+    $("homeRoosterKaart").classList.remove("verborgen");
+  } catch (_) {}
+
+  // Mijn gewerkte uren (laatste 3)
+  try {
+    const { data } = await db.from("urenregels")
+      .select("datum, start_tijd, eind_tijd, uren, projecten(werkbon, naam)")
+      .is("verwijderd_op", null).order("datum", { ascending: false }).limit(3);
+    $("homeUren").innerHTML = (data && data.length)
+      ? data.map((u) => {
+          const d = new Date(u.datum + "T12:00:00");
+          const naam = (u.projecten?.werkbon ? u.projecten.werkbon + " · " : "") + (u.projecten?.naam || "");
+          return `<div class="lijst-rij">
+            <div class="lijst-datum"><span class="ld-dag">${d.toLocaleDateString("nl-NL", { weekday: "short" })}</span><span class="ld-nr">${d.toLocaleDateString("nl-NL", { day: "2-digit", month: "short" })}</span></div>
+            <div class="lijst-body"><span class="lb-titel">${(u.start_tijd ? tijd(u.start_tijd) : "—") + " – " + (u.eind_tijd ? tijd(u.eind_tijd) : "—")} · ${Number(u.uren).toFixed(2).replace(".", ",")} u</span>
+              <span class="lb-sub">${esc(naam)}</span></div>
+          </div>`;
+        }).join("")
+      : `<div class="leeg">Nog geen geregistreerde uren.</div>`;
+    $("homeUrenKaart").classList.remove("verborgen");
+  } catch (_) {}
+
+  // Mijn afwezigheid dit jaar (goedgekeurde dagen per soort)
+  try {
+    const jaar = vandaag.getFullYear();
+    $("homeAfwTitel").textContent = "Mijn afwezigheid " + jaar;
+    const { data } = await db.from("afwezigheid")
+      .select("soort, van_datum, tot_datum, status").is("verwijderd_op", null);
+    const perSoort = {};
+    (data || []).filter((r) => r.status === "goedgekeurd" && r.van_datum.startsWith(String(jaar))).forEach((r) => {
+      const dagen = Math.max(1, Math.round((new Date(r.tot_datum) - new Date(r.van_datum)) / 86400000) + 1);
+      perSoort[r.soort] = (perSoort[r.soort] || 0) + dagen;
+    });
+    const soorten = Object.keys(perSoort);
+    $("homeAfw").innerHTML = soorten.length
+      ? soorten.map((s) => `<span class="chip">${SOORT_LABEL[s] || s}: <b style="margin-left:4px">${perSoort[s]} ${perSoort[s] === 1 ? "dag" : "dagen"}</b></span>`).join("")
+      : `<span class="leeg">Nog geen goedgekeurde afwezigheid in ${jaar}.</span>`;
+    $("homeAfwKaart").classList.remove("verborgen");
+  } catch (_) {}
+
+  // Afwezigheid collega's (RPC; verschijnt pas als de databasefunctie bestaat)
+  try {
+    const { data, error } = await db.rpc("afwezigheid_collegas");
+    if (!error && data) {
+      $("homeCollegas").innerHTML = data.length
+        ? data.slice(0, 6).map((r) => `<div class="lijst-rij">
+            <div class="lijst-body"><span class="lb-titel">${esc(r.naam)}</span>
+              <span class="lb-sub">${SOORT_LABEL[r.soort] || r.soort} · ${datumKort(r.van_datum)}${r.van_datum !== r.tot_datum ? " – " + datumKort(r.tot_datum) : ""}</span></div>
+          </div>`).join("") + (data.length > 6 ? `<div class="leeg">+ ${data.length - 6} meer</div>` : "")
+        : `<div class="leeg">Niemand afwezig.</div>`;
+      $("homeCollegasKaart").classList.remove("verborgen");
+    }
+  } catch (_) {}
+
+  // Verjaardagen (RPC; komende 60 dagen)
+  try {
+    const { data, error } = await db.rpc("verjaardagen");
+    if (!error && data && data.length) {
+      const nu = new Date(); nu.setHours(0, 0, 0, 0);
+      const komend = data.map((p) => {
+        const g = new Date(p.geboortedatum + "T12:00:00");
+        const ditJaar = new Date(nu.getFullYear(), g.getMonth(), g.getDate());
+        if (ditJaar < nu) ditJaar.setFullYear(ditJaar.getFullYear() + 1);
+        return { naam: p.naam, dag: ditJaar, leeftijd: ditJaar.getFullYear() - g.getFullYear() };
+      }).filter((p) => (p.dag - nu) / 86400000 <= 60).sort((a, b) => a.dag - b.dag);
+      if (komend.length) {
+        $("homeJarig").innerHTML = komend.slice(0, 5).map((p) => `<div class="lijst-rij">
+          <div class="lijst-datum"><span class="ld-dag">${p.dag.toLocaleDateString("nl-NL", { weekday: "short" })}</span><span class="ld-nr">${p.dag.toLocaleDateString("nl-NL", { day: "2-digit", month: "short" })}</span></div>
+          <div class="lijst-body"><span class="lb-titel">${esc(p.naam)}</span><span class="lb-sub">wordt ${p.leeftijd}</span></div>
+        </div>`).join("");
+        $("homeJarigKaart").classList.remove("verborgen");
+      }
+    }
+  } catch (_) {}
 }
 
 // ── Tabbalk (zoals Shiftbase) ───────────────────────────────────────────────
