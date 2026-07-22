@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="spaarlogo.svg">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=9">
+  <link rel="stylesheet" href="uren.css?v=10">
 </head>
 <body>
 
@@ -163,15 +163,24 @@
         <section data-view="medewerkers" class="verborgen">
           <div class="kaart">
             <h2>Monteur toevoegen</h2>
-            <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
               <div><label>Naam</label><input id="mNaam" placeholder="Voor- en achternaam"></div>
               <div><label>Pincode</label><input id="mPin" class="pin-in" inputmode="numeric" maxlength="6" placeholder="••••"></div>
+              <div><label>Contracttype</label><select id="mContractType">
+                <option value="vast">Vast</option>
+                <option value="tijdelijk">Tijdelijk</option>
+                <option value="oproep">Oproep</option>
+              </select></div>
+              <div><label>Start contract</label><input id="mContractStart" type="date"></div>
+              <div><label>Einde contract</label><input id="mContractEind" type="date"></div>
             </div>
+            <label style="margin-top:16px">Contracturen per dag</label>
+            <div class="uren-week" id="mUrenWeek"></div>
             <button id="mToevoegen" class="btn btn-rood btn-klein" style="margin-top:14px">Toevoegen</button>
           </div>
           <div class="kaart">
             <h2>Medewerkers <span class="telling" id="telMedewerkers"></span></h2>
-            <div class="tabelwrap"><table><thead><tr><th>Naam</th><th>Rol</th><th>Pincode</th><th></th></tr></thead><tbody id="tbMedewerkers"></tbody></table></div>
+            <div class="tabelwrap"><table><thead><tr><th>Naam</th><th>Rol</th><th>Contract</th><th>Uren/week</th><th>Pincode</th><th></th></tr></thead><tbody id="tbMedewerkers"></tbody></table></div>
           </div>
         </section>
 
@@ -206,6 +215,38 @@
     </div>
   </div>
 
+  <!-- Medewerker bewerken -->
+  <div id="medModal" class="modal-overlay verborgen">
+    <div class="modal">
+      <div class="modal-kop">
+        <h2 id="medTitel">Medewerker bewerken</h2>
+        <button id="medSluit" class="modal-x" aria-label="Sluiten">&times;</button>
+      </div>
+      <div id="medMelding" class="melding verborgen"></div>
+      <label>Naam</label>
+      <input id="medNaam">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+        <div><label>Contracttype</label><select id="medContractType">
+          <option value="">—</option>
+          <option value="vast">Vast</option>
+          <option value="tijdelijk">Tijdelijk</option>
+          <option value="oproep">Oproep</option>
+        </select></div>
+        <div><label>Start contract</label><input id="medContractStart" type="date"></div>
+        <div><label>Einde contract</label><input id="medContractEind" type="date"></div>
+      </div>
+      <label style="margin-top:16px">Contracturen per dag</label>
+      <div class="uren-week" id="medUrenWeek"></div>
+      <div class="modal-acties" style="margin-top:18px">
+        <button id="medUitDienst" class="btn btn-grijs btn-klein">Uit dienst</button>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button id="medAnnuleer" class="btn btn-grijs btn-klein">Annuleren</button>
+          <button id="medOpslaan" class="btn btn-rood btn-klein">Opslaan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Locatie-kiezer: adres zoeken + speld op de kaart -->
   <div id="locModal" class="modal-overlay verborgen">
     <div class="modal">
@@ -235,6 +276,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=6"></script>
+  <script type="module" src="beheer.js?v=7"></script>
 </body>
 </html>

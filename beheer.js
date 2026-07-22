@@ -247,15 +247,59 @@ $("pKaart").addEventListener("click", () => {
 });
 
 // ── Medewerkers ─────────────────────────────────────────────────────────────
+const DAG_KEYS = ["ma", "di", "wo", "do", "vr", "za", "zo"];
+const CONTRACT_LABEL = { vast: "Vast", tijdelijk: "Tijdelijk", oproep: "Oproep" };
+
+// Bouwt de ma-t/m-zo ureninvoer in een container, met live weektotaal
+function bouwUrenWeek(containerId, waarden) {
+  const c = $(containerId);
+  c.innerHTML = DAG_KEYS.map((d) =>
+    `<div class="dag"><span>${d}</span><input data-dag="${d}" type="number" min="0" max="16" step="0.5" placeholder="0" value="${waarden && waarden[d] ? waarden[d] : ""}"></div>`
+  ).join("") + `<div class="totaal" data-totaal>0 u</div>`;
+  const upd = () => {
+    const tot = DAG_KEYS.reduce((s, d) => s + (parseFloat(c.querySelector(`[data-dag="${d}"]`).value) || 0), 0);
+    c.querySelector("[data-totaal]").textContent = (Math.round(tot * 10) / 10) + " u";
+  };
+  c.querySelectorAll("input").forEach((i) => i.addEventListener("input", upd));
+  upd();
+}
+function leesUrenWeek(containerId) {
+  const c = $(containerId);
+  const uit = {};
+  let iets = false;
+  DAG_KEYS.forEach((d) => {
+    const v = parseFloat(c.querySelector(`[data-dag="${d}"]`).value);
+    if (!isNaN(v) && v > 0) { uit[d] = v; iets = true; }
+  });
+  return iets ? uit : null;
+}
+function urenWeekTotaal(u) {
+  if (!u) return null;
+  return Math.round(DAG_KEYS.reduce((s, d) => s + (parseFloat(u[d]) || 0), 0) * 10) / 10;
+}
+bouwUrenWeek("mUrenWeek", null);
+
+let _medewerkers = [];
 async function laadMedewerkers() {
   const { data } = await db.from("medewerkers").select("*").is("verwijderd_op", null).order("naam");
-  $("telMedewerkers").textContent = (data || []).length ? "(" + data.length + ")" : "";
-  $("tbMedewerkers").innerHTML = (data || []).map((m) =>
-    `<tr><td class="sterk">${esc(m.naam)}</td>
+  _medewerkers = data || [];
+  $("telMedewerkers").textContent = _medewerkers.length ? "(" + _medewerkers.length + ")" : "";
+  $("tbMedewerkers").innerHTML = _medewerkers.map((m) => {
+    const tot = urenWeekTotaal(m.contract_uren);
+    const contract = m.contract_type
+      ? `<span class="badge grijs">${CONTRACT_LABEL[m.contract_type] || m.contract_type}</span>` +
+        (m.contract_eind ? ` <span class="mono" style="font-size:12px;color:var(--grijs)">t/m ${datum(m.contract_eind)}</span>` : "")
+      : "—";
+    return `<tr><td class="sterk">${esc(m.naam)}</td>
      <td><span class="badge grijs">${m.rol}</span></td>
+     <td>${contract}</td>
+     <td class="mono">${tot != null ? tot + " u" : "—"}</td>
      <td>${m.pin_hash ? '<span class="badge groen">ingesteld</span>' : '<span class="badge amber">geen pin</span>'}</td>
-     <td><button class="btn btn-grijs btn-klein" data-pin="${m.id}" data-naam="${esc(m.naam)}">Pin wijzigen</button></td></tr>`
-  ).join("") || rijLeeg(4, "Nog geen medewerkers.");
+     <td style="white-space:nowrap">
+       <button class="btn btn-grijs btn-klein" data-bewerk="${m.id}">Bewerken</button>
+       <button class="btn btn-grijs btn-klein" data-pin="${m.id}" data-naam="${esc(m.naam)}">Pin wijzigen</button>
+     </td></tr>`;
+  }).join("") || rijLeeg(6, "Nog geen medewerkers.");
   document.querySelectorAll("[data-pin]").forEach((b) => b.addEventListener("click", async () => {
     const pin = prompt("Nieuwe pincode voor " + b.dataset.naam + " (4-6 cijfers):");
     if (!pin) return;
@@ -263,16 +307,76 @@ async function laadMedewerkers() {
     if (error) return alert("Mislukt: " + error.message);
     laadMedewerkers();
   }));
+  document.querySelectorAll("[data-bewerk]").forEach((b) => b.addEventListener("click", () => openMedewerker(b.dataset.bewerk)));
 }
 $("mToevoegen").addEventListener("click", async () => {
   const naam = $("mNaam").value.trim();
   const pin = $("mPin").value.trim();
   if (!naam) return alert("Vul een naam in.");
-  const { data, error } = await db.from("medewerkers").insert({ naam, rol: "monteur" }).select("id").single();
+  const rij = {
+    naam, rol: "monteur",
+    contract_type: $("mContractType").value || null,
+    contract_start: $("mContractStart").value || null,
+    contract_eind: $("mContractEind").value || null,
+    contract_uren: leesUrenWeek("mUrenWeek"),
+  };
+  let { data, error } = await db.from("medewerkers").insert(rij).select("id").single();
+  if (error && /contract/i.test(error.message)) {
+    // Contractkolommen bestaan nog niet (SQL-migratie niet gedraaid): sla dan zonder contract op.
+    ({ data, error } = await db.from("medewerkers").insert({ naam, rol: "monteur" }).select("id").single());
+    if (!error) alert("Let op: de contractvelden zijn nog niet opgeslagen omdat de database-migratie (contract-en-fix.sql) nog niet is uitgevoerd.");
+  }
   if (error) return alert("Mislukt: " + error.message);
   if (/^\d{4,6}$/.test(pin)) await db.rpc("set_pin", { p_medewerker: data.id, p_pin: pin });
-  $("mNaam").value = ""; $("mPin").value = "";
+  $("mNaam").value = ""; $("mPin").value = ""; $("mContractStart").value = ""; $("mContractEind").value = "";
+  $("mContractType").value = "vast";
+  bouwUrenWeek("mUrenWeek", null);
   laadMedewerkers();
+});
+
+// Bewerk-venster
+let medBewerkId = null;
+function openMedewerker(id) {
+  const m = _medewerkers.find((x) => x.id === id);
+  if (!m) return;
+  medBewerkId = id;
+  $("medTitel").textContent = "Medewerker — " + m.naam;
+  $("medNaam").value = m.naam || "";
+  $("medContractType").value = m.contract_type || "";
+  $("medContractStart").value = m.contract_start || "";
+  $("medContractEind").value = m.contract_eind || "";
+  bouwUrenWeek("medUrenWeek", m.contract_uren);
+  verberg($("medMelding"));
+  $("medModal").classList.remove("verborgen");
+}
+function sluitMedModal() { $("medModal").classList.add("verborgen"); }
+$("medSluit").addEventListener("click", sluitMedModal);
+$("medAnnuleer").addEventListener("click", sluitMedModal);
+$("medModal").addEventListener("click", (e) => { if (e.target === $("medModal")) sluitMedModal(); });
+
+$("medOpslaan").addEventListener("click", async () => {
+  const naam = $("medNaam").value.trim();
+  if (!naam) return toonMeld($("medMelding"), "fout", "De naam mag niet leeg zijn.");
+  const { error } = await db.from("medewerkers").update({
+    naam,
+    contract_type: $("medContractType").value || null,
+    contract_start: $("medContractStart").value || null,
+    contract_eind: $("medContractEind").value || null,
+    contract_uren: leesUrenWeek("medUrenWeek"),
+  }).eq("id", medBewerkId);
+  if (error) return toonMeld($("medMelding"), "fout", "Opslaan mislukt: " + error.message);
+  sluitMedModal();
+  laadMedewerkers();
+});
+
+$("medUitDienst").addEventListener("click", async () => {
+  const m = _medewerkers.find((x) => x.id === medBewerkId);
+  if (!m) return;
+  if (!confirm(m.naam + " uit dienst melden?\n\nDe monteur kan dan niet meer inloggen of inklokken. Geregistreerde uren blijven bewaard in de rapportages.")) return;
+  const { error } = await db.from("medewerkers").update({ verwijderd_op: new Date().toISOString() }).eq("id", medBewerkId);
+  if (error) return toonMeld($("medMelding"), "fout", "Mislukt: " + error.message);
+  sluitMedModal();
+  await Promise.all([laadMedewerkers(), laadIngeklokt(), laadRooster(), laadVerlof()]);
 });
 
 // ── Rooster (weekplanning) ───────────────────────────────────────────────────

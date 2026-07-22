@@ -7,12 +7,11 @@
   <title>Inklokken — Spaar Electra</title>
   <link rel="icon" type="image/svg+xml" href="spaarlogo.svg">
   <link rel="apple-touch-icon" href="spaarlogo.svg">
-  <link rel="stylesheet" href="uren.css?v=9">
+  <link rel="stylesheet" href="uren.css?v=10">
 </head>
 <body>
-  <div class="wrap smal">
+  <div class="wrap smal" id="appWrap">
     <div class="kop">
-      <button id="mMenuKnop" class="menu-knop verborgen" aria-label="Menu" style="display:inline-block">&#9776;</button>
       <img class="logo" src="spaarlogo.svg" alt="Spaar Electra">
       <div>
         <h1 id="mTitel">Inklokken</h1>
@@ -34,7 +33,7 @@
       <button id="inlogBtn" class="btn btn-rood" style="margin-top:18px">Inloggen</button>
     </section>
 
-    <!-- Weergave: Inklokken -->
+    <!-- Weergave: Home (prikklok) -->
     <div data-mview="klok">
       <section id="status" class="kaart verborgen">
         <div id="statusFout" class="melding fout verborgen"></div>
@@ -76,8 +75,35 @@
       </section>
     </div>
 
+    <!-- Weergave: Mijn rooster -->
+    <div data-mview="rooster" class="verborgen">
+      <section class="kaart">
+        <h2>Mijn rooster</h2>
+        <div id="mijnRooster"></div>
+      </section>
+    </div>
+
+    <!-- Weergave: Mijn uren -->
+    <div data-mview="uren" class="verborgen">
+      <section class="kaart">
+        <h2>Deze week</h2>
+        <div class="week-totalen">
+          <div class="wt"><span class="wt-label">Deze week</span><span class="wt-getal" id="urenDezeWeek">0,00 u</span></div>
+          <div class="wt"><span class="wt-label">Vorige week</span><span class="wt-getal" id="urenVorigeWeek">0,00 u</span></div>
+        </div>
+      </section>
+      <section class="kaart">
+        <h2>Mijn gewerkte uren</h2>
+        <div id="mijnUren"></div>
+      </section>
+    </div>
+
     <!-- Weergave: Verlof -->
     <div data-mview="verlof" class="verborgen">
+      <section class="kaart">
+        <h2>Mijn afwezigheid dit jaar</h2>
+        <div id="verlofOverzicht" class="chips"></div>
+      </section>
       <section id="verlofKaart" class="kaart">
         <h2>Verlof aanvragen</h2>
         <div id="verlofMelding" class="melding verborgen"></div>
@@ -100,20 +126,26 @@
     </div>
   </div>
 
-  <!-- Inklapbaar menu (lade) -->
-  <div id="mLade" class="lade-overlay verborgen">
-    <nav class="lade">
-      <div class="lade-kop">
-        <img class="zb-logo" src="spaarlogo.svg" alt="Spaar Electra">
-        <span id="ladeNaam" class="lade-naam"></span>
-      </div>
-      <button class="nav actief" data-mnav="klok"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/></svg></span> Inklokken</button>
-      <button class="nav" data-mnav="verlof"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="7" y2="7"/><line x1="17" y1="17" x2="19" y2="19"/><line x1="5" y1="19" x2="7" y2="17"/><line x1="17" y1="7" x2="19" y2="5"/></svg></span> Verlof aanvragen</button>
-      <div style="flex:1"></div>
-      <button id="ladeUitloggen" class="btn btn-grijs btn-klein" style="width:100%">Uitloggen</button>
-    </nav>
-  </div>
+  <!-- Tabbalk onderin (zoals Shiftbase) -->
+  <nav id="tabbalk" class="tabbalk verborgen">
+    <button class="tb actief" data-mnav="klok">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+      <span>Home</span>
+    </button>
+    <button class="tb" data-mnav="rooster">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+      <span>Rooster</span>
+    </button>
+    <button class="tb" data-mnav="uren">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/></svg>
+      <span>Uren</span>
+    </button>
+    <button class="tb" data-mnav="verlof">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="7" y2="7"/><line x1="17" y1="17" x2="19" y2="19"/><line x1="5" y1="19" x2="7" y2="17"/><line x1="17" y1="7" x2="19" y2="5"/></svg>
+      <span>Verlof</span>
+    </button>
+  </nav>
 
-  <script type="module" src="monteur.js?v=7"></script>
+  <script type="module" src="monteur.js?v=8"></script>
 </body>
 </html>

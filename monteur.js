@@ -79,29 +79,93 @@ async function naarStatus() {
   $("inlog").classList.add("verborgen");
   $("status").classList.remove("verborgen");
   $("uitloggen").classList.remove("verborgen");
-  $("mMenuKnop").classList.remove("verborgen");
-  $("ladeNaam").textContent = mij.naam;
+  $("tabbalk").classList.remove("verborgen");
+  document.getElementById("appWrap").classList.add("met-tabbalk");
   await verversStatus();
   laadMijnVerlof();
 }
 
-// ── Inklapbaar menu ─────────────────────────────────────────────────────────
-const MVIEW_TITEL = { klok: "Inklokken", verlof: "Verlof" };
-$("mMenuKnop").addEventListener("click", () => $("mLade").classList.remove("verborgen"));
-$("mLade").addEventListener("click", (e) => { if (e.target === $("mLade")) $("mLade").classList.add("verborgen"); });
+// ── Tabbalk (zoals Shiftbase) ───────────────────────────────────────────────
+const MVIEW_TITEL = { klok: "Inklokken", rooster: "Mijn rooster", uren: "Mijn uren", verlof: "Verlof" };
 document.querySelectorAll("[data-mnav]").forEach((b) => b.addEventListener("click", () => {
   document.querySelectorAll("[data-mnav]").forEach((x) => x.classList.remove("actief"));
   b.classList.add("actief");
   const view = b.dataset.mnav;
   document.querySelectorAll("[data-mview]").forEach((v) => v.classList.toggle("verborgen", v.dataset.mview !== view));
   $("mTitel").textContent = MVIEW_TITEL[view] || "";
-  $("mLade").classList.add("verborgen");
   if (view === "verlof") laadMijnVerlof();
+  if (view === "rooster") laadMijnRooster();
+  if (view === "uren") laadMijnUren();
 }));
-$("ladeUitloggen").addEventListener("click", () => {
-  sessionStorage.removeItem("spaar-uren-monteur");
-  location.reload();
-});
+
+// ── Mijn rooster (komende 2 weken) ──────────────────────────────────────────
+async function laadMijnRooster() {
+  const el = $("mijnRooster");
+  el.innerHTML = `<div class="leeg">Laden…</div>`;
+  const van = new Date();
+  const tot = new Date(); tot.setDate(tot.getDate() + 13);
+  const iso = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const { data, error } = await db.from("planning")
+    .select("datum, dagdeel, projecten(werkbon, naam, locatie)")
+    .gte("datum", iso(van)).lte("datum", iso(tot))
+    .is("verwijderd_op", null).order("datum");
+  if (error) { el.innerHTML = `<div class="leeg">Kon het rooster niet laden.</div>`; return; }
+  if (!data || !data.length) { el.innerHTML = `<div class="leeg">Je staat de komende 2 weken niet ingepland.</div>`; return; }
+  const DD = { hele_dag: "hele dag", ochtend: "ochtend", middag: "middag" };
+  el.innerHTML = data.map((p) => {
+    const d = new Date(p.datum + "T12:00:00");
+    const dagNaam = d.toLocaleDateString("nl-NL", { weekday: "short" });
+    const dagNr = d.toLocaleDateString("nl-NL", { day: "2-digit", month: "short" });
+    const naam = (p.projecten?.werkbon ? p.projecten.werkbon + " · " : "") + (p.projecten?.naam || "");
+    return `<div class="lijst-rij">
+      <div class="lijst-datum"><span class="ld-dag">${dagNaam}</span><span class="ld-nr">${dagNr}</span></div>
+      <div class="lijst-body"><span class="lb-titel">${esc(naam)}</span>
+        <span class="lb-sub">${DD[p.dagdeel] || p.dagdeel}${p.projecten?.locatie ? " · " + esc(p.projecten.locatie) : ""}</span></div>
+    </div>`;
+  }).join("");
+}
+
+// ── Mijn uren (laatste 30 dagen + weektotalen) ──────────────────────────────
+async function laadMijnUren() {
+  const el = $("mijnUren");
+  el.innerHTML = `<div class="leeg">Laden…</div>`;
+  const iso = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const van = new Date(); van.setDate(van.getDate() - 30);
+  const { data, error } = await db.from("urenregels")
+    .select("datum, start_tijd, eind_tijd, uren, km, status, omschrijving, projecten(werkbon, naam)")
+    .gte("datum", iso(van)).is("verwijderd_op", null)
+    .order("datum", { ascending: false }).order("start_tijd", { ascending: false }).limit(60);
+  if (error) { el.innerHTML = `<div class="leeg">Kon je uren niet laden.</div>`; return; }
+
+  // Weektotalen
+  const nu = new Date();
+  const maandag = new Date(nu); maandag.setDate(nu.getDate() - ((nu.getDay() + 6) % 7)); maandag.setHours(0, 0, 0, 0);
+  const vorigeMa = new Date(maandag); vorigeMa.setDate(maandag.getDate() - 7);
+  const dezeWeek = (data || []).filter((u) => u.datum >= iso(maandag)).reduce((s, u) => s + Number(u.uren || 0), 0);
+  const vorigeWeek = (data || []).filter((u) => u.datum >= iso(vorigeMa) && u.datum < iso(maandag)).reduce((s, u) => s + Number(u.uren || 0), 0);
+  $("urenDezeWeek").textContent = dezeWeek.toFixed(2).replace(".", ",") + " u";
+  $("urenVorigeWeek").textContent = vorigeWeek.toFixed(2).replace(".", ",") + " u";
+
+  if (!data || !data.length) { el.innerHTML = `<div class="leeg">Nog geen uren in de laatste 30 dagen.</div>`; return; }
+  const badge = (s) => {
+    const kleur = { onbeslist: "amber", goedgekeurd: "groen", afgekeurd: "rood" }[s] || "grijs";
+    const tekst = { onbeslist: "in behandeling", goedgekeurd: "goedgekeurd", afgekeurd: "afgekeurd" }[s] || s;
+    return `<span class="badge ${kleur}">${tekst}</span>`;
+  };
+  el.innerHTML = data.map((u) => {
+    const d = new Date(u.datum + "T12:00:00");
+    const dagNaam = d.toLocaleDateString("nl-NL", { weekday: "short" });
+    const dagNr = d.toLocaleDateString("nl-NL", { day: "2-digit", month: "short" });
+    const naam = (u.projecten?.werkbon ? u.projecten.werkbon + " · " : "") + (u.projecten?.naam || "");
+    const tijden = (u.start_tijd ? tijd(u.start_tijd) : "—") + " – " + (u.eind_tijd ? tijd(u.eind_tijd) : "—");
+    return `<div class="lijst-rij">
+      <div class="lijst-datum"><span class="ld-dag">${dagNaam}</span><span class="ld-nr">${dagNr}</span></div>
+      <div class="lijst-body"><span class="lb-titel">${tijden} · ${Number(u.uren).toFixed(2).replace(".", ",")} u</span>
+        <span class="lb-sub">${esc(naam)}${u.km ? " · " + u.km + " km" : ""}</span></div>
+      <div>${badge(u.status)}</div>
+    </div>`;
+  }).join("");
+}
 
 async function verversStatus() {
   verberg($("statusFout"));
@@ -311,7 +375,21 @@ $("vaVerstuur").addEventListener("click", async () => {
 async function laadMijnVerlof() {
   const { data } = await db.from("afwezigheid")
     .select("soort, van_datum, tot_datum, status")
-    .is("verwijderd_op", null).order("van_datum", { ascending: false }).limit(10);
+    .is("verwijderd_op", null).order("van_datum", { ascending: false }).limit(50);
+
+  // Jaaroverzicht: goedgekeurde dagen per soort in het huidige jaar
+  const jaar = new Date().getFullYear();
+  const perSoort = {};
+  (data || []).filter((r) => r.status === "goedgekeurd" && r.van_datum.startsWith(String(jaar))).forEach((r) => {
+    const dagen = Math.max(1, Math.round((new Date(r.tot_datum) - new Date(r.van_datum)) / 86400000) + 1);
+    perSoort[r.soort] = (perSoort[r.soort] || 0) + dagen;
+  });
+  const ov = $("verlofOverzicht");
+  const soorten = Object.keys(perSoort);
+  ov.innerHTML = soorten.length
+    ? soorten.map((s) => `<span class="chip">${SOORT_LABEL[s] || s}: <b style="margin-left:4px">${perSoort[s]} ${perSoort[s] === 1 ? "dag" : "dagen"}</b></span>`).join("")
+    : `<span class="leeg">Nog geen goedgekeurde afwezigheid in ${jaar}.</span>`;
+
   const el = $("mijnVerlof");
   if (!data || !data.length) { el.innerHTML = ""; return; }
   const badge = (s) => {
