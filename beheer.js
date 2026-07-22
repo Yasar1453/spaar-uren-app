@@ -343,6 +343,7 @@ function openMedewerker(id) {
   $("medTitel").textContent = "Medewerker — " + m.naam;
   $("medNaam").value = m.naam || "";
   $("medGeboortedatum").value = m.geboortedatum || "";
+  $("medVerlofDagen").value = m.verlof_dagen_per_jaar != null ? m.verlof_dagen_per_jaar : "";
   $("medContractType").value = m.contract_type || "";
   $("medContractStart").value = m.contract_start || "";
   $("medContractEind").value = m.contract_eind || "";
@@ -361,13 +362,14 @@ $("medOpslaan").addEventListener("click", async () => {
   const { error } = await db.from("medewerkers").update({
     naam,
     geboortedatum: $("medGeboortedatum").value || null,
+    verlof_dagen_per_jaar: $("medVerlofDagen").value !== "" ? parseFloat($("medVerlofDagen").value) : null,
     contract_type: $("medContractType").value || null,
     contract_start: $("medContractStart").value || null,
     contract_eind: $("medContractEind").value || null,
     contract_uren: leesUrenWeek("medUrenWeek"),
   }).eq("id", medBewerkId);
   if (error) {
-    const hint = /contract|geboortedatum/i.test(error.message)
+    const hint = /contract|geboortedatum|verlof_dagen/i.test(error.message)
       ? " (Draai eerst de database-migratie contract-en-fix.sql in de Supabase SQL-editor.)" : "";
     return toonMeld($("medMelding"), "fout", "Opslaan mislukt: " + error.message + hint);
   }

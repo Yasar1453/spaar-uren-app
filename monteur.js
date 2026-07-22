@@ -225,6 +225,24 @@ async function laadMijnRooster() {
   }).join("");
 }
 
+// ── Eigen profiel (contracturen + verlofrecht) ──────────────────────────────
+let _profiel;
+async function haalMijnProfiel() {
+  if (_profiel !== undefined) return _profiel;
+  try {
+    const { data, error } = await db.from("medewerkers")
+      .select("contract_uren, verlof_dagen_per_jaar")
+      .eq("id", mij.medewerker_id).single();
+    _profiel = error ? null : data;
+  } catch (_) { _profiel = null; }
+  return _profiel;
+}
+function contractWeekUren(cu) {
+  if (!cu) return null;
+  const t = ["ma", "di", "wo", "do", "vr", "za", "zo"].reduce((s, d) => s + (parseFloat(cu[d]) || 0), 0);
+  return t > 0 ? Math.round(t * 10) / 10 : null;
+}
+
 // ── Mijn uren (laatste 30 dagen + weektotalen) ──────────────────────────────
 async function laadMijnUren() {
   const el = $("mijnUren");
@@ -245,6 +263,19 @@ async function laadMijnUren() {
   const vorigeWeek = (data || []).filter((u) => u.datum >= iso(vorigeMa) && u.datum < iso(maandag)).reduce((s, u) => s + Number(u.uren || 0), 0);
   $("urenDezeWeek").textContent = dezeWeek.toFixed(2).replace(".", ",") + " u";
   $("urenVorigeWeek").textContent = vorigeWeek.toFixed(2).replace(".", ",") + " u";
+
+  // Plus/min-saldo t.o.v. contracturen (verschijnt alleen als contracturen zijn ingevuld)
+  const profiel = await haalMijnProfiel();
+  const contract = contractWeekUren(profiel?.contract_uren);
+  if (contract != null) {
+    const saldo = Math.round((vorigeWeek - contract) * 100) / 100;
+    $("wtContract").textContent = String(contract).replace(".", ",") + " u";
+    $("wtSaldo").textContent = (saldo >= 0 ? "+" : "") + saldo.toFixed(2).replace(".", ",") + " u";
+    $("wtSaldo").style.color = saldo >= 0 ? "var(--groen)" : "var(--rood-donker)";
+    $("saldoKaart").classList.remove("verborgen");
+  } else {
+    $("saldoKaart").classList.add("verborgen");
+  }
 
   if (!data || !data.length) { el.innerHTML = `<div class="leeg">Nog geen uren in de laatste 30 dagen.</div>`; return; }
   const badge = (s) => {
@@ -489,6 +520,22 @@ async function laadMijnVerlof() {
   ov.innerHTML = soorten.length
     ? soorten.map((s) => `<span class="chip">${SOORT_LABEL[s] || s}: <b style="margin-left:4px">${perSoort[s]} ${perSoort[s] === 1 ? "dag" : "dagen"}</b></span>`).join("")
     : `<span class="leeg">Nog geen goedgekeurde afwezigheid in ${jaar}.</span>`;
+
+  // Verlofsaldo (verschijnt alleen als de beheerder een jaarrecht heeft ingevuld)
+  const profiel = await haalMijnProfiel();
+  if (profiel?.verlof_dagen_per_jaar != null) {
+    const recht = Number(profiel.verlof_dagen_per_jaar);
+    const opgenomen = perSoort.vakantie || 0;
+    const over = Math.round((recht - opgenomen) * 10) / 10;
+    $("verlofSaldoTitel").textContent = "Verlofsaldo " + jaar;
+    $("vsRecht").textContent = String(recht).replace(".", ",");
+    $("vsOpgenomen").textContent = String(opgenomen);
+    $("vsOver").textContent = String(over).replace(".", ",");
+    $("vsOver").style.color = over >= 0 ? "var(--groen)" : "var(--rood-donker)";
+    $("verlofSaldoKaart").classList.remove("verborgen");
+  } else {
+    $("verlofSaldoKaart").classList.add("verborgen");
+  }
 
   const el = $("mijnVerlof");
   if (!data || !data.length) { el.innerHTML = ""; return; }

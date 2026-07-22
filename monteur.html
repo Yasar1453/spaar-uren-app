@@ -114,6 +114,13 @@
           <div class="wt"><span class="wt-label">Vorige week</span><span class="wt-getal" id="urenVorigeWeek">0,00 u</span></div>
         </div>
       </section>
+      <section class="kaart verborgen" id="saldoKaart">
+        <h2>Plus/min-saldo</h2>
+        <div class="week-totalen">
+          <div class="wt"><span class="wt-label">Contract per week</span><span class="wt-getal" id="wtContract">—</span></div>
+          <div class="wt"><span class="wt-label">Saldo vorige week</span><span class="wt-getal" id="wtSaldo">—</span></div>
+        </div>
+      </section>
       <section class="kaart">
         <h2>Mijn gewerkte uren</h2>
         <div id="mijnUren"></div>
@@ -122,6 +129,14 @@
 
     <!-- Weergave: Verlof -->
     <div data-mview="verlof" class="verborgen">
+      <section class="kaart verborgen" id="verlofSaldoKaart">
+        <h2 id="verlofSaldoTitel">Verlofsaldo</h2>
+        <div class="week-totalen" style="grid-template-columns:repeat(3,1fr)">
+          <div class="wt"><span class="wt-label">Recht</span><span class="wt-getal" id="vsRecht">—</span></div>
+          <div class="wt"><span class="wt-label">Opgenomen</span><span class="wt-getal" id="vsOpgenomen">—</span></div>
+          <div class="wt"><span class="wt-label">Over</span><span class="wt-getal" id="vsOver">—</span></div>
+        </div>
+      </section>
       <section class="kaart">
         <h2>Mijn afwezigheid dit jaar</h2>
         <div id="verlofOverzicht" class="chips"></div>
@@ -168,6 +183,6 @@
     </button>
   </nav>
 
-  <script type="module" src="monteur.js?v=9"></script>
+  <script type="module" src="monteur.js?v=10"></script>
 </body>
 </html>
