@@ -128,7 +128,7 @@ async function toonUitgeklokt() {
   $("ingeklokt").classList.add("verborgen");
   $("uitgeklokt").classList.remove("verborgen");
   if (tikker) clearInterval(tikker);
-  $("welkom").textContent = "Hoi " + mij.naam + " 👋";
+  $("welkom").textContent = "Hoi " + mij.naam;
 
   const sel = $("werkbon");
   sel.innerHTML = "";
@@ -143,6 +143,7 @@ async function toonUitgeklokt() {
     o.textContent = (p.werkbon ? p.werkbon + " · " : "") + p.naam;
     sel.appendChild(o);
   });
+  kiesWerkbon(sel.value); // synchroniseer de mooie keuzeknop
 
   // Rooster: staat er voor vandaag een planning? Toon 'm en selecteer de werkbon vast.
   const nu = new Date();
@@ -155,13 +156,57 @@ async function toonUitgeklokt() {
     const p = plan[0];
     const naam = (p.projecten?.werkbon ? p.projecten.werkbon + " · " : "") + (p.projecten?.naam || "");
     const dd = { hele_dag: "hele dag", ochtend: "ochtend", middag: "middag" }[p.dagdeel] || p.dagdeel;
-    banner.textContent = "📅 Vandaag sta je gepland op " + naam + " (" + dd + ").";
+    banner.textContent = "Vandaag sta je gepland op " + naam + " (" + dd + ").";
     banner.classList.remove("verborgen");
-    if ([...sel.options].some((o) => o.value === p.project_id)) sel.value = p.project_id;
+    if ([...sel.options].some((o) => o.value === p.project_id)) { sel.value = p.project_id; kiesWerkbon(p.project_id); }
   } else {
     banner.classList.add("verborgen");
   }
 }
+
+// ── Mooie werkbon-keuzelijst met zoekveld ───────────────────────────────────
+function kiesWerkbon(id) {
+  $("werkbon").value = id || "";
+  const p = (window._projecten || []).find((x) => x.id === id);
+  const knop = $("werkbonKnop");
+  if (p) {
+    $("werkbonLabel").textContent = (p.werkbon ? p.werkbon + " · " : "") + p.naam;
+    knop.classList.remove("leeg");
+  } else {
+    $("werkbonLabel").textContent = "Kies een werkbon…";
+    knop.classList.add("leeg");
+  }
+}
+function renderWerkbonOpties(filter) {
+  const q = (filter || "").trim().toLowerCase();
+  const gekozen = $("werkbon").value;
+  const lijst = (window._projecten || []).filter((p) => {
+    if (!q) return true;
+    return ((p.werkbon || "") + " " + (p.naam || "")).toLowerCase().includes(q);
+  });
+  $("werkbonOpties").innerHTML = lijst.length
+    ? lijst.map((p) => `<button type="button" class="kies-optie${p.id === gekozen ? " gekozen" : ""}" data-id="${p.id}">
+        ${p.werkbon ? `<span class="nr">${esc(p.werkbon)}</span>` : ""}<span class="nm">${esc(p.naam)}</span></button>`).join("")
+    : `<div class="kies-leeg">Geen werkbon gevonden</div>`;
+}
+$("werkbonKnop").addEventListener("click", () => {
+  const paneel = $("werkbonPaneel");
+  if (!paneel.classList.contains("verborgen")) { paneel.classList.add("verborgen"); return; }
+  renderWerkbonOpties("");
+  $("werkbonZoek").value = "";
+  paneel.classList.remove("verborgen");
+  setTimeout(() => $("werkbonZoek").focus(), 40);
+});
+$("werkbonZoek").addEventListener("input", (e) => renderWerkbonOpties(e.target.value));
+$("werkbonOpties").addEventListener("click", (e) => {
+  const b = e.target.closest(".kies-optie");
+  if (!b) return;
+  kiesWerkbon(b.dataset.id);
+  $("werkbonPaneel").classList.add("verborgen");
+});
+document.addEventListener("click", (e) => {
+  if ($("werkbonKies") && !$("werkbonKies").contains(e.target)) $("werkbonPaneel").classList.add("verborgen");
+});
 
 // ── Inklokken (met GPS-geofence) ────────────────────────────────────────────
 $("inklokBtn").addEventListener("click", async () => {
@@ -311,6 +356,7 @@ function duurTekst(iso) {
 }
 function toon(el, msg) { el.textContent = msg; el.classList.remove("verborgen"); }
 function verberg(el) { el.classList.add("verborgen"); }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 function toonMelding(el, soort, msg) {
   el.className = "melding" + (soort ? " " + soort : "");
   el.textContent = msg; el.classList.remove("verborgen");

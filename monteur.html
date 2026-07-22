@@ -7,7 +7,7 @@
   <title>Inklokken — Spaar Electra</title>
   <link rel="icon" type="image/svg+xml" href="spaarlogo.svg">
   <link rel="apple-touch-icon" href="spaarlogo.svg">
-  <link rel="stylesheet" href="uren.css?v=8">
+  <link rel="stylesheet" href="uren.css?v=9">
 </head>
 <body>
   <div class="wrap smal">
@@ -58,8 +58,18 @@
           <p style="margin:0 0 4px;font-weight:700" id="welkom"></p>
           <div id="planBanner" class="melding ok verborgen" style="margin:8px 0"></div>
           <p style="margin:0 0 10px;color:var(--grijs);font-size:14px">Kies je werkbon en klok in. Je locatie wordt gecontroleerd.</p>
-          <label for="werkbon">Werkbon</label>
-          <select id="werkbon"></select>
+          <label>Werkbon</label>
+          <select id="werkbon" class="verborgen"></select>
+          <div class="kies" id="werkbonKies">
+            <button type="button" class="kies-knop leeg" id="werkbonKnop" aria-haspopup="listbox">
+              <span id="werkbonLabel">Kies een werkbon…</span>
+              <svg class="kies-pijl" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="kies-paneel verborgen" id="werkbonPaneel">
+              <input class="kies-zoek" id="werkbonZoek" placeholder="Zoek op naam of nummer…" inputmode="search">
+              <div class="kies-opties" id="werkbonOpties"></div>
+            </div>
+          </div>
           <button id="inklokBtn" class="btn btn-groen" style="margin-top:16px">Inklokken</button>
           <div id="gpsMelding" class="melding verborgen" style="margin-top:12px"></div>
         </div>
@@ -104,6 +114,6 @@
     </nav>
   </div>
 
-  <script type="module" src="monteur.js?v=6"></script>
+  <script type="module" src="monteur.js?v=7"></script>
 </body>
 </html>

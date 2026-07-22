@@ -114,6 +114,23 @@ td.sterk{font-weight:700}
 .tab{padding:9px 15px;border-radius:9px;border:1px solid var(--lijn);background:#fff;font-size:14px;font-weight:600;cursor:pointer;color:var(--grijs)}
 .tab.actief{background:var(--inkt);color:#fff;border-color:var(--inkt)}
 
+/* Nette keuzelijst met zoekveld (werkbon kiezen) */
+.kies{position:relative}
+.kies-knop{width:100%;display:flex;align-items:center;gap:10px;padding:13px;border:1px solid var(--lijn);border-radius:10px;background:#fff;font-size:16px;font-family:inherit;color:var(--inkt);cursor:pointer;text-align:left}
+.kies-knop:focus{outline:2px solid var(--rood);outline-offset:1px;border-color:var(--rood)}
+.kies-knop.leeg #werkbonLabel,.kies-knop.leeg{color:var(--grijs)}
+.kies-pijl{margin-left:auto;color:var(--grijs);flex:none}
+.kies-paneel{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:60;background:#fff;border:1px solid var(--lijn);border-radius:12px;box-shadow:0 12px 34px rgba(28,23,24,.18);padding:8px;max-height:330px;display:flex;flex-direction:column}
+.kies-zoek{margin-bottom:8px}
+.kies-opties{overflow-y:auto;display:flex;flex-direction:column;gap:2px;-webkit-overflow-scrolling:touch}
+.kies-optie{display:flex;flex-direction:column;gap:1px;padding:10px 11px;border-radius:8px;cursor:pointer;border:none;background:none;text-align:left;width:100%;font-family:inherit}
+.kies-optie:hover{background:var(--zacht)}
+.kies-optie .nr{font-family:var(--mono);font-size:12px;color:var(--grijs)}
+.kies-optie .nm{font-size:15px;font-weight:600;color:var(--inkt)}
+.kies-optie.gekozen{background:var(--rood)}
+.kies-optie.gekozen .nr,.kies-optie.gekozen .nm{color:#fff}
+.kies-leeg{padding:14px;color:var(--grijs);font-size:14px;text-align:center}
+
 /* Inklapbaar menu voor de monteur-app (lade) */
 .lade-overlay{position:fixed;inset:0;background:rgba(28,23,24,.45);z-index:300}
 .lade{position:absolute;left:0;top:0;bottom:0;width:250px;background:var(--inkt);color:#fff;display:flex;flex-direction:column;gap:3px;padding:18px 14px;box-shadow:0 0 40px rgba(0,0,0,.35);animation:lade-in .18s ease}
