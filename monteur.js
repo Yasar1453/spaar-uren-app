@@ -301,7 +301,15 @@ async function laadMijnUren() {
 async function verversStatus() {
   verberg($("statusFout"));
   const { data, error } = await db.from("kloksessies").select("*").limit(1);
-  if (error) return toon($("statusFout"), "Kon je status niet ophalen.");
+  if (error) {
+    // Verlopen token (na 12 uur)? Netjes terug naar het inlogscherm.
+    if (/jwt|expired|token|401/i.test(error.message || "")) {
+      sessionStorage.removeItem("spaar-uren-monteur");
+      location.reload();
+      return;
+    }
+    return toon($("statusFout"), "Kon je status niet ophalen.");
+  }
   openSessie = (data && data[0]) || null;
 
   if (openSessie) toonIngeklokt();
@@ -447,23 +455,30 @@ $("uitklokBtn").addEventListener("click", async () => {
     const uren = Math.max(0.25, Math.round(((Date.now() - start.getTime()) / 3600000) * 4) / 4); // kwartier
     // Lokale kalenderdatum (niet UTC) — anders belandt een late/nachtdienst op de verkeerde dag.
     const datumLokaal = start.getFullYear() + "-" + String(start.getMonth() + 1).padStart(2, "0") + "-" + String(start.getDate()).padStart(2, "0");
-    const { error: e1 } = await db.from("urenregels").insert({
-      medewerker_id: mij.medewerker_id,
-      project_id: openSessie.project_id,
-      datum: datumLokaal,
-      start_tijd: openSessie.ingeklokt_op,
-      eind_tijd: new Date().toISOString(),
-      uren,
-      omschrijving: $("omschrijving").value.trim() || null,
-      km: parseInt($("km").value) || null,
-      bron: "klok",
-      in_lat: openSessie.in_lat,
-      in_lng: openSessie.in_lng,
-      aangemaakt_door: mij.medewerker_id,
-    });
-    if (e1) throw e1;
+    // Als de urenregel bij een vorige poging al is opgeslagen (maar de sessie
+    // sluiten mislukte), niet nogmaals boeken — anders staan de uren dubbel.
+    const alGeboekt = sessionStorage.getItem("uitklok-" + openSessie.id);
+    if (!alGeboekt) {
+      const { error: e1 } = await db.from("urenregels").insert({
+        medewerker_id: mij.medewerker_id,
+        project_id: openSessie.project_id,
+        datum: datumLokaal,
+        start_tijd: openSessie.ingeklokt_op,
+        eind_tijd: new Date().toISOString(),
+        uren,
+        omschrijving: $("omschrijving").value.trim() || null,
+        km: Math.max(0, parseInt($("km").value) || 0) || null,
+        bron: "klok",
+        in_lat: openSessie.in_lat,
+        in_lng: openSessie.in_lng,
+        aangemaakt_door: mij.medewerker_id,
+      });
+      if (e1) throw e1;
+      sessionStorage.setItem("uitklok-" + openSessie.id, "1");
+    }
     const { error: e2 } = await db.from("kloksessies").delete().eq("id", openSessie.id);
     if (e2) throw e2;
+    sessionStorage.removeItem("uitklok-" + openSessie.id);
     $("omschrijving").value = "";
     $("km").value = "";
     await verversStatus();
@@ -483,6 +498,15 @@ $("vaVerstuur").addEventListener("click", async () => {
   const van = $("vaVan").value, tot = $("vaTot").value || $("vaVan").value;
   if (!van) return toonMelding(meld, "fout", "Kies een begindatum.");
   if (tot < van) return toonMelding(meld, "fout", "De einddatum ligt vóór de begindatum.");
+  // overlapcontrole: nog niet nogmaals aanvragen over dezelfde periode
+  const { data: overlap } = await db.from("afwezigheid")
+    .select("van_datum, tot_datum, status")
+    .neq("status", "afgekeurd").is("verwijderd_op", null)
+    .lte("van_datum", tot).gte("tot_datum", van).limit(1);
+  if (overlap && overlap.length) {
+    const o = overlap[0];
+    return toonMelding(meld, "fout", "Je hebt al een aanvraag of goedgekeurd verlof van " + datumKort(o.van_datum) + " t/m " + datumKort(o.tot_datum) + ".");
+  }
   $("vaVerstuur").disabled = true;
   try {
     const { error } = await db.from("afwezigheid").insert({

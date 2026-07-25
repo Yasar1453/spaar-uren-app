@@ -66,20 +66,43 @@ $("app").addEventListener("click", (e) => { if (e.target === $("app")) $("app").
 async function laadIngeklokt() {
   const [{ data, error }, { data: monteurs }] = await Promise.all([
     db.from("kloksessies")
-      .select("id, medewerker_id, ingeklokt_op, medewerkers(naam), projecten(werkbon, naam)")
+      .select("id, medewerker_id, project_id, ingeklokt_op, in_lat, in_lng, medewerkers(naam), projecten(werkbon, naam)")
       .order("ingeklokt_op"),
     db.from("medewerkers").select("id, naam").eq("rol", "monteur").is("verwijderd_op", null).order("naam"),
   ]);
   const tb = $("tbIngeklokt");
-  if (error) { tb.innerHTML = rijLeeg(4, "Kon niet laden."); return; }
+  if (error) { tb.innerHTML = rijLeeg(5, "Kon niet laden."); return; }
+  window._sessies = data || [];
 
   $("telIngeklokt").textContent = (data || []).length ? "(" + data.length + ")" : "";
   tb.innerHTML = (data || []).length
     ? data.map((k) => `<tr><td class="sterk">${esc(k.medewerkers?.naam)}</td>
         <td class="mono">${esc(werkbonTekst(k.projecten))}</td>
         <td class="mono">${tijd(k.ingeklokt_op)}</td>
-        <td><span class="badge groen"><span class="dot"></span> ${duurTekst(k.ingeklokt_op)}</span></td></tr>`).join("")
-    : rijLeeg(4, "Niemand is nu ingeklokt.");
+        <td><span class="badge groen"><span class="dot"></span> ${duurTekst(k.ingeklokt_op)}</span></td>
+        <td><button class="btn btn-grijs btn-klein" data-forceer-uit="${k.id}">Uitklokken</button></td></tr>`).join("")
+    : rijLeeg(5, "Niemand is nu ingeklokt.");
+
+  // Beheerder klokt een vergeten sessie uit: urenregel (onbeslist) + sessie sluiten
+  document.querySelectorAll("[data-forceer-uit]").forEach((b) => b.addEventListener("click", async () => {
+    const s = (window._sessies || []).find((x) => x.id === b.dataset.forceerUit);
+    if (!s) return;
+    const duurUur = (Date.now() - new Date(s.ingeklokt_op).getTime()) / 3600000;
+    if (!confirm(`${s.medewerkers?.naam} uitklokken?\n\nIngeklokt sinds ${tijd(s.ingeklokt_op)} (${duurUur.toFixed(1)} uur geleden). Er wordt een urenregel aangemaakt met status "onbeslist" die je daarna kunt aanpassen of afkeuren.`)) return;
+    const start = new Date(s.ingeklokt_op);
+    const uren = Math.max(0.25, Math.round(duurUur * 4) / 4);
+    const datumLokaal = start.getFullYear() + "-" + String(start.getMonth() + 1).padStart(2, "0") + "-" + String(start.getDate()).padStart(2, "0");
+    const { error: e1 } = await db.from("urenregels").insert({
+      medewerker_id: s.medewerker_id, project_id: s.project_id,
+      datum: datumLokaal, start_tijd: s.ingeklokt_op, eind_tijd: new Date().toISOString(),
+      uren, omschrijving: "Door beheerder uitgeklokt (vergeten uit te klokken)",
+      bron: "beheer", in_lat: s.in_lat, in_lng: s.in_lng,
+    });
+    if (e1) return alert("Uitklokken mislukt: " + e1.message);
+    const { error: e2 } = await db.from("kloksessies").delete().eq("id", s.id);
+    if (e2) return alert("Urenregel aangemaakt, maar sessie sluiten mislukte: " + e2.message);
+    await Promise.all([laadIngeklokt(), laadUren()]);
+  }));
 
   const bezet = new Set((data || []).map((k) => k.medewerker_id));
   const vrij = (monteurs || []).filter((m) => !bezet.has(m.id));
@@ -132,11 +155,17 @@ function urenRij(u) {
     <td>${esc(u.omschrijving || "")}</td>${actie}</tr>`;
 }
 async function keur(id, status) {
-  await db.from("urenregels").update({ status, nagekeken_op: new Date().toISOString() }).eq("id", id);
+  const { error } = await db.from("urenregels").update({ status, nagekeken_op: new Date().toISOString() }).eq("id", id);
+  if (error) return alert("Beoordelen mislukt: " + error.message);
   await laadUren();
 }
-$("urenExport").addEventListener("click", () => {
-  const rijen = _uren.map((u) => [
+$("urenExport").addEventListener("click", async () => {
+  // vers en volledig ophalen — de tabel zelf toont maximaal 400 regels
+  const { data, error } = await db.from("urenregels")
+    .select("datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, medewerkers(naam), projecten(werkbon, naam)")
+    .is("verwijderd_op", null).order("datum", { ascending: false }).limit(10000);
+  if (error) return alert("Exporteren mislukt: " + error.message);
+  const rijen = (data || []).map((u) => [
     u.datum, u.medewerkers?.naam || "", werkbonTekst(u.projecten),
     u.start_tijd ? tijd(u.start_tijd) : "", u.eind_tijd ? tijd(u.eind_tijd) : "",
     u.pauze_onbetaald_min || 0, u.pauze_betaald_min || 0, u.km != null ? u.km : "",
@@ -187,6 +216,15 @@ $("vToevoegen").addEventListener("click", async () => {
   const van = $("vVan").value, tot = $("vTot").value || $("vVan").value;
   if (!medewerker_id || !van) return alert("Kies een monteur en een begindatum.");
   if (tot < van) return alert("De einddatum ligt vóór de begindatum.");
+  // overlapcontrole: bestaat er al (aangevraagd of goedgekeurd) verlof in deze periode?
+  const { data: overlap } = await db.from("afwezigheid")
+    .select("id, van_datum, tot_datum, soort")
+    .eq("medewerker_id", medewerker_id).neq("status", "afgekeurd").is("verwijderd_op", null)
+    .lte("van_datum", tot).gte("tot_datum", van).limit(1);
+  if (overlap && overlap.length) {
+    const o = overlap[0];
+    return alert(`Deze monteur heeft al ${SOORT_LABEL[o.soort]?.toLowerCase() || "afwezigheid"} van ${datum(o.van_datum)} t/m ${datum(o.tot_datum)}. Verwijder die eerst of kies een andere periode.`);
+  }
   const { error } = await db.from("afwezigheid").insert({
     medewerker_id, soort, van_datum: van, tot_datum: tot,
     reden: $("vReden").value.trim() || null, status: "goedgekeurd",
@@ -453,6 +491,11 @@ $("rInplannen").addEventListener("click", async () => {
   const medewerker_id = $("rMedewerker").value, project_id = $("rProject").value;
   const datum = $("rDatum").value, dagdeel = $("rDagdeel").value;
   if (!medewerker_id || !project_id || !datum) return alert("Kies monteur, datum en werkbon.");
+  // niet twee keer dezelfde monteur op dezelfde dag op dezelfde werkbon
+  const { data: dubbel } = await db.from("planning").select("id")
+    .eq("medewerker_id", medewerker_id).eq("project_id", project_id)
+    .eq("datum", datum).is("verwijderd_op", null).limit(1);
+  if (dubbel && dubbel.length) return alert("Deze monteur staat die dag al op deze werkbon gepland.");
   const { error } = await db.from("planning").insert({ medewerker_id, project_id, datum, dagdeel });
   if (error) return alert("Inplannen mislukt: " + error.message);
   weekStart = maandagVan(new Date(datum + "T12:00:00"));
@@ -485,8 +528,9 @@ async function toonRapport() {
   const van = $("rapVan").value, tot = $("rapTot").value;
   if (!van || !tot) return alert("Kies een periode.");
   const [{ data: uren }, { data: afw }] = await Promise.all([
+    // afgekeurde regels tellen niet mee in de rapportage
     db.from("urenregels").select("datum, uren, km, medewerkers(naam), projecten(werkbon, naam)")
-      .is("verwijderd_op", null).gte("datum", van).lte("datum", tot),
+      .is("verwijderd_op", null).neq("status", "afgekeurd").gte("datum", van).lte("datum", tot),
     db.from("afwezigheid").select("van_datum, tot_datum, medewerkers(naam)")
       .is("verwijderd_op", null).eq("status", "goedgekeurd").lte("van_datum", tot).gte("tot_datum", van),
   ]);
