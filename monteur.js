@@ -259,8 +259,10 @@ async function laadMijnUren() {
   const nu = new Date();
   const maandag = new Date(nu); maandag.setDate(nu.getDate() - ((nu.getDay() + 6) % 7)); maandag.setHours(0, 0, 0, 0);
   const vorigeMa = new Date(maandag); vorigeMa.setDate(maandag.getDate() - 7);
-  const dezeWeek = (data || []).filter((u) => u.datum >= iso(maandag)).reduce((s, u) => s + Number(u.uren || 0), 0);
-  const vorigeWeek = (data || []).filter((u) => u.datum >= iso(vorigeMa) && u.datum < iso(maandag)).reduce((s, u) => s + Number(u.uren || 0), 0);
+  // afgekeurde regels tellen niet mee in de totalen (staan wel in de lijst, met badge)
+  const telbaar = (data || []).filter((u) => u.status !== "afgekeurd");
+  const dezeWeek = telbaar.filter((u) => u.datum >= iso(maandag)).reduce((s, u) => s + Number(u.uren || 0), 0);
+  const vorigeWeek = telbaar.filter((u) => u.datum >= iso(vorigeMa) && u.datum < iso(maandag)).reduce((s, u) => s + Number(u.uren || 0), 0);
   $("urenDezeWeek").textContent = dezeWeek.toFixed(2).replace(".", ",") + " u";
   $("urenVorigeWeek").textContent = vorigeWeek.toFixed(2).replace(".", ",") + " u";
 
@@ -334,7 +336,9 @@ async function toonUitgeklokt() {
   $("welkom").textContent = "Hoi " + mij.naam;
 
   const sel = $("werkbon");
-  sel.innerHTML = "";
+  // lege eerste optie: de monteur moet BEWUST een werkbon kiezen — anders zou
+  // een klik op Inklokken stilzwijgend de eerste werkbon (alfabetisch) pakken
+  sel.innerHTML = '<option value=""></option>';
   const { data, error } = await db.from("projecten")
     .select("id, werkbon, naam, lat, lng, radius_m")
     .is("verwijderd_op", null).neq("status", "afgerond").order("naam");
@@ -346,7 +350,7 @@ async function toonUitgeklokt() {
     o.textContent = (p.werkbon ? p.werkbon + " · " : "") + p.naam;
     sel.appendChild(o);
   });
-  kiesWerkbon(sel.value); // synchroniseer de mooie keuzeknop
+  kiesWerkbon(""); // start zonder keuze; het rooster mag 'm hieronder invullen
 
   // Rooster: staat er voor vandaag een planning? Toon 'm en selecteer de werkbon vast.
   const nu = new Date();
@@ -482,6 +486,7 @@ $("uitklokBtn").addEventListener("click", async () => {
     $("omschrijving").value = "";
     $("km").value = "";
     await verversStatus();
+    laadHome();
   } catch (e) {
     toon($("statusFout"), "Uitklokken mislukt: " + e.message);
   } finally {
