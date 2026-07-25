@@ -7,7 +7,7 @@
   <title>Inklokken — Spaar Electra</title>
   <link rel="icon" type="image/svg+xml" href="spaarlogo.svg">
   <link rel="apple-touch-icon" href="spaarlogo.svg">
-  <link rel="stylesheet" href="uren.css?v=11">
+  <link rel="stylesheet" href="uren.css?v=12">
 </head>
 <body>
   <div class="wrap smal" id="appWrap">
@@ -31,6 +31,25 @@
       <label for="pin">Pincode</label>
       <input id="pin" class="pin-in" type="password" inputmode="numeric" maxlength="6" placeholder="••••">
       <button id="inlogBtn" class="btn btn-rood" style="margin-top:18px">Inloggen</button>
+      <p class="reg-link"><button type="button" id="naarRegistreer">Eerste keer hier? Registreer je</button></p>
+    </section>
+
+    <!-- Registratiescherm (nieuwe medewerker) -->
+    <section id="registreer" class="kaart verborgen">
+      <h2>Registreren</h2>
+      <p style="margin:0 0 10px;color:var(--grijs);font-size:14px">Maak eenmalig een account aan met je Spaar Electra-mailadres. Je verschijnt daarna automatisch bij de beheerder in de medewerkerslijst; die geeft je een pincode waarmee je inklokt.</p>
+      <div id="regFout" class="melding fout verborgen"></div>
+      <div id="regOk" class="melding ok verborgen"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label for="regVoornaam">Voornaam</label><input id="regVoornaam" autocomplete="given-name"></div>
+        <div><label for="regAchternaam">Achternaam</label><input id="regAchternaam" autocomplete="family-name"></div>
+      </div>
+      <label for="regEmail">E-mail (@spaarelectra.nl)</label>
+      <input id="regEmail" type="email" placeholder="naam@spaarelectra.nl" autocomplete="email">
+      <label for="regWachtwoord">Wachtwoord</label>
+      <input id="regWachtwoord" type="password" autocomplete="new-password" placeholder="Minimaal 8 tekens">
+      <button id="regBtn" class="btn btn-rood" style="margin-top:18px">Registreren</button>
+      <p class="reg-link"><button type="button" id="naarInlog">Terug naar inloggen</button></p>
     </section>
 
     <!-- Weergave: Home (prikklok) -->
@@ -183,6 +202,6 @@
     </button>
   </nav>
 
-  <script type="module" src="monteur.js?v=12"></script>
+  <script type="module" src="monteur.js?v=13"></script>
 </body>
 </html>

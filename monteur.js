@@ -58,6 +58,51 @@ async function inloggen() {
   }
 }
 
+// ── Registreren (eerste keer) ───────────────────────────────────────────────
+$("naarRegistreer").addEventListener("click", () => {
+  $("inlog").classList.add("verborgen");
+  $("registreer").classList.remove("verborgen");
+});
+$("naarInlog").addEventListener("click", () => {
+  $("registreer").classList.add("verborgen");
+  $("inlog").classList.remove("verborgen");
+});
+
+$("regBtn").addEventListener("click", async () => {
+  verberg($("regFout")); verberg($("regOk"));
+  const voornaam = $("regVoornaam").value.trim();
+  const achternaam = $("regAchternaam").value.trim();
+  const email = $("regEmail").value.trim().toLowerCase();
+  const wachtwoord = $("regWachtwoord").value;
+  if (!voornaam || !achternaam) return toon($("regFout"), "Vul je voor- en achternaam in.");
+  if (!/^[^@\s]+@spaarelectra\.nl$/.test(email)) return toon($("regFout"), "Gebruik je Spaar Electra-mailadres (eindigt op @spaarelectra.nl).");
+  if (wachtwoord.length < 8) return toon($("regFout"), "Kies een wachtwoord van minimaal 8 tekens.");
+
+  $("regBtn").disabled = true;
+  try {
+    const { data, error } = await anonClient().auth.signUp({
+      email,
+      password: wachtwoord,
+      options: { data: { naam: voornaam + " " + achternaam } },
+    });
+    if (error) {
+      const msg = /already registered|already exists/i.test(error.message)
+        ? "Er bestaat al een account met dit e-mailadres."
+        : "Registreren mislukt: " + error.message;
+      return toon($("regFout"), msg);
+    }
+    const bevestigen = !data.session; // e-mailbevestiging vereist?
+    toon($("regOk"), "Je account is aangemaakt en je staat nu bij de beheerder in de medewerkerslijst."
+      + (bevestigen ? " Bevestig ook even je e-mailadres via de link in je inbox." : "")
+      + " Zodra de beheerder je een pincode heeft gegeven, kun je hiernaast inloggen en inklokken.");
+    $("regVoornaam").value = ""; $("regAchternaam").value = ""; $("regEmail").value = ""; $("regWachtwoord").value = "";
+  } catch (e) {
+    toon($("regFout"), "Registreren mislukt. Controleer je internetverbinding.");
+  } finally {
+    $("regBtn").disabled = false;
+  }
+});
+
 // Sessie herstellen bij herladen
 (function herstel() {
   const raw = sessionStorage.getItem("spaar-uren-monteur");
