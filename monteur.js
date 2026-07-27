@@ -4,7 +4,7 @@
 //  Bouwt voort op de logica uit ../../werknemer.js, nu gekoppeld aan Supabase.
 // ============================================================================
 import { monteurClient, VAPID_PUBLIC } from "./config.js";
-import { icoon } from "./iconen.js?v=35";
+import { icoon } from "./iconen.js?v=36";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();   // eigen sessie, blijft bewaard tussen bezoeken
@@ -49,7 +49,13 @@ async function haalMijOp() {
   if (!auth?.user) return false;
   const { data, error } = await db.from("medewerkers")
     .select("id, naam").eq("auth_user_id", auth.user.id).is("verwijderd_op", null).maybeSingle();
-  if (error || !data) {
+  if (error && !/[Rr]esults contain 0 rows|PGRST116/.test(error.message || "")) {
+    // Netwerkstoring: de sessie laten staan, anders moet de monteur op de
+    // bouwplaats opnieuw inloggen met een wachtwoord dat hij niet paraat heeft.
+    toon($("inlogFout"), netfout(error, "Verbinding mislukt. Probeer het zo nog eens."));
+    return false;
+  }
+  if (!data) {
     await db.auth.signOut();
     // RLS verbergt de rij zowel bij "geblokkeerd" als bij "nog niet gekoppeld";
     // de app kan die twee niet uit elkaar houden, dus houden we het algemeen.
@@ -63,10 +69,16 @@ async function haalMijOp() {
 // Maakt van een technische fout een begrijpelijke melding voor de bouwplaats.
 function netfout(e, standaard) {
   const m = String(e?.message || e || "");
+  const code = e?.code || "";
   if (!navigator.onLine || /failed to fetch|networkerror|load failed/i.test(m)) {
     return "Geen internetverbinding. Zoek even een plek met bereik en probeer opnieuw.";
   }
-  return m || standaard;
+  // Bekende databasefouten vertalen. Zonder dit kreeg de monteur letterlijk
+  // "duplicate key value violates unique constraint" te zien.
+  if (code === "23505") return "Dit is al geregistreerd. Ververs de app om de actuele stand te zien.";
+  if (code === "23514") return "Deze gegevens kloppen niet. Neem contact op met kantoor.";
+  if (code === "42501") return "Je hebt hier geen toegang toe. Neem contact op met kantoor.";
+  return standaard || m;
 }
 
 // Zelfregistratie is vervallen: kantoor legt de medewerker aan en stuurt een
@@ -96,7 +108,7 @@ if (window.ResizeObserver && $("tabbalk")) new ResizeObserver(stelRuimteOnderIn)
 //  starten het versienummer op (langs de cache heen) en herladen we eenmalig
 //  als er iets nieuwers staat. De vlag in sessionStorage voorkomt een lus als
 //  het herladen om welke reden dan ook niet aanslaat.
-const APP_VERSIE = 35;
+const APP_VERSIE = 36;
 async function controleerVersie() {
   try {
     const r = await fetch("versie.json?t=" + Date.now(), { cache: "no-store" });
@@ -131,7 +143,7 @@ async function naarStatus() {
   $("appWrap").classList.add("met-tabbalk");
   stelRuimteOnderIn();
   await verversStatus();
-  vulVerlofSoorten();
+  await vulVerlofSoorten();
   laadMijnVerlof();
   laadHome();
   regelMeldingKaart();
@@ -198,6 +210,7 @@ async function laadHome() {
     const tot = new Date(); tot.setDate(tot.getDate() + 13);
     const { data } = await db.from("planning")
       .select("datum, dagdeel, projecten(werkbon, naam)")
+      .eq("medewerker_id", mij.medewerker_id)
       .gte("datum", iso(vandaag)).lte("datum", iso(tot))
       .is("verwijderd_op", null).order("datum").limit(3);
     const DD = { hele_dag: "hele dag", ochtend: "ochtend", middag: "middag" };
@@ -218,7 +231,7 @@ async function laadHome() {
   try {
     const { data } = await db.from("urenregels")
       .select("datum, start_tijd, eind_tijd, uren, projecten(werkbon, naam)")
-      .is("verwijderd_op", null).order("datum", { ascending: false }).limit(3);
+      .eq("medewerker_id", mij.medewerker_id).is("verwijderd_op", null).order("datum", { ascending: false }).limit(3);
     $("homeUren").innerHTML = (data && data.length)
       ? data.map((u) => {
           const d = new Date(u.datum + "T12:00:00");
@@ -238,7 +251,8 @@ async function laadHome() {
     const jaar = vandaag.getFullYear();
     $("homeAfwTitel").textContent = "Mijn afwezigheid " + jaar;
     const { data } = await db.from("afwezigheid")
-      .select("soort, van_datum, tot_datum, status").is("verwijderd_op", null);
+      .select("soort, van_datum, tot_datum, status")
+      .eq("medewerker_id", mij.medewerker_id).is("verwijderd_op", null);
     const perSoort = {};
     (data || []).filter((r) => r.status === "goedgekeurd" && r.van_datum.startsWith(String(jaar))).forEach((r) => {
       const dagen = werkdagenTussen(r.van_datum, r.tot_datum);
@@ -265,21 +279,24 @@ async function laadHome() {
     }
   } catch (_) {}
 
-  // Verjaardagen (RPC; komende 60 dagen)
+  // Verjaardagen (komende 60 dagen).
+  //  De RPC geeft bewust alleen dag en maand terug, geen jaartal: de volledige
+  //  geboortedatum is het bewijsmiddel waarmee een monteur zich bij het
+  //  aanmelden legitimeert. Daarom staat de leeftijd hier niet meer bij.
   try {
     const { data, error } = await db.rpc("verjaardagen");
-    if (!error && data && data.length) {
+    if (error) { $("homeJarig").innerHTML = '<div class="leeg">Verjaardagen konden niet worden geladen.</div>'; $("homeJarigKaart").classList.remove("verborgen"); }
+    else if (data && data.length) {
       const nu = new Date(); nu.setHours(0, 0, 0, 0);
       const komend = data.map((p) => {
-        const g = new Date(p.geboortedatum + "T12:00:00");
-        const ditJaar = new Date(nu.getFullYear(), g.getMonth(), g.getDate());
+        const ditJaar = new Date(nu.getFullYear(), p.maand - 1, p.dag);
         if (ditJaar < nu) ditJaar.setFullYear(ditJaar.getFullYear() + 1);
-        return { naam: p.naam, dag: ditJaar, leeftijd: ditJaar.getFullYear() - g.getFullYear() };
+        return { naam: p.naam, dag: ditJaar };
       }).filter((p) => (p.dag - nu) / 86400000 <= 60).sort((a, b) => a.dag - b.dag);
       if (komend.length) {
         $("homeJarig").innerHTML = komend.slice(0, 5).map((p) => `<div class="lijst-rij">
           <div class="lijst-datum"><span class="ld-dag">${p.dag.toLocaleDateString("nl-NL", { weekday: "short" })}</span><span class="ld-nr">${p.dag.toLocaleDateString("nl-NL", { day: "2-digit", month: "short" })}</span></div>
-          <div class="lijst-body"><span class="lb-titel">${esc(p.naam)}</span><span class="lb-sub">wordt ${p.leeftijd}</span></div>
+          <div class="lijst-body"><span class="lb-titel">${esc(p.naam)}</span><span class="lb-sub">jarig</span></div>
         </div>`).join("");
         $("homeJarigKaart").classList.remove("verborgen");
       }
@@ -309,6 +326,7 @@ async function laadMijnRooster() {
   const iso = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   const { data, error } = await db.from("planning")
     .select("datum, dagdeel, projecten(werkbon, naam, locatie)")
+    .eq("medewerker_id", mij.medewerker_id)
     .gte("datum", iso(van)).lte("datum", iso(tot))
     .is("verwijderd_op", null).order("datum");
   if (error) { el.innerHTML = `<div class="leeg">Kon het rooster niet laden.</div>`; return; }
@@ -353,6 +371,7 @@ async function laadMijnUren() {
   const van = new Date(); van.setDate(van.getDate() - 30);
   const { data, error } = await db.from("urenregels")
     .select("datum, start_tijd, eind_tijd, uren, km, status, omschrijving, projecten(werkbon, naam)")
+    .eq("medewerker_id", mij.medewerker_id)
     .gte("datum", iso(van)).is("verwijderd_op", null)
     .order("datum", { ascending: false }).order("start_tijd", { ascending: false }).limit(60);
   if (error) { el.innerHTML = `<div class="leeg">Kon je uren niet laden.</div>`; return; }
@@ -404,7 +423,7 @@ async function laadMijnUren() {
 
 async function verversStatus() {
   verberg($("statusFout"));
-  const { data, error } = await db.from("kloksessies").select("*").limit(1);
+  const { data, error } = await db.from("kloksessies").select("*").eq("medewerker_id", mij.medewerker_id).limit(1);
   if (error) {
     // Sessie verlopen? Netjes terug naar het inlogscherm.
     if (/jwt|expired|token|401/i.test(error.message || "")) {
@@ -495,6 +514,7 @@ async function toonUitgeklokt() {
   const vandaag = nu.getFullYear() + "-" + String(nu.getMonth() + 1).padStart(2, "0") + "-" + String(nu.getDate()).padStart(2, "0");
   const { data: plan } = await db.from("planning")
     .select("project_id, dagdeel, projecten(werkbon, naam)")
+    .eq("medewerker_id", mij.medewerker_id)
     .eq("datum", vandaag).is("verwijderd_op", null).limit(1);
   const banner = $("planBanner");
   if (plan && plan.length) {
@@ -602,8 +622,26 @@ $("uitklokBtn").addEventListener("click", async () => {
   $("uitklokBtn").disabled = true;
   try {
     const start = new Date(openSessie.ingeklokt_op);
+    let eind = new Date();
+    // Vergeten uit te klokken? Dan is "nu" niet de eindtijd. De database
+    // weigert een regel van meer dan 24 uur, en omdat er maar één open
+    // kloksessie per monteur mag bestaan zou hij daarna ook niet meer kunnen
+    // inklokken — muurvast op de bouwplaats. Dus hier vragen wat de echte
+    // eindtijd was.
+    const urenOpen = (eind - start) / 3600000;
+    if (urenOpen > 16) {
+      const opgegeven = prompt(
+        "Je staat sinds " + start.toLocaleString("nl-NL", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+        + " ingeklokt.\n\nHoe laat ben je die dag gestopt? (bijvoorbeeld 16:00)", "16:00");
+      if (opgegeven === null) return;
+      const m = /^(\d{1,2})[:.](\d{2})$/.exec(opgegeven.trim());
+      if (!m) return toon($("statusFout"), "Vul de eindtijd in als uu:mm, bijvoorbeeld 16:00.");
+      eind = new Date(start);
+      eind.setHours(Number(m[1]), Number(m[2]), 0, 0);
+      if (eind <= start) return toon($("statusFout"), "De eindtijd moet na je inkloktijd liggen.");
+    }
     // Exacte tijd op de minuut — geen kwartierafronding, geen minimum.
-    const uren = urenUitMinuten(Math.round((Date.now() - start.getTime()) / 60000));
+    const uren = urenUitMinuten(Math.round((eind.getTime() - start.getTime()) / 60000));
     // Lokale kalenderdatum (niet UTC) — anders belandt een late/nachtdienst op de verkeerde dag.
     const datumLokaal = start.getFullYear() + "-" + String(start.getMonth() + 1).padStart(2, "0") + "-" + String(start.getDate()).padStart(2, "0");
     // Als de urenregel bij een vorige poging al is opgeslagen (maar de sessie
@@ -615,7 +653,7 @@ $("uitklokBtn").addEventListener("click", async () => {
         project_id: openSessie.project_id,
         datum: datumLokaal,
         start_tijd: openSessie.ingeklokt_op,
-        eind_tijd: new Date().toISOString(),
+        eind_tijd: eind.toISOString(),
         uren,
         omschrijving: $("omschrijving").value.trim() || null,
         km: Math.max(0, Math.round((parseFloat(String($("km").value).replace(",", ".")) || 0) * 10) / 10),
@@ -624,7 +662,10 @@ $("uitklokBtn").addEventListener("click", async () => {
         in_lng: openSessie.in_lng,
         aangemaakt_door: mij.medewerker_id,
       });
-      if (e1) throw e1;
+      // Een dubbele boeking wordt door de unieke index tegengehouden. Dat is
+      // geen fout maar precies de bedoeling: de regel staat er al, dus door
+      // naar het sluiten van de sessie. Anders bleef de monteur hangen.
+      if (e1 && e1.code !== "23505") throw e1;
       sessionStorage.setItem("uitklok-" + openSessie.id, "1");
     }
     const { error: e2 } = await db.from("kloksessies").delete().eq("id", openSessie.id);
@@ -696,6 +737,7 @@ $("vaVerstuur").addEventListener("click", async () => {
   // overlapcontrole: nog niet nogmaals aanvragen over dezelfde periode
   const { data: overlap } = await db.from("afwezigheid")
     .select("van_datum, tot_datum, status")
+    .eq("medewerker_id", mij.medewerker_id)
     .neq("status", "afgekeurd").is("verwijderd_op", null)
     .lte("van_datum", tot).gte("tot_datum", van).limit(1);
   if (overlap && overlap.length) {
@@ -725,6 +767,7 @@ $("vaVerstuur").addEventListener("click", async () => {
 async function laadMijnVerlof() {
   const { data } = await db.from("afwezigheid")
     .select("soort, van_datum, tot_datum, status")
+    .eq("medewerker_id", mij.medewerker_id)
     .is("verwijderd_op", null).order("van_datum", { ascending: false }).limit(50);
 
   // Jaaroverzicht: goedgekeurde dagen per soort in het huidige jaar
