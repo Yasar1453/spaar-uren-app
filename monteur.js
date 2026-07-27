@@ -52,10 +52,19 @@ async function inloggen() {
     sessionStorage.setItem("spaar-uren-monteur", JSON.stringify({ token: out.token, mij }));
     await naarStatus();
   } catch (e) {
-    toon($("inlogFout"), e.message);
+    toon($("inlogFout"), netfout(e, "Inloggen mislukt."));
   } finally {
     $("inlogBtn").disabled = false;
   }
+}
+
+// Maakt van een technische fout een begrijpelijke melding voor de bouwplaats.
+function netfout(e, standaard) {
+  const m = String(e?.message || e || "");
+  if (!navigator.onLine || /failed to fetch|networkerror|load failed/i.test(m)) {
+    return "Geen internetverbinding. Zoek even een plek met bereik en probeer opnieuw.";
+  }
+  return m || standaard;
 }
 
 // ── Registreren (eerste keer) ───────────────────────────────────────────────
@@ -549,7 +558,7 @@ $("inklokBtn").addEventListener("click", async () => {
     verberg(gm);
     await verversStatus();
   } catch (e) {
-    toonMelding(gm, "fout", e.message);
+    toonMelding(gm, "fout", netfout(e, "Inklokken mislukt."));
   } finally {
     $("inklokBtn").disabled = false;
   }
@@ -593,7 +602,7 @@ $("uitklokBtn").addEventListener("click", async () => {
     await verversStatus();
     laadHome();
   } catch (e) {
-    toon($("statusFout"), "Uitklokken mislukt: " + e.message);
+    toon($("statusFout"), netfout(e, "Uitklokken mislukt. Probeer het opnieuw."));
   } finally {
     $("uitklokBtn").disabled = false;
   }

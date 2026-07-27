@@ -6,7 +6,12 @@
   <meta name="theme-color" content="#e20613">
   <title>Inklokken — Spaar Electra</title>
   <link rel="icon" type="image/svg+xml" href="spaarlogo.svg">
-  <link rel="apple-touch-icon" href="spaarlogo.svg">
+  <!-- iOS negeert SVG voor het beginscherm-icoon: PNG van 180px is vereist -->
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Spaar Electra">
   <link rel="stylesheet" href="uren.css?v=14">
 </head>
 <body>
@@ -210,6 +215,6 @@
     </button>
   </nav>
 
-  <script type="module" src="monteur.js?v=16"></script>
+  <script type="module" src="monteur.js?v=17"></script>
 </body>
 </html>
