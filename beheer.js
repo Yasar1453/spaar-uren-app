@@ -6,7 +6,7 @@
 import { beheerClient } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=27";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=28";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -600,6 +600,17 @@ async function laadMedewerkers() {
   $("telMedewerkers").textContent = _medewerkers.length ? "(" + _medewerkers.length + ")" : "";
   const badge = $("badgeMedewerkers");
   if (badge) { badge.textContent = wacht || ""; badge.classList.toggle("verborgen", wacht === 0); }
+  // Zonder geboortedatum kan een monteur zich niet legitimeren, dus verschijnt
+  // hij niet in de aanmeldlijst. Dat is stil falen; daarom hier expliciet.
+  const zonderDatum = _medewerkers.filter((m) => !m.auth_user_id && !m.geboortedatum);
+  const waarschuwing = $("medGeenGeboorte");
+  if (waarschuwing) {
+    if (zonderDatum.length) {
+      waarschuwing.textContent = zonderDatum.length + " medewerker" + (zonderDatum.length === 1 ? "" : "s")
+        + " zonder geboortedatum kan zich niet aanmelden en staat niet in de uitnodigingslijst. Vul die eerst in via Bewerken.";
+      waarschuwing.classList.remove("verborgen");
+    } else waarschuwing.classList.add("verborgen");
+  }
   $("tbMedewerkers").innerHTML = _medewerkers.map((m) => {
     const tot = urenWeekTotaal(m.contract_uren);
     const contract = m.contract_type
@@ -618,26 +629,109 @@ async function laadMedewerkers() {
   document.querySelectorAll("[data-bewerk]").forEach((b) => b.addEventListener("click", () => openMedewerker(b.dataset.bewerk)));
   document.querySelectorAll("[data-vrijgeef]").forEach((b) => b.addEventListener("click", () => zetActief(b.dataset.vrijgeef, b.dataset.nu !== "true")));
 }
-// Bewerk-venster
-let medBewerkId = null;
-function openMedewerker(id) {
+// ── Medewerkervenster (toevoegen én bewerken) ───────────────────────────────
+let medBewerkId = null;   // null = nieuwe medewerker
+
+// Alle eenvoudige velden op één plek: zo kan invullen en uitlezen niet uit de
+// pas lopen als er later een veld bijkomt.
+const MED_VELDEN = {
+  medVoornaam: "voornaam", medTussenvoegsel: "tussenvoegsel", medAchternaam: "achternaam",
+  medEmail: "email", medTelefoon: "telefoon", medMobiel: "mobiel", medNoodnummer: "noodnummer",
+  medAdres: "adres", medPostcode: "postcode", medPlaats: "plaats",
+  medGeboortedatum: "geboortedatum", medGeboorteplaats: "geboorteplaats",
+  medNationaliteit: "nationaliteit", medDatumInDienst: "datum_in_dienst",
+  medPersoneelsnummer: "personeelsnummer", medRoosternotitie: "roosternotitie",
+  medAfdeling: "afdeling", medContractType: "contract_type", medFunctietitel: "functietitel",
+  medContractStart: "contract_start", medContractEind: "contract_eind",
+  medContractnotitie: "contractnotitie", medRol: "rol",
+};
+const MED_PRIVE = { medBsn: "bsn", medIdNummer: "id_nummer", medBankrekening: "bankrekening" };
+// Lege datums en getallen moeten null worden, geen lege tekst: anders klaagt Postgres.
+const MED_DATUMS = new Set(["geboortedatum", "datum_in_dienst", "contract_start", "contract_eind"]);
+
+function toonMedTab(naam) {
+  document.querySelectorAll(".med-tab").forEach((t) => t.classList.toggle("actief", t.dataset.mtab === naam));
+  document.querySelectorAll("[data-mpaneel]").forEach((p) => p.classList.toggle("verborgen", p.dataset.mpaneel !== naam));
+}
+document.querySelectorAll(".med-tab").forEach((t) => t.addEventListener("click", () => toonMedTab(t.dataset.mtab)));
+
+function leegMedVenster() {
+  Object.keys(MED_VELDEN).forEach((id) => { const e = $(id); if (e) e.value = ""; });
+  Object.keys(MED_PRIVE).forEach((id) => { const e = $(id); if (e) e.value = ""; });
+  $("medLoonheffing").checked = false;
+  $("medUurloon").value = "";
+  $("medStartUren").value = "0";
+  $("medVerlofDagen").value = "";
+  $("medRol").value = "monteur";
+  $("medAfdeling").value = "Spaar Electra B.V.";
+  $("medSaldo").innerHTML = '<span class="leeg">Zichtbaar zodra de medewerker is opgeslagen.</span>';
+  $("medAccountVak").classList.add("verborgen");
+  vulSelect("medBeleid", [["", "— geen beleid —"], ..._beleid.map((b) => [b.id, b.naam])]);
+  bouwUrenWeek("medUrenWeek", null);
+  verberg($("medMelding"));
+  toonMedTab("basis");
+}
+
+function nieuweMedewerker() {
+  medBewerkId = null;
+  leegMedVenster();
+  $("medTitel").textContent = "Medewerker toevoegen";
+  $("medUitDienst").classList.add("verborgen");
+  $("medModal").classList.remove("verborgen");
+  $("medVoornaam").focus();
+}
+$("medNieuw").addEventListener("click", nieuweMedewerker);
+
+async function openMedewerker(id) {
   const m = _medewerkers.find((x) => x.id === id);
   if (!m) return;
   medBewerkId = id;
+  leegMedVenster();
   $("medTitel").textContent = "Medewerker — " + m.naam;
-  $("medNaam").value = m.naam || "";
-  $("medGeboortedatum").value = m.geboortedatum || "";
-  vulSelect("medBeleid", [["", "— geen beleid —"], ..._beleid.map((b) => [b.id, b.naam])]);
+  $("medUitDienst").classList.remove("verborgen");
+  Object.entries(MED_VELDEN).forEach(([veldId, kolom]) => {
+    const e = $(veldId); if (e) e.value = m[kolom] != null ? m[kolom] : "";
+  });
+  $("medLoonheffing").checked = !!m.loonheffing;
+  $("medUurloon").value = m.uurloon != null ? m.uurloon : "";
   $("medBeleid").value = m.beleid_id || "";
   $("medStartUren").value = m.verlof_start_uren != null ? m.verlof_start_uren : 0;
-  toonSaldo(m.id);
-  $("medContractType").value = m.contract_type || "";
-  $("medContractStart").value = m.contract_start || "";
-  $("medContractEind").value = m.contract_eind || "";
+  $("medVerlofDagen").value = m.verlof_dagen_per_jaar != null ? m.verlof_dagen_per_jaar : "";
   bouwUrenWeek("medUrenWeek", m.contract_uren);
-  verberg($("medMelding"));
+  $("medAccountVak").innerHTML = m.auth_user_id
+    ? `Account gekoppeld. Status: ${m.actief ? "actief" : "wacht op vrijgave"}.`
+    : "Nog geen account. De medewerker meldt zich aan via de uitnodigingslink.";
+  $("medAccountVak").classList.remove("verborgen");
+  toonSaldo(m.id);
+  laadPrive(m.id);
   $("medModal").classList.remove("verborgen");
 }
+
+// Haalt de privégegevens pas op als het venster openstaat: ze staan in een
+// aparte tabel die alleen beheerders mogen lezen.
+async function laadPrive(id) {
+  const { data } = await db.from("medewerker_privegegevens").select("*").eq("medewerker_id", id).maybeSingle();
+  Object.entries(MED_PRIVE).forEach(([veldId, kolom]) => {
+    const e = $(veldId); if (e) e.value = data && data[kolom] != null ? data[kolom] : "";
+  });
+}
+
+function leesMedVelden() {
+  const rij = {};
+  Object.entries(MED_VELDEN).forEach(([veldId, kolom]) => {
+    const e = $(veldId); if (!e) return;
+    const w = e.value.trim();
+    rij[kolom] = w === "" ? (MED_DATUMS.has(kolom) ? null : null) : w;
+  });
+  rij.loonheffing = $("medLoonheffing").checked;
+  rij.uurloon = $("medUurloon").value === "" ? null : parseFloat($("medUurloon").value);
+  rij.beleid_id = $("medBeleid").value || null;
+  rij.verlof_start_uren = parseFloat($("medStartUren").value) || 0;
+  rij.verlof_dagen_per_jaar = $("medVerlofDagen").value === "" ? null : parseFloat($("medVerlofDagen").value);
+  rij.contract_uren = leesUrenWeek("medUrenWeek");
+  return rij;
+}
+
 // Verlofsaldo van deze medewerker tonen in het bewerkvenster
 async function toonSaldo(id) {
   const vak = $("medSaldo");
@@ -658,25 +752,87 @@ $("medAnnuleer").addEventListener("click", sluitMedModal);
 $("medModal").addEventListener("click", (e) => { if (e.target === $("medModal")) sluitMedModal(); });
 
 $("medOpslaan").addEventListener("click", async () => {
-  const naam = $("medNaam").value.trim();
-  if (!naam) return toonMeld($("medMelding"), "fout", "De naam mag niet leeg zijn.");
-  const { error } = await db.from("medewerkers").update({
-    naam,
-    geboortedatum: $("medGeboortedatum").value || null,
-    beleid_id: $("medBeleid").value || null,
-    verlof_start_uren: parseFloat($("medStartUren").value) || 0,
-    contract_type: $("medContractType").value || null,
-    contract_start: $("medContractStart").value || null,
-    contract_eind: $("medContractEind").value || null,
-    contract_uren: leesUrenWeek("medUrenWeek"),
-  }).eq("id", medBewerkId);
-  if (error) {
-    const hint = /contract|geboortedatum|verlof_dagen/i.test(error.message)
-      ? " (Draai eerst de database-migratie contract-en-fix.sql in de Supabase SQL-editor.)" : "";
-    return toonMeld($("medMelding"), "fout", "Opslaan mislukt: " + error.message + hint);
+  const rij = leesMedVelden();
+  // De naam en de geboortedatum zijn geen vrijblijvende velden: zonder naam
+  // klopt het rooster niet, en zonder geboortedatum kan de monteur zich niet
+  // legitimeren bij het aanmelden.
+  if (!rij.voornaam || !rij.achternaam) { toonMedTab("basis"); return toonMeld($("medMelding"), "fout", "Vul voornaam en achternaam in."); }
+  if (!rij.geboortedatum) { toonMedTab("details"); return toonMeld($("medMelding"), "fout", "Vul de geboortedatum in — daarmee meldt de monteur zich aan."); }
+  if (!rij.contract_type) { toonMedTab("contract"); return toonMeld($("medMelding"), "fout", "Kies een contracttype."); }
+
+  $("medOpslaan").disabled = true;
+  try {
+    let id = medBewerkId;
+    if (id) {
+      const { error } = await db.from("medewerkers").update(rij).eq("id", id);
+      if (error) return toonMeld($("medMelding"), "fout", "Opslaan mislukt: " + error.message);
+    } else {
+      const { data, error } = await db.from("medewerkers").insert({ ...rij, actief: false }).select("id").single();
+      if (error) return toonMeld($("medMelding"), "fout", "Toevoegen mislukt: " + error.message);
+      id = data.id;
+    }
+
+    // Privégegevens alleen wegschrijven als er iets is ingevuld of al bestond.
+    const prive = {};
+    Object.entries(MED_PRIVE).forEach(([veldId, kolom]) => { prive[kolom] = $(veldId).value.trim() || null; });
+    if (Object.values(prive).some((v) => v !== null)) {
+      const { error } = await db.from("medewerker_privegegevens")
+        .upsert({ medewerker_id: id, ...prive, bijgewerkt_op: new Date().toISOString() });
+      if (error) return toonMeld($("medMelding"), "fout", "Identiteitsgegevens opslaan mislukt: " + error.message);
+    }
+    sluitMedModal();
+    await laadMedewerkers();
+  } finally {
+    $("medOpslaan").disabled = false;
   }
-  sluitMedModal();
-  laadMedewerkers();
+});
+
+
+// ── Uitnodigingslink ────────────────────────────────────────────────────────
+//  Eén link voor de hele ploeg: wie hem opent kiest zijn naam en bewijst met
+//  zijn geboortedatum dat hij het is. De link verloopt na 30 dagen en kan
+//  ingetrokken worden, zodat een doorgestuurde WhatsApp niet eeuwig geldig is.
+$("uitnodigLink").addEventListener("click", async () => {
+  const vak = $("uitnodigVak");
+  vak.classList.remove("verborgen");
+  vak.innerHTML = '<span class="leeg">Link ophalen…</span>';
+
+  const { data: bestaand, error: leesFout } = await db.from("uitnodigingen")
+    .select("token, verloopt_op").eq("ingetrokken", false).gt("verloopt_op", new Date().toISOString())
+    .order("aangemaakt_op", { ascending: false }).limit(1);
+  if (leesFout) { vak.innerHTML = "Ophalen mislukt: " + esc(leesFout.message); return; }
+
+  let uit = bestaand && bestaand[0];
+  if (!uit) {
+    const { data, error } = await db.from("uitnodigingen")
+      .insert({ omschrijving: "Aanmelden monteurs" }).select("token, verloopt_op").single();
+    if (error) { vak.innerHTML = "Aanmaken mislukt: " + esc(error.message); return; }
+    uit = data;
+  }
+
+  const link = location.origin + location.pathname.replace(/beheer\.html$/, "") + "aanmelden.html?code=" + uit.token;
+  vak.innerHTML = `
+    <div class="uitnodig-kop">Uitnodigingslink</div>
+    <p>Stuur deze link naar je monteurs. Ze kiezen hun naam, vullen hun geboortedatum in en stellen een wachtwoord in.
+       Daarna geef jij ze vrij. Geldig tot ${datum(uit.verloopt_op.slice(0, 10))}.</p>
+    <div class="uitnodig-rij">
+      <input id="uitnodigVeld" class="mono" readonly value="${esc(link)}">
+      <button id="uitnodigKopie" class="btn btn-rood btn-klein">Kopieer</button>
+      <button id="uitnodigNieuw" class="btn btn-grijs btn-klein">Nieuwe link</button>
+    </div>`;
+  $("uitnodigKopie").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      $("uitnodigKopie").textContent = "Gekopieerd";
+      setTimeout(() => { $("uitnodigKopie").textContent = "Kopieer"; }, 2000);
+    } catch (_) { $("uitnodigVeld").select(); }
+  });
+  $("uitnodigNieuw").addEventListener("click", async () => {
+    if (!confirm("Een nieuwe link maken? De huidige link werkt daarna niet meer.")) return;
+    const { error } = await db.from("uitnodigingen").update({ ingetrokken: true }).eq("token", uit.token);
+    if (error) return alert("Intrekken mislukt: " + error.message);
+    $("uitnodigLink").click();
+  });
 });
 
 $("medUitDienst").addEventListener("click", async () => {

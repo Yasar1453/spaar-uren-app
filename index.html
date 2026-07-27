@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Spaar Electra">
-  <link rel="stylesheet" href="uren.css?v=27">
+  <link rel="stylesheet" href="uren.css?v=28">
 </head>
 <body>
   <div class="wrap smal" id="appWrap">
@@ -37,26 +37,11 @@
       <label for="inlogWachtwoord">Wachtwoord</label>
       <input id="inlogWachtwoord" type="password" autocomplete="current-password">
       <button id="inlogBtn" class="btn btn-rood" style="margin-top:18px">Inloggen</button>
-      <p class="reg-link"><button type="button" id="naarRegistreer">Eerste keer hier? Maak een account</button></p>
+      <p class="reg-link">Eerste keer? Kantoor stuurt je een uitnodigingslink waarmee je een wachtwoord instelt.</p>
     </section>
 
-    <!-- Registratiescherm (nieuwe medewerker) -->
-    <section id="registreer" class="kaart verborgen">
-      <h2>Registreren</h2>
-      <p style="margin:0 0 10px;color:var(--grijs);font-size:14px">Maak eenmalig een account aan met je eigen e-mailadres. Je krijgt een bevestigingsmail; open die link. Daarna geeft kantoor je account vrij en kun je inloggen en inklokken.</p>
-      <div id="regFout" class="melding fout verborgen"></div>
-      <div id="regOk" class="melding ok verborgen"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div><label for="regVoornaam">Voornaam</label><input id="regVoornaam" autocomplete="given-name"></div>
-        <div><label for="regAchternaam">Achternaam</label><input id="regAchternaam" autocomplete="family-name"></div>
-      </div>
-      <label for="regEmail">E-mail</label>
-      <input id="regEmail" type="email" placeholder="naam@voorbeeld.nl" autocomplete="email">
-      <label for="regWachtwoord">Wachtwoord</label>
-      <input id="regWachtwoord" type="password" autocomplete="new-password" placeholder="Minimaal 8 tekens">
-      <button id="regBtn" class="btn btn-rood" style="margin-top:18px">Registreren</button>
-      <p class="reg-link"><button type="button" id="naarInlog">Terug naar inloggen</button></p>
-    </section>
+    <!-- Aanmelden loopt via de uitnodigingslink van kantoor, niet meer via
+         zelfregistratie: het personeelsrecord bestaat al en wordt geclaimd. -->
 
     <!-- Weergave: Home (prikklok) -->
     <div data-mview="klok">
@@ -212,6 +197,6 @@
     </button>
   </nav>
 
-  <script type="module" src="monteur.js?v=27"></script>
+  <script type="module" src="monteur.js?v=28"></script>
 </body>
 </html>

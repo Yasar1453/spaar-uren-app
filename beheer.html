@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=27">
+  <link rel="stylesheet" href="uren.css?v=28">
 </head>
 <body>
 
@@ -192,8 +192,16 @@
         <!-- Medewerkers -->
         <section data-view="medewerkers" class="verborgen">
           <div class="kaart">
-            <h2>Medewerkers <span class="telling" id="telMedewerkers"></span></h2>
-            <p class="verplicht-uitleg">Monteurs maken zelf een account aan in de app, met hun eigen e-mailadres. Een nieuw account staat op <strong>wacht op vrijgave</strong> en kan pas inloggen nadat jij het vrijgeeft. Klik op Bewerken om contract, vakantiedagen en geboortedatum in te vullen.</p>
+            <div class="kaart-kop">
+              <h2>Medewerkers <span class="telling" id="telMedewerkers"></span></h2>
+              <div class="knoprij">
+                <button id="medNieuw" class="btn btn-rood btn-klein">Medewerker toevoegen</button>
+                <button id="uitnodigLink" class="btn btn-grijs btn-klein">Uitnodigingslink</button>
+              </div>
+            </div>
+            <p class="verplicht-uitleg">Jij legt de medewerker aan; hij stelt zelf zijn wachtwoord in via de uitnodigingslink. Wie zich heeft aangemeld staat op <strong>wacht op vrijgave</strong> en kan pas inloggen nadat jij hem vrijgeeft.</p>
+            <div id="medGeenGeboorte" class="melding fout verborgen"></div>
+            <div id="uitnodigVak" class="uitnodig-vak verborgen"></div>
             <div class="tabelwrap"><table><thead><tr><th>Naam</th><th>Rol</th><th>Contract</th><th>Uren/week</th><th>Vakantie</th><th>Geboren</th><th>Account</th><th></th></tr></thead><tbody id="tbMedewerkers"></tbody></table></div>
           </div>
         </section>
@@ -278,33 +286,115 @@
 
   <!-- Medewerker bewerken -->
   <div id="medModal" class="modal-overlay verborgen">
-    <div class="modal">
+    <div class="modal modal-breed">
       <div class="modal-kop">
-        <h2 id="medTitel">Medewerker bewerken</h2>
+        <h2 id="medTitel">Medewerker toevoegen</h2>
         <button id="medSluit" class="modal-x" aria-label="Sluiten">&times;</button>
       </div>
       <div id="medMelding" class="melding verborgen"></div>
-      <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
-        <div><label>Naam</label><input id="medNaam"></div>
-        <div><label>Geboortedatum</label><input id="medGeboortedatum" type="date"></div>
+      <div class="med-layout">
+        <nav class="med-tabs" role="tablist">
+          <button type="button" class="med-tab actief" data-mtab="basis">Basis</button>
+          <button type="button" class="med-tab" data-mtab="details">Details</button>
+          <button type="button" class="med-tab" data-mtab="contract">Contract</button>
+          <button type="button" class="med-tab" data-mtab="afwezigheid">Afwezigheid</button>
+          <button type="button" class="med-tab" data-mtab="rechten">Toegangsrechten</button>
+        </nav>
+        <div class="med-paneel">
+
+          <div data-mpaneel="basis">
+            <div class="veldrij">
+              <div><label for="medVoornaam">Voornaam <span class="ster">*</span></label><input id="medVoornaam" autocomplete="off"></div>
+              <div><label for="medTussenvoegsel">Tussenvoegsel</label><input id="medTussenvoegsel" autocomplete="off"></div>
+              <div><label for="medAchternaam">Achternaam <span class="ster">*</span></label><input id="medAchternaam" autocomplete="off"></div>
+            </div>
+            <div class="veldrij">
+              <div><label for="medEmail">E-mail</label><input id="medEmail" type="email" autocomplete="off"></div>
+              <div><label for="medTelefoon">Telefoonnummer</label><input id="medTelefoon" autocomplete="off"></div>
+            </div>
+            <p class="verplicht-uitleg">De monteur maakt zijn eigen wachtwoord aan via de uitnodigingslink. Vul hier geen wachtwoord in.</p>
+          </div>
+
+          <div data-mpaneel="details" class="verborgen">
+            <div class="veldrij">
+              <div><label for="medAdres">Adres</label><input id="medAdres" autocomplete="off"></div>
+              <div><label for="medPostcode">Postcode</label><input id="medPostcode" autocomplete="off"></div>
+              <div><label for="medPlaats">Plaats</label><input id="medPlaats" autocomplete="off"></div>
+            </div>
+            <div class="veldrij">
+              <div><label for="medMobiel">Mobiel nummer</label><input id="medMobiel" autocomplete="off"></div>
+              <div><label for="medNoodnummer">Noodnummer</label><input id="medNoodnummer" autocomplete="off"></div>
+            </div>
+            <div class="veldrij">
+              <div><label for="medGeboortedatum">Geboortedatum <span class="ster">*</span></label><input id="medGeboortedatum" type="date"></div>
+              <div><label for="medGeboorteplaats">Geboorteplaats</label><input id="medGeboorteplaats" autocomplete="off"></div>
+              <div><label for="medNationaliteit">Nationaliteit</label><input id="medNationaliteit" autocomplete="off"></div>
+            </div>
+            <p class="verplicht-uitleg">De geboortedatum is nodig: daarmee bewijst de monteur bij het aanmelden dat hij het is.</p>
+            <div class="veldrij">
+              <div><label for="medDatumInDienst">Datum in dienst</label><input id="medDatumInDienst" type="date"></div>
+              <div><label for="medPersoneelsnummer">Personeelsnummer</label><input id="medPersoneelsnummer" autocomplete="off"></div>
+            </div>
+            <label for="medRoosternotitie">Roosternotitie</label>
+            <textarea id="medRoosternotitie" rows="2" placeholder="Bv. werkt niet op woensdag"></textarea>
+
+            <div class="prive-vak">
+              <div class="prive-kop">Identiteits- en betaalgegevens</div>
+              <p class="verplicht-uitleg">Deze drie staan apart opgeslagen en zijn alleen voor beheerders zichtbaar. Vul ze alleen in als je ze hier echt nodig hebt.</p>
+              <div class="veldrij">
+                <div><label for="medBsn">BSN</label><input id="medBsn" autocomplete="off"></div>
+                <div><label for="medIdNummer">ID/Paspoortnummer</label><input id="medIdNummer" autocomplete="off"></div>
+                <div><label for="medBankrekening">Bankrekening</label><input id="medBankrekening" autocomplete="off"></div>
+              </div>
+            </div>
+          </div>
+
+          <div data-mpaneel="contract" class="verborgen">
+            <div class="veldrij">
+              <div><label for="medAfdeling">Contractafdeling</label><input id="medAfdeling" placeholder="Spaar Electra B.V." autocomplete="off"></div>
+              <div><label for="medContractType">Contracttype <span class="ster">*</span></label><select id="medContractType">
+                <option value="">—</option>
+                <option value="vast">Vast medewerker</option>
+                <option value="tijdelijk">Tijdelijk</option>
+                <option value="oproep">ZZP</option>
+              </select></div>
+              <div><label for="medFunctietitel">Functietitel</label><input id="medFunctietitel" placeholder="Bv. Monteur" autocomplete="off"></div>
+            </div>
+            <div class="veldrij">
+              <div><label for="medContractStart">Startdatum contract</label><input id="medContractStart" type="date"></div>
+              <div><label for="medContractEind">Einddatum contract</label><input id="medContractEind" type="date"></div>
+              <div><label for="medUurloon">Uurloon</label><input id="medUurloon" type="number" step="0.01" min="0" placeholder="0,00"></div>
+            </div>
+            <label class="vinkregel"><input type="checkbox" id="medLoonheffing"> Loonheffingskorting toepassen</label>
+            <label style="margin-top:16px">Contracturen per dag <span class="ster">*</span></label>
+            <div class="uren-week" id="medUrenWeek"></div>
+            <label for="medContractnotitie">Contractnotitie</label>
+            <textarea id="medContractnotitie" rows="2"></textarea>
+          </div>
+
+          <div data-mpaneel="afwezigheid" class="verborgen">
+            <div class="veldrij">
+              <div><label for="medBeleid">Afwezigheidsbeleid</label><select id="medBeleid"></select></div>
+              <div><label for="medStartUren">Beginsaldo verlof (uren)</label><input id="medStartUren" type="number" step="0.25" placeholder="0"></div>
+              <div><label for="medVerlofDagen">Vakantiedagen per jaar</label><input id="medVerlofDagen" type="number" step="0.5" min="0"></div>
+            </div>
+            <div class="saldo-vak"><div class="saldo-kop">Verlofsaldo</div><div id="medSaldo"></div></div>
+          </div>
+
+          <div data-mpaneel="rechten" class="verborgen">
+            <label for="medRol">Rol</label>
+            <select id="medRol">
+              <option value="monteur">Medewerker</option>
+              <option value="beheerder">Beheerder</option>
+            </select>
+            <p class="verplicht-uitleg">Een beheerder ziet alle uren, het rooster en alle personeelsgegevens. Een medewerker ziet alleen zichzelf.</p>
+            <div id="medAccountVak" class="account-vak verborgen"></div>
+          </div>
+
+        </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
-        <div><label>Contracttype</label><select id="medContractType">
-          <option value="">—</option>
-          <option value="vast">Vast</option>
-          <option value="tijdelijk">Tijdelijk</option>
-          <option value="oproep">Oproep</option>
-        </select></div>
-        <div><label>Start contract</label><input id="medContractStart" type="date"></div>
-        <div><label>Einde contract</label><input id="medContractEind" type="date"></div>
-        <div><label for="medBeleid">Verlofbeleid</label><select id="medBeleid"></select></div>
-        <div><label for="medStartUren">Beginsaldo verlof (uren)</label><input id="medStartUren" type="number" step="0.25" placeholder="0"></div>
-      </div>
-      <label style="margin-top:16px">Contracturen per dag <span class="ster">*</span></label>
-      <div class="uren-week" id="medUrenWeek"></div>
-      <div class="saldo-vak"><div class="saldo-kop">Verlofsaldo</div><div id="medSaldo"></div></div>
       <div class="modal-acties" style="margin-top:18px">
-        <button id="medUitDienst" class="btn btn-grijs btn-klein">Uit dienst</button>
+        <button id="medUitDienst" class="btn btn-grijs btn-klein verborgen">Uit dienst</button>
         <div style="margin-left:auto;display:flex;gap:8px">
           <button id="medAnnuleer" class="btn btn-grijs btn-klein">Annuleren</button>
           <button id="medOpslaan" class="btn btn-rood btn-klein">Opslaan</button>
@@ -361,6 +451,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=27"></script>
+  <script type="module" src="beheer.js?v=28"></script>
 </body>
 </html>

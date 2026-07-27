@@ -4,7 +4,7 @@
 //  Bouwt voort op de logica uit ../../werknemer.js, nu gekoppeld aan Supabase.
 // ============================================================================
 import { monteurClient, VAPID_PUBLIC } from "./config.js";
-import { icoon } from "./iconen.js?v=27";
+import { icoon } from "./iconen.js?v=28";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();   // eigen sessie, blijft bewaard tussen bezoeken
@@ -69,50 +69,10 @@ function netfout(e, standaard) {
   return m || standaard;
 }
 
-// ── Registreren (eerste keer) ───────────────────────────────────────────────
-$("naarRegistreer").addEventListener("click", () => {
-  $("inlog").classList.add("verborgen");
-  $("registreer").classList.remove("verborgen");
-});
-$("naarInlog").addEventListener("click", () => {
-  $("registreer").classList.add("verborgen");
-  $("inlog").classList.remove("verborgen");
-});
+// Zelfregistratie is vervallen: kantoor legt de medewerker aan en stuurt een
+// uitnodigingslink (aanmelden.html), waar de monteur zijn wachtwoord instelt.
 
 $("vaSoort").addEventListener("change", toonSoortIcoon);
-
-$("regBtn").addEventListener("click", async () => {
-  verberg($("regFout")); verberg($("regOk"));
-  const voornaam = $("regVoornaam").value.trim();
-  const achternaam = $("regAchternaam").value.trim();
-  const email = $("regEmail").value.trim().toLowerCase();
-  const wachtwoord = $("regWachtwoord").value;
-  if (!voornaam || !achternaam) return toon($("regFout"), "Vul je voor- en achternaam in.");
-  if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(email)) return toon($("regFout"), "Vul een geldig e-mailadres in.");
-  if (wachtwoord.length < 8) return toon($("regFout"), "Kies een wachtwoord van minimaal 8 tekens.");
-
-  $("regBtn").disabled = true;
-  try {
-    const { data, error } = await db.auth.signUp({
-      email,
-      password: wachtwoord,
-      options: { data: { naam: voornaam + " " + achternaam } },
-    });
-    if (error) {
-      const msg = /already registered|already exists/i.test(error.message)
-        ? "Er bestaat al een account met dit e-mailadres."
-        : "Registreren mislukt: " + error.message;
-      return toon($("regFout"), msg);
-    }
-    toon($("regOk"), "Je account is aangemaakt. We hebben een bevestigingsmail gestuurd naar "
-      + email + " — open die link. Daarna geeft de beheerder je account vrij; dan kun je inloggen.");
-    $("regVoornaam").value = ""; $("regAchternaam").value = ""; $("regEmail").value = ""; $("regWachtwoord").value = "";
-  } catch (e) {
-    toon($("regFout"), "Registreren mislukt. Controleer je internetverbinding.");
-  } finally {
-    $("regBtn").disabled = false;
-  }
-});
 
 // ── Zelf bijwerken ──────────────────────────────────────────────────────────
 //  GitHub Pages geeft de HTML tien minuten cache mee en de pagina kan zichzelf
@@ -121,7 +81,7 @@ $("regBtn").addEventListener("click", async () => {
 //  starten het versienummer op (langs de cache heen) en herladen we eenmalig
 //  als er iets nieuwers staat. De vlag in sessionStorage voorkomt een lus als
 //  het herladen om welke reden dan ook niet aanslaat.
-const APP_VERSIE = 27;
+const APP_VERSIE = 28;
 async function controleerVersie() {
   try {
     const r = await fetch("versie.json?t=" + Date.now(), { cache: "no-store" });

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#e20613">
+  <title>Aanmelden — Spaar Electra</title>
+  <link rel="icon" type="image/svg+xml" href="spaarlogo.svg">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="uren.css?v=27">
+</head>
+<body>
+  <div class="wrap smal">
+    <div class="kop">
+      <img class="logo" src="spaarlogo.svg" alt="Spaar Electra">
+      <div>
+        <h1>Aanmelden</h1>
+        <div class="sub">Urenregistratie</div>
+      </div>
+    </div>
+
+    <section class="kaart">
+      <div id="fout" class="melding fout verborgen"></div>
+      <div id="ok" class="melding ok verborgen"></div>
+
+      <div id="formulier">
+        <p style="margin:0 0 14px;color:var(--grijs);font-size:14px">
+          Kies je naam, vul je geboortedatum in en stel een wachtwoord in.
+          Daarna geeft kantoor je account vrij en kun je inklokken.
+        </p>
+
+        <label for="wie">Wie ben je?</label>
+        <select id="wie"><option value="">Lijst laden…</option></select>
+
+        <label for="geboortedatum">Je geboortedatum</label>
+        <input id="geboortedatum" type="date">
+
+        <label for="email">E-mailadres</label>
+        <input id="email" type="email" inputmode="email" autocomplete="username"
+               autocapitalize="none" spellcheck="false" placeholder="naam@voorbeeld.nl">
+
+        <label for="wachtwoord">Kies een wachtwoord</label>
+        <input id="wachtwoord" type="password" autocomplete="new-password" placeholder="Minimaal 8 tekens">
+
+        <button id="aanmeldBtn" class="btn btn-rood" style="margin-top:18px">Account aanmaken</button>
+      </div>
+
+      <p class="reg-link" style="margin-top:14px"><a href="index.html">Heb je al een account? Inloggen</a></p>
+    </section>
+  </div>
+
+  <script type="module" src="aanmelden.js?v=27"></script>
+</body>
+</html>
