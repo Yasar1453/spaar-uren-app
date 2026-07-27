@@ -6,7 +6,7 @@
 import { beheerClient } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=34";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=35";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -615,12 +615,17 @@ function toonVerlofBerekening() {
     vak.innerHTML = '<span class="leeg">Kies een afwezigheidsbeleid om het verlofrecht te berekenen.</span>';
     return;
   }
-  const tekort = b.verlofUren + 0.01 < b.minimumUren;
+  // Een factor van 0 betekent "dit beleid bouwt geen verlof op" — bij ZZP is dat
+  // de bedoeling en geen fout. Alleen waarschuwen als er wél opgebouwd wordt,
+  // maar minder dan de wet voorschrijft.
+  const geenOpbouw = b.factor === 0;
+  const tekort = !geenOpbouw && b.verlofUren + 0.01 < b.minimumUren;
   vak.innerHTML = `
     <div class="saldo-rij"><span>Contracturen</span><b>${netGetal(b.week)} u per week over ${b.werkdagen} dag${b.werkdagen === 1 ? "" : "en"}</b></div>
     <div class="saldo-rij"><span>Gewerkt per jaar (${WEKEN_PER_JAAR} weken)</span><b>${netGetal(b.jaarUren)} u</b></div>
-    <div class="saldo-rij"><span>Opbouw volgens ${esc(b.beleid.naam)} (× ${Number(b.factor).toFixed(6)})</span><b>${urenTekst(b.verlofUren)}</b></div>
-    <div class="saldo-rij totaal"><span>Verlofrecht per jaar</span><b>${netGetal(b.dagen)} dagen van ${netGetal(b.daglengte)} u</b></div>
+    <div class="saldo-rij"><span>Opbouw volgens ${esc(b.beleid.naam)} (× ${Number(b.factor).toFixed(6)})</span><b>${geenOpbouw ? "0 u" : urenTekst(b.verlofUren)}</b></div>
+    <div class="saldo-rij totaal"><span>Verlofrecht per jaar</span><b>${geenOpbouw ? "geen" : `${netGetal(b.dagen)} dagen van ${netGetal(b.daglengte)} u`}</b></div>
+    ${geenOpbouw ? `<div class="melding" style="margin-top:10px">Onder ${esc(b.beleid.naam)} wordt geen verlof opgebouwd. Dat klopt voor ZZP: daar geldt geen wettelijk vakantierecht.</div>` : ""}
     ${tekort ? `<div class="melding fout" style="margin-top:10px">Dit is minder dan het wettelijk minimum van ${netGetal(b.minimumUren)} uur (vier keer de wekelijkse arbeidsduur). Controleer de opbouwfactor van het beleid.</div>` : ""}`;
 }
 
