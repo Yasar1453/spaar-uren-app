@@ -229,7 +229,7 @@ async function laadHome() {
           const naam = (u.projecten?.werkbon ? u.projecten.werkbon + " · " : "") + (u.projecten?.naam || "");
           return `<div class="lijst-rij">
             <div class="lijst-datum"><span class="ld-dag">${d.toLocaleDateString("nl-NL", { weekday: "short" })}</span><span class="ld-nr">${d.toLocaleDateString("nl-NL", { day: "2-digit", month: "short" })}</span></div>
-            <div class="lijst-body"><span class="lb-titel">${(u.start_tijd ? tijd(u.start_tijd) : "—") + " – " + (u.eind_tijd ? tijd(u.eind_tijd) : "—")} · ${Number(u.uren).toFixed(2).replace(".", ",")} u</span>
+            <div class="lijst-body"><span class="lb-titel">${(u.start_tijd ? tijd(u.start_tijd) : "—") + " – " + (u.eind_tijd ? tijd(u.eind_tijd) : "—")} · ${urenTekst(u.uren)}</span>
               <span class="lb-sub">${esc(naam)}</span></div>
           </div>`;
         }).join("")
@@ -369,16 +369,16 @@ async function laadMijnUren() {
   const telbaar = (data || []).filter((u) => u.status !== "afgekeurd");
   const dezeWeek = telbaar.filter((u) => u.datum >= iso(maandag)).reduce((s, u) => s + Number(u.uren || 0), 0);
   const vorigeWeek = telbaar.filter((u) => u.datum >= iso(vorigeMa) && u.datum < iso(maandag)).reduce((s, u) => s + Number(u.uren || 0), 0);
-  $("urenDezeWeek").textContent = dezeWeek.toFixed(2).replace(".", ",") + " u";
-  $("urenVorigeWeek").textContent = vorigeWeek.toFixed(2).replace(".", ",") + " u";
+  $("urenDezeWeek").textContent = urenTekst(dezeWeek);
+  $("urenVorigeWeek").textContent = urenTekst(vorigeWeek);
 
   // Plus/min-saldo t.o.v. contracturen (verschijnt alleen als contracturen zijn ingevuld)
   const profiel = await haalMijnProfiel();
   const contract = contractWeekUren(profiel?.contract_uren);
   if (contract != null) {
     const saldo = Math.round((vorigeWeek - contract) * 100) / 100;
-    $("wtContract").textContent = String(contract).replace(".", ",") + " u";
-    $("wtSaldo").textContent = (saldo >= 0 ? "+" : "") + saldo.toFixed(2).replace(".", ",") + " u";
+    $("wtContract").textContent = urenTekst(contract);
+    $("wtSaldo").textContent = (saldo >= 0 ? "+" : "-") + urenTekst(Math.abs(saldo));
     $("wtSaldo").style.color = saldo >= 0 ? "var(--groen)" : "var(--rood-donker)";
     $("saldoKaart").classList.remove("verborgen");
   } else {
@@ -399,7 +399,7 @@ async function laadMijnUren() {
     const tijden = (u.start_tijd ? tijd(u.start_tijd) : "—") + " – " + (u.eind_tijd ? tijd(u.eind_tijd) : "—");
     return `<div class="lijst-rij">
       <div class="lijst-datum"><span class="ld-dag">${dagNaam}</span><span class="ld-nr">${dagNr}</span></div>
-      <div class="lijst-body"><span class="lb-titel">${tijden} · ${Number(u.uren).toFixed(2).replace(".", ",")} u</span>
+      <div class="lijst-body"><span class="lb-titel">${tijden} · ${urenTekst(u.uren)}</span>
         <span class="lb-sub">${esc(naam)}${u.km ? " · " + u.km + " km" : ""}</span></div>
       <div>${badge(u.status)}</div>
     </div>`;
@@ -570,7 +570,8 @@ $("uitklokBtn").addEventListener("click", async () => {
   $("uitklokBtn").disabled = true;
   try {
     const start = new Date(openSessie.ingeklokt_op);
-    const uren = Math.max(0.25, Math.round(((Date.now() - start.getTime()) / 3600000) * 4) / 4); // kwartier
+    // Exacte tijd op de minuut — geen kwartierafronding, geen minimum.
+    const uren = urenUitMinuten(Math.round((Date.now() - start.getTime()) / 60000));
     // Lokale kalenderdatum (niet UTC) — anders belandt een late/nachtdienst op de verkeerde dag.
     const datumLokaal = start.getFullYear() + "-" + String(start.getMonth() + 1).padStart(2, "0") + "-" + String(start.getDate()).padStart(2, "0");
     // Als de urenregel bij een vorige poging al is opgeslagen (maar de sessie
@@ -694,6 +695,17 @@ async function laadMijnVerlof() {
      </div>`).join("");
 }
 function datumKort(d) { return new Date(d + "T12:00:00").toLocaleDateString("nl-NL", { day: "2-digit", month: "short" }); }
+
+// ── Uren: exact opslaan in decimalen, tonen als "2 u 16 min" ────────────────
+function urenUitMinuten(min) { return Math.round((Math.max(0, min) / 60) * 100) / 100; }
+function urenTekst(u) {
+  const totaal = Math.round((Number(u) || 0) * 60);
+  const h = Math.floor(totaal / 60), m = totaal % 60;
+  if (!h && !m) return "0 min";
+  if (!h) return m + " min";
+  if (!m) return h + " u";
+  return h + " u " + m + " min";
+}
 
 // ── Verlofdagen tellen: alleen werkdagen (za/zo en feestdagen tellen niet) ──
 function paasZondag(jaar) {

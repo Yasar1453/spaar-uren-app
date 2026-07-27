@@ -91,7 +91,7 @@ async function laadIngeklokt() {
     const duurUur = (Date.now() - new Date(s.ingeklokt_op).getTime()) / 3600000;
     if (!confirm(`${s.medewerkers?.naam} uitklokken?\n\nIngeklokt sinds ${tijd(s.ingeklokt_op)} (${duurUur.toFixed(1)} uur geleden). Er wordt een urenregel aangemaakt met status "onbeslist" die je daarna kunt aanpassen of afkeuren.`)) return;
     const start = new Date(s.ingeklokt_op);
-    const uren = Math.max(0.25, Math.round(duurUur * 4) / 4);
+    const uren = urenUitMinuten(Math.round(duurUur * 60));
     const datumLokaal = start.getFullYear() + "-" + String(start.getMonth() + 1).padStart(2, "0") + "-" + String(start.getDate()).padStart(2, "0");
     const { error: e1 } = await db.from("urenregels").insert({
       medewerker_id: s.medewerker_id, project_id: s.project_id,
@@ -138,7 +138,7 @@ function statusBadge(s) {
 function recentRij(u) {
   return `<tr><td class="mono">${datum(u.datum)}</td><td class="sterk">${esc(u.medewerkers?.naam)}</td>
     <td class="mono">${esc(werkbonTekst(u.projecten))}</td>
-    <td class="sterk mono">${Number(u.uren).toFixed(2)} u</td>
+    <td class="sterk mono">${urenTekst(u.uren)}</td>
     <td>${statusBadge(u.status)}</td><td>${esc(u.omschrijving || "")}</td></tr>`;
 }
 function pauzeTekst(u) {
@@ -161,7 +161,7 @@ function urenRij(u) {
     <td class="mono">${u.eind_tijd ? tijd(u.eind_tijd) : "—"}</td>
     <td class="mono">${pauzeTekst(u)}</td>
     <td class="mono">${u.km != null ? u.km : "—"}</td>
-    <td class="sterk mono">${Number(u.uren).toFixed(2)}</td>
+    <td class="sterk mono">${urenTekst(u.uren)}</td>
     <td>${statusBadge(u.status)}</td>
     <td>${esc(u.omschrijving || "")}</td>${actie}</tr>`;
 }
@@ -180,9 +180,9 @@ $("urenExport").addEventListener("click", async () => {
     u.datum, u.medewerkers?.naam || "", werkbonTekst(u.projecten),
     u.start_tijd ? tijd(u.start_tijd) : "", u.eind_tijd ? tijd(u.eind_tijd) : "",
     u.pauze_onbetaald_min || 0, u.pauze_betaald_min || 0, u.km != null ? u.km : "",
-    Number(u.uren).toFixed(2), u.status, u.omschrijving || "",
+    komma(u.uren), urenTekst(u.uren), u.status, u.omschrijving || "",
   ]);
-  csvDownload(["Datum", "Monteur", "Werkbon", "Start", "Eind", "Pauze onbetaald (min)", "Pauze betaald (min)", "Km", "Uren", "Status", "Omschrijving"], rijen, "uren");
+  csvDownload(["Datum", "Monteur", "Werkbon", "Start", "Eind", "Pauze onbetaald (min)", "Pauze betaald (min)", "Km", "Uren (decimaal)", "Uren", "Status", "Omschrijving"], rijen, "uren");
 });
 
 // ── Verlof / afwezigheid ─────────────────────────────────────────────────────
@@ -576,7 +576,17 @@ $("rVolgende").addEventListener("click", () => { weekStart.setDate(weekStart.get
 // ── Rapportages ──────────────────────────────────────────────────────────────
 let _rapMonteur = [];
 let _rapPeriode = "";                 // periode waarvoor de cijfers zijn berekend
-const komma = (n) => Number(n || 0).toFixed(2).replace(".", ","); // Excel-NL leest zo als getal
+const komma = (n) => Number(n || 0).toFixed(2).replace(".", ",");
+// Uren exact opslaan in decimalen, maar tonen als "2 u 16 min"
+function urenUitMinuten(min) { return Math.round((Math.max(0, min) / 60) * 100) / 100; }
+function urenTekst(u) {
+  const totaal = Math.round((Number(u) || 0) * 60);
+  const h = Math.floor(totaal / 60), m = totaal % 60;
+  if (!h && !m) return "0 min";
+  if (!h) return m + " min";
+  if (!m) return h + " u";
+  return h + " u " + m + " min";
+} // Excel-NL leest zo als getal
 function standaardPeriode() {
   const nu = new Date();
   const eerste = new Date(nu.getFullYear(), nu.getMonth(), 1);
@@ -629,12 +639,12 @@ async function toonRapport() {
   _rapMonteur = Object.values(perM).sort((a, b) => a.naam.localeCompare(b.naam));
   const openTotaal = _rapMonteur.reduce((s, m) => s + m.open, 0);
   $("rapWaarschuwing").textContent = openTotaal > 0
-    ? `Let op: ${openTotaal.toFixed(2).replace(".", ",")} uur is nog niet goedgekeurd en telt wel mee in deze cijfers.` : "";
+    ? `Let op: ${urenTekst(openTotaal)} is nog niet goedgekeurd en telt wel mee in deze cijfers.` : "";
   $("rapWaarschuwing").classList.toggle("verborgen", openTotaal === 0);
   $("tbRapMonteur").innerHTML = _rapMonteur.length ? _rapMonteur.map((m) =>
     `<tr><td class="sterk">${esc(m.naam)}</td><td class="mono">${m.dagen.size}</td>
-     <td class="sterk mono">${m.uren.toFixed(2).replace(".", ",")}</td>
-     <td class="mono">${m.open ? m.open.toFixed(2).replace(".", ",") : "—"}</td>
+     <td class="sterk mono">${urenTekst(m.uren)}</td>
+     <td class="mono">${m.open ? urenTekst(m.open) : "—"}</td>
      <td class="mono">${m.km || 0}</td>
      <td class="mono">${m.vakantie || 0}</td><td class="mono">${m.ziek || 0}</td>
      <td class="mono">${m.overig || 0}</td></tr>`).join("") : rijLeeg(8, "Geen gegevens in deze periode.");
@@ -648,15 +658,15 @@ async function toonRapport() {
   });
   const projRijen = Object.values(perP).sort((a, b) => b.uren - a.uren);
   $("tbRapProject").innerHTML = projRijen.length ? projRijen.map((p) =>
-    `<tr><td class="mono sterk">${esc(p.werkbon)}</td><td>${esc(p.naam)}</td><td class="sterk mono">${p.uren.toFixed(2)}</td></tr>`).join("") : rijLeeg(3, "Geen gegevens in deze periode.");
+    `<tr><td class="mono sterk">${esc(p.werkbon)}</td><td>${esc(p.naam)}</td><td class="sterk mono">${urenTekst(p.uren)}</td></tr>`).join("") : rijLeeg(3, "Geen gegevens in deze periode.");
 }
 $("rapExportMonteur").addEventListener("click", () => {
   if (!_rapMonteur.length) return alert("Toon eerst een overzicht.");
   const rijen = _rapMonteur.map((m) => [
-    m.naam, m.id, m.dagen.size, komma(m.uren), komma(m.open), m.km || 0,
+    m.naam, m.id, m.dagen.size, komma(m.uren), urenTekst(m.uren), komma(m.open), m.km || 0,
     m.vakantie || 0, m.ziek || 0, m.overig || 0,
   ]);
-  csvDownload(["Monteur", "Medewerker-id", "Dagen gewerkt", "Uren", "Nog te keuren", "Km", "Vakantiedagen", "Ziektedagen", "Overig verlof"],
+  csvDownload(["Monteur", "Medewerker-id", "Dagen gewerkt", "Uren (decimaal)", "Uren", "Nog te keuren", "Km", "Vakantiedagen", "Ziektedagen", "Overig verlof"],
     rijen, "rapport-" + _rapPeriode);
 });
 
