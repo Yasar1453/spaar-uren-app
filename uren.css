@@ -317,3 +317,18 @@ tbody tr:last-child td{border-bottom:none}
 
 /* Meerdere knoppen naast elkaar in een tabelcel */
 .knoprij{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ── Pictogrammen bij afwezigheidstypes ──────────────────────────────────── */
+.afw-ico{flex:none;vertical-align:-3px}
+.afw-label{display:inline-flex;align-items:center;gap:6px}
+.afw-ico-vak{display:inline-flex;align-items:center;justify-content:center;
+  width:30px;height:30px;border-radius:8px}
+.mini-select{padding:4px 6px;font-size:12px;height:auto;margin:0;width:auto;min-width:120px}
+/* Soortkeuze in de monteur-app: pictogram naast de keuzelijst */
+.soort-rij{display:flex;align-items:center;gap:8px}
+.soort-rij select{flex:1;margin:0}
+.soort-ico{flex:none;display:inline-flex;align-items:center;justify-content:center;
+  width:34px;height:34px;border-radius:9px;background:var(--zacht)}
+/* Verlofbalk in het weekrooster krijgt de kleur van het type */
+.r-vrij{display:flex;align-items:center;gap:5px;border:1px solid transparent}
+.r-vrij-tekst{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

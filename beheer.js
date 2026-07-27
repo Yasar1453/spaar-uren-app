@@ -6,6 +6,7 @@
 import { beheerClient } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=1";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -51,7 +52,10 @@ async function naarDash() {
       .select("id").eq("auth_user_id", data.user.id).is("verwijderd_op", null).maybeSingle();
     ikBenId = ik?.id || null;
   }
-  await Promise.all([laadIngeklokt(), laadUren(), laadProjecten(), laadMedewerkers(), laadRooster(), laadVerlof(), laadPauzes(), laadBeleid()]);
+  // Beleid eerst: verlof, rooster en typelabels halen hun naam, kleur en
+  // pictogram uit _types, dus die lijst moet er zijn voordat er getekend wordt.
+  await laadBeleid();
+  await Promise.all([laadIngeklokt(), laadUren(), laadProjecten(), laadMedewerkers(), laadRooster(), laadVerlof(), laadPauzes()]);
   standaardPeriode();
   toonRapport();
   if (tikker) clearInterval(tikker);
@@ -363,7 +367,7 @@ async function laadVerlof() {
          <button class="btn btn-grijs btn-klein" data-vkeur="afgekeurd" data-id="${r.id}">Afwijzen</button>`
       : `<button class="btn btn-grijs btn-klein" data-vdel="${r.id}">Verwijder</button>`;
     return `<tr><td class="sterk">${esc(r.medewerkers?.naam)}</td>
-      <td>${SOORT_LABEL[r.soort] || r.soort}</td>
+      <td>${typeLabel(r.soort)}</td>
       <td class="mono">${datum(r.van_datum)}</td><td class="mono">${datum(r.tot_datum)}</td>
       <td class="mono">${dagenTussen(r.van_datum, r.tot_datum)}</td>
       <td>${esc(r.reden || "")}</td><td>${statusBadge(r.status)}</td>
@@ -686,6 +690,15 @@ $("medUitDienst").addEventListener("click", async () => {
 });
 
 // ── Verlofbeleid en afwezigheidstypes ───────────────────────────────────────
+// Zoekt het type bij een code, zodat pictogram en kleur overal gelijk zijn.
+function typeVanCode(code) {
+  return _types.find((t) => t.code === code) || { code, naam: SOORT_LABEL[code] || code, kleur: "#6d635f" };
+}
+// Naam met pictogram ervoor, in de kleur van het type.
+function typeLabel(code) {
+  const t = typeVanCode(code);
+  return `<span class="afw-label">${icoon(t, { kleur: t.kleur })}${esc(t.naam)}</span>`;
+}
 let _beleid = [], _types = [], _beleidTypes = [];
 
 async function laadBeleid() {
@@ -722,14 +735,17 @@ async function laadBeleid() {
            ${_beleidTypes.some((k) => k.beleid_id === bId && k.type_id === ty.id) ? "checked" : ""}>`
       : "";
     return `<tr${ty.actief ? "" : ' class="rij-verwerkt"'}>
-      <td><span class="wb-stip" style="background:${ty.kleur}"></span></td>
+      <td><span class="afw-ico-vak" style="color:${ty.kleur};background:${ty.kleur}1a">${icoon(ty, { maat: 18 })}</span></td>
       <td class="sterk">${esc(ty.naam)}</td>
+      <td><select class="mini-select" data-type-icoon="${ty.id}">${
+        ICOON_KEUZE.map(([k, n]) => `<option value="${k}"${(ty.icoon || "kalender") === k ? " selected" : ""}>${n}</option>`).join("")
+      }</select></td>
       <td>${ty.gaat_van_saldo ? '<span class="badge amber">van saldo</span>' : '<span class="badge grijs">nee</span>'}</td>
       <td><input type="checkbox" data-type-actief="${ty.id}" ${ty.actief ? "checked" : ""}></td>
       <td class="kies-cel">${vink(_beleid[0]?.id)}</td>
       <td class="kies-cel">${vink(_beleid[1]?.id)}</td>
     </tr>`;
-  }).join("") || rijLeeg(6, "Nog geen types.");
+  }).join("") || rijLeeg(7, "Nog geen types.");
 
   // Opbouwfactor aanpassen
   document.querySelectorAll("[data-factor]").forEach((i) => i.addEventListener("change", async () => {
@@ -749,6 +765,11 @@ async function laadBeleid() {
     laadBeleid();
   }));
   // Type helemaal aan/uit
+  document.querySelectorAll("[data-type-icoon]").forEach((sel) => sel.addEventListener("change", async () => {
+    const { error } = await db.from("afwezigheid_types").update({ icoon: sel.value }).eq("id", sel.dataset.typeIcoon);
+    if (error) return toonMeld($("beleidMelding"), "fout", "Pictogram opslaan mislukt: " + error.message);
+    laadBeleid();
+  }));
   document.querySelectorAll("[data-type-actief]").forEach((c) => c.addEventListener("change", async () => {
     const { error } = await db.from("afwezigheid_types").update({ actief: c.checked }).eq("id", c.dataset.typeActief);
     if (error) { c.checked = !c.checked; return toonMeld($("beleidMelding"), "fout", "Mislukt: " + error.message); }
@@ -906,11 +927,10 @@ async function tekenWeek(mws) {
       // Verlof/afwezigheid als volle balk, net als in Shiftbase
       const vrij = _weekAfwezig.filter((a) => a.medewerker_id === m.id && dat >= a.van_datum && dat <= a.tot_datum);
       const vrijBlok = vrij.map((a) => {
-        const label = a.soort === "vakantie" ? "Vakantie"
-          : a.soort === "ziek" ? "Ziek"
-          : a.soort === "onbetaald" ? "Onbetaald verlof" : "Bijzonder verlof";
+        const t = typeVanCode(a.soort);
         const wacht = a.status === "onbeslist";
-        return `<span class="r-vrij${wacht ? " wacht" : ""}" title="${label}${wacht ? " (nog niet goedgekeurd)" : ""}">${label}${wacht ? " ?" : ""}</span>`;
+        return `<span class="r-vrij${wacht ? " wacht" : ""}" style="background:${t.kleur}1f;border-color:${t.kleur};color:${t.kleur}"
+          title="${esc(t.naam)}${wacht ? " (nog niet goedgekeurd)" : ""}">${icoon(t, { maat: 13 })}<span class="r-vrij-tekst">${esc(t.naam)}</span>${wacht ? "<b>?</b>" : ""}</span>`;
       }).join("");
       return `<td class="${klas}">${vrijBlok}${blokken}</td>`;
     }).join("");
@@ -961,7 +981,7 @@ $("rInplannen").addEventListener("click", async () => {
     .is("verwijderd_op", null).neq("status", "afgekeurd").limit(1);
   if (vrij && vrij.length) {
     const naam = $("rMedewerker").selectedOptions[0]?.textContent || "Deze monteur";
-    const wat = SOORT_LABEL[vrij[0].soort]?.toLowerCase() || "afwezig";
+    const wat = typeVanCode(vrij[0].soort).naam.toLowerCase();
     if (!confirm(`${naam} heeft die dag ${wat}. Toch inplannen?`)) return;
   }
   const { error } = await db.from("planning").insert({

@@ -4,6 +4,7 @@
 //  Bouwt voort op de logica uit ../../werknemer.js, nu gekoppeld aan Supabase.
 // ============================================================================
 import { monteurClient, VAPID_PUBLIC } from "./config.js";
+import { icoon } from "./iconen.js?v=1";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();   // eigen sessie, blijft bewaard tussen bezoeken
@@ -77,6 +78,8 @@ $("naarInlog").addEventListener("click", () => {
   $("registreer").classList.add("verborgen");
   $("inlog").classList.remove("verborgen");
 });
+
+$("vaSoort").addEventListener("change", toonSoortIcoon);
 
 $("regBtn").addEventListener("click", async () => {
   verberg($("regFout")); verberg($("regOk"));
@@ -246,7 +249,7 @@ async function laadHome() {
     });
     const soorten = Object.keys(perSoort);
     $("homeAfw").innerHTML = soorten.length
-      ? soorten.map((s) => `<span class="chip">${SOORT_NAAM[s] || SOORT_LABEL[s] || s}: <b style="margin-left:4px">${perSoort[s]} ${perSoort[s] === 1 ? "dag" : "dagen"}</b></span>`).join("")
+      ? soorten.map((s) => `<span class="chip">${typeLabel(s)}: <b style="margin-left:4px">${perSoort[s]} ${perSoort[s] === 1 ? "dag" : "dagen"}</b></span>`).join("")
       : `<span class="leeg">Nog geen goedgekeurde afwezigheid in ${jaar}.</span>`;
     $("homeAfwKaart").classList.remove("verborgen");
   } catch (_) {}
@@ -651,10 +654,10 @@ async function vulVerlofSoorten() {
   let types = [];
   if (ik?.beleid_id) {
     const { data } = await db.from("beleid_types")
-      .select("afwezigheid_types(code, naam, volgorde, actief)").eq("beleid_id", ik.beleid_id);
+      .select("afwezigheid_types(code, naam, kleur, icoon, volgorde, actief)").eq("beleid_id", ik.beleid_id);
     types = (data || []).map((r) => r.afwezigheid_types).filter((t) => t && t.actief);
   } else {
-    const { data } = await db.from("afwezigheid_types").select("code, naam, volgorde, actief").eq("actief", true);
+    const { data } = await db.from("afwezigheid_types").select("code, naam, kleur, icoon, volgorde, actief").eq("actief", true);
     types = data || [];
   }
   types.sort((a, b) => (a.volgorde || 0) - (b.volgorde || 0));
@@ -666,8 +669,26 @@ async function vulVerlofSoorten() {
   });
   if (huidig && types.some((t) => t.code === huidig)) sel.value = huidig;
   SOORT_NAAM = Object.fromEntries(types.map((t) => [t.code, t.naam]));
+  SOORT_TYPE = Object.fromEntries(types.map((t) => [t.code, t]));
+  toonSoortIcoon();
 }
 let SOORT_NAAM = {};
+let SOORT_TYPE = {};
+// Een <select> kan geen tekening bevatten, dus staat het pictogram ernaast.
+function toonSoortIcoon() {
+  const vak = $("vaSoortIcoon");
+  if (!vak) return;
+  const t = typeVanCode($("vaSoort").value);
+  vak.innerHTML = icoon(t, { maat: 18, kleur: t.kleur });
+}
+function typeVanCode(code) {
+  return SOORT_TYPE[code] || { code, naam: SOORT_NAAM[code] || SOORT_LABEL[code] || code, kleur: "#6d635f" };
+}
+// Naam met pictogram ervoor, in de kleur van het type.
+function typeLabel(code) {
+  const t = typeVanCode(code);
+  return `<span class="afw-label">${icoon(t, { kleur: t.kleur })}${t.naam}</span>`;
+}
 
 $("vaVerstuur").addEventListener("click", async () => {
   const meld = $("verlofMelding");
@@ -719,7 +740,7 @@ async function laadMijnVerlof() {
   const ov = $("verlofOverzicht");
   const soorten = Object.keys(perSoort);
   ov.innerHTML = soorten.length
-    ? soorten.map((s) => `<span class="chip">${SOORT_NAAM[s] || SOORT_LABEL[s] || s}: <b style="margin-left:4px">${perSoort[s]} ${perSoort[s] === 1 ? "dag" : "dagen"}</b></span>`).join("")
+    ? soorten.map((s) => `<span class="chip">${typeLabel(s)}: <b style="margin-left:4px">${perSoort[s]} ${perSoort[s] === 1 ? "dag" : "dagen"}</b></span>`).join("")
     : `<span class="leeg">Nog geen goedgekeurde afwezigheid in ${jaar}.</span>`;
 
   // Verlofsaldo in uren, opgebouwd uit de gewerkte uren
@@ -744,7 +765,7 @@ async function laadMijnVerlof() {
   };
   el.innerHTML = `<label style="margin-top:0">Mijn aanvragen</label>` + data.map((r) =>
     `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--lijn);font-size:14px">
-       <span style="flex:1">${SOORT_NAAM[r.soort] || SOORT_LABEL[r.soort] || r.soort} · <span class="mono">${datumKort(r.van_datum)}${r.van_datum !== r.tot_datum ? " – " + datumKort(r.tot_datum) : ""}</span></span>
+       <span style="flex:1">${typeLabel(r.soort)} · <span class="mono">${datumKort(r.van_datum)}${r.van_datum !== r.tot_datum ? " – " + datumKort(r.tot_datum) : ""}</span></span>
        ${badge(r.status)}
      </div>`).join("");
 }
