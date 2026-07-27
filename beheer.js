@@ -271,12 +271,24 @@ async function laadProjecten() {
   const { data } = await db.from("projecten").select("*").is("verwijderd_op", null).order("naam");
   window._projecten = data || [];
   $("telProjecten").textContent = (data || []).length ? "(" + data.length + ")" : "";
+  // Waarschuwen als er werkbonnen zonder locatie zijn: daar kan een monteur
+  // overal inklokken, dus de locatiecontrole doet daar niets.
+  const zonderLoc = (data || []).filter((p) => p.lat == null || p.lng == null);
+  const w = $("projWaarschuwing");
+  if (zonderLoc.length) {
+    w.innerHTML = `<b>${zonderLoc.length} van de ${data.length} werkbonnen heeft geen locatie.</b> `
+      + `Daar kan een monteur overal inklokken — de locatiecontrole werkt daar niet. `
+      + `Klik bij die regels op "Locatie" om een adres in te stellen.`;
+    w.className = "melding fout";
+  } else {
+    w.className = "melding verborgen";
+  }
   $("tbProjecten").innerHTML = (data || []).map((p) =>
     `<tr style="border-left:5px solid ${kleurVan(p)}">
      <td><input type="color" class="kleur-kies" value="${kleurVan(p)}" data-kleur-project="${p.id}" title="Kleur van deze werkbon"></td>
      <td class="mono sterk">${esc(p.werkbon || "—")}</td><td>${esc(p.naam)}</td>
      <td>${esc(p.locatie || "")}</td>
-     <td>${p.lat != null ? `<span class="badge groen">binnen ${p.radius_m} m</span>` : `<span class="badge grijs">geen</span>`}</td>
+     <td>${p.lat != null ? `<span class="badge groen">binnen ${p.radius_m} m</span>` : `<span class="badge rood">geen controle</span>`}</td>
      <td style="white-space:nowrap">
        <button class="btn btn-grijs btn-klein" data-loc-project="${p.id}" data-loc-adres="${esc(p.locatie || "")}" data-loc-naam="${esc(p.naam)}">Locatie</button>
        <button class="btn btn-grijs btn-klein" data-del-project="${p.id}">Verwijder</button>
@@ -752,6 +764,7 @@ $("locSluit").addEventListener("click", sluitLocModal);
 $("locAnnuleer").addEventListener("click", sluitLocModal);
 $("locModal").addEventListener("click", (e) => { if (e.target === $("locModal")) sluitLocModal(); });
 $("locGeen").addEventListener("click", async () => {
+  if (!confirm("Locatie-eis weghalen?\n\nDeze monteur kan dan overal inklokken op deze werkbon — er wordt niet meer gecontroleerd of hij op de bouwplaats is.")) return;
   if (locModus === "nieuw") {
     $("pLat").value = ""; $("pLng").value = ""; $("pRadius").value = radiusNu();
     toonMeld($("pGeoMelding"), "", "Geen locatie-eis voor deze werkbon.");
