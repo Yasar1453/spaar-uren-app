@@ -20,12 +20,12 @@ a{color:var(--rood-donker)}
 
 .app{display:grid;grid-template-columns:236px 1fr;min-height:100vh}
 
-.zijbalk{background:var(--inkt);color:#fff;display:flex;flex-direction:column;padding:18px 14px;position:sticky;top:0;height:100vh}
-.zb-merk{display:flex;align-items:center;gap:10px;padding:4px 6px 18px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:14px}
+.zijbalk{background:var(--inkt);color:#fff;display:flex;flex-direction:column;padding:14px 11px;position:sticky;top:0;height:100dvh}
+.zb-merk{display:flex;align-items:center;gap:9px;padding:3px 5px 14px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:11px}
 .zb-logo{height:30px;width:auto;background:#fff;border-radius:6px;padding:3px 5px}
 .zb-titel{font-size:14px;font-weight:700;letter-spacing:-.01em}
 .zb-nav{display:flex;flex-direction:column;gap:3px;flex:1}
-.nav{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:none;color:rgba(255,255,255,.72);font-family:inherit;font-size:14.5px;font-weight:600;padding:10px 12px;border-radius:9px;cursor:pointer}
+.nav{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;color:rgba(255,255,255,.7);font-family:inherit;font-size:14px;font-weight:600;padding:8px 11px;border-radius:8px;cursor:pointer;transition:background .12s,color .12s}
 .nav:hover{background:rgba(255,255,255,.08);color:#fff}
 .nav.actief{background:var(--rood);color:#fff}
 .nav-ico{width:19px;height:19px;flex:none;display:inline-flex;align-items:center;justify-content:center;opacity:.92}
@@ -35,12 +35,12 @@ a{color:var(--rood-donker)}
 .zb-user{font-size:12px;color:rgba(255,255,255,.6);word-break:break-all}
 
 .hoofd{display:flex;flex-direction:column;min-width:0;background:var(--achtergrond)}
-.topbalk{display:flex;align-items:center;padding:16px 0;background:var(--vlak);border-bottom:1px solid var(--lijn);position:sticky;top:0;z-index:50}
-.topbalk h1{font-size:20px;margin:0;font-weight:800;letter-spacing:-.01em}
+.topbalk{display:flex;align-items:center;padding:12px 0;background:var(--vlak);border-bottom:1px solid var(--lijn);position:sticky;top:0;z-index:50}
+.topbalk h1{font-size:17px;margin:0;font-weight:800;letter-spacing:-.015em}
 .menu-knop{display:none;border:1px solid var(--lijn);background:#fff;font-size:19px;line-height:1;border-radius:9px;padding:6px 11px;cursor:pointer;color:var(--inkt)}
-.inhoud{padding:26px;max-width:1180px;width:100%;margin:0 auto}
+.inhoud{padding:16px 20px 28px;max-width:1180px;width:100%;margin:0 auto}
 /* Titel loopt mee met de gecentreerde inhoud eronder */
-.topbalk-binnen{display:flex;align-items:center;gap:12px;max-width:1180px;width:100%;margin:0 auto;padding:0 26px}
+.topbalk-binnen{display:flex;align-items:center;gap:12px;max-width:1180px;width:100%;margin:0 auto;padding:0 22px}
 
 @media (max-width:820px){
   .app{grid-template-columns:1fr}
@@ -62,13 +62,15 @@ a{color:var(--rood-donker)}
 .kop .rechts{margin-left:auto;display:flex;align-items:center;gap:12px}
 
 /* Kaart */
-.kaart{background:var(--vlak);border:1px solid var(--lijn);border-radius:14px;padding:22px;box-shadow:0 1px 2px rgba(28,23,24,.04),0 6px 20px rgba(28,23,24,.05);margin-bottom:18px}
-.kaart h2{font-size:16px;margin:0 0 14px;font-weight:800}
+.kaart{background:var(--vlak);border:1px solid var(--lijn);border-radius:10px;padding:15px 17px;box-shadow:0 1px 2px rgba(28,23,24,.03);margin-bottom:12px}
+.kaart h2{font-size:14px;margin:0 0 11px;font-weight:800;letter-spacing:-.01em}
 .kaart h2 .telling{color:var(--grijs);font-weight:600;font-family:var(--mono);font-size:13px;margin-left:6px}
 
 /* Velden */
-label{display:block;font-size:13px;font-weight:600;color:var(--grijs);margin:14px 0 5px}
-input,select,textarea{width:100%;padding:12px 13px;border:1px solid var(--lijn);border-radius:10px;font-size:16px;font-family:inherit;background:#fff;color:var(--inkt)}
+label{display:block;font-size:12.5px;font-weight:600;color:var(--grijs);margin:10px 0 4px}
+/* 16px is nodig op iOS: kleinere tekst laat de telefoon inzoomen bij aantikken */
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--lijn);border-radius:8px;font-size:16px;font-family:inherit;background:#fff;color:var(--inkt);transition:border-color .12s}
+@media (min-width:900px){input,select,textarea{font-size:14px}}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--rood);outline-offset:1px;border-color:var(--rood)}
 textarea{resize:vertical;min-height:70px}
 .pin-in{font-family:var(--mono);letter-spacing:.5em;text-align:center;font-size:22px}
@@ -80,28 +82,28 @@ textarea{resize:vertical;min-height:70px}
 .btn-groen{background:var(--groen);color:#fff}
 .btn-grijs{background:var(--zacht);color:var(--inkt);border:1px solid var(--lijn)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
-.btn-klein{width:auto;padding:8px 14px;font-size:14px}
+.btn-klein{width:auto;padding:6px 12px;font-size:13px;border-radius:8px}
 .btn-rij{display:flex;gap:10px;margin-top:16px}
 
 /* Statuslabels */
-.badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
+.badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:6px;letter-spacing:-.01em}
 .badge.groen{background:var(--groen-zacht);color:var(--groen)}
 .badge.rood{background:#fbe9e8;color:var(--rood-donker)}
 .badge.grijs{background:var(--zacht);color:var(--grijs)}
-.badge.amber{background:#f6ecd8;color:var(--amber)}
+.badge.amber{background:#f8f0dc;color:#7a4e08}
 .badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
 
 /* Tabel */
 .tabelwrap{overflow-x:auto}
-table{border-collapse:collapse;width:100%;font-size:14px}
-th{text-align:left;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--grijs);font-weight:700;padding:9px 10px;border-bottom:1px solid var(--lijn);white-space:nowrap}
-td{padding:11px 10px;border-bottom:1px solid var(--lijn);vertical-align:top}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th{text-align:left;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:#9a918d;font-weight:700;padding:6px 9px;border-bottom:1px solid var(--lijn);white-space:nowrap}
+td{padding:7px 9px;border-bottom:1px solid #f0ebe8;vertical-align:middle}
 td.sterk{font-weight:700}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
-.leeg{color:var(--grijs);font-size:14px;padding:16px 0}
+.leeg{color:var(--grijs);font-size:13.5px;padding:14px 2px}
 
 /* Meldingen */
-.melding{padding:11px 14px;border-radius:10px;font-size:14px;margin:12px 0}
+.melding{padding:9px 12px;border-radius:9px;font-size:13.5px;margin:10px 0}
 .melding.fout{background:#fbe9e8;color:var(--rood-donker)}
 .melding.ok{background:var(--groen-zacht);color:var(--groen)}
 .verborgen{display:none!important}
@@ -250,3 +252,11 @@ input.mist,select.mist{border-color:var(--rood);background:#fdf5f5}
 .leaflet-container{font-family:var(--font)}
 
 @media (max-width:520px){.wrap{padding:14px}.btn-rij{flex-direction:column}.kaart-map{height:260px}}
+
+/* ── Strakke afwerking ────────────────────────────────────────────────────── */
+button:focus-visible,.nav:focus-visible,.tb:focus-visible,.klok-pin:focus-visible{
+  outline:2px solid var(--rood);outline-offset:2px;border-radius:6px}
+.zijbalk .nav:focus-visible{outline-color:#fff}
+tbody tr:hover{background:#fcfbfa}
+tbody tr:last-child td{border-bottom:none}
+.badge.groen{background:#e3f2ea;color:#116244}

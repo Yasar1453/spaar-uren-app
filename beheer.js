@@ -369,7 +369,7 @@ function markeerLeeg(velden) {
   });
 }
 // Zodra iemand begint te typen mag de rode markering weg
-["pWerkbon", "pNaam", "pLocatie", "mNaam", "mPin", "mContractStart"].forEach((id) => {
+["pWerkbon", "pNaam", "pLocatie"].forEach((id) => {
   const el = $(id);
   if (el) el.addEventListener("input", () => el.classList.remove("mist"));
 });
@@ -409,8 +409,6 @@ function urenWeekTotaal(u) {
   if (!u) return null;
   return Math.round(DAG_KEYS.reduce((s, d) => s + (parseFloat(u[d]) || 0), 0) * 10) / 10;
 }
-bouwUrenWeek("mUrenWeek", null);
-
 let _medewerkers = [];
 async function laadMedewerkers() {
   const { data } = await db.from("medewerkers").select("*").is("verwijderd_op", null).order("naam");
@@ -425,63 +423,14 @@ async function laadMedewerkers() {
     return `<tr><td class="sterk">${esc(m.naam)}</td>
      <td><span class="badge grijs">${m.rol}</span></td>
      <td>${contract}</td>
-     <td class="mono">${tot != null ? tot + " u" : "—"}</td>
-     <td>${m.pin_hash ? '<span class="badge groen">ingesteld</span>' : '<span class="badge amber">geen pin</span>'}</td>
-     <td style="white-space:nowrap">
-       <button class="btn btn-grijs btn-klein" data-bewerk="${m.id}">Bewerken</button>
-       <button class="btn btn-grijs btn-klein" data-pin="${m.id}" data-naam="${esc(m.naam)}">Pin wijzigen</button>
-     </td></tr>`;
-  }).join("") || rijLeeg(6, "Nog geen medewerkers.");
-  document.querySelectorAll("[data-pin]").forEach((b) => b.addEventListener("click", async () => {
-    const pin = prompt("Nieuwe pincode voor " + b.dataset.naam + " (4-6 cijfers):");
-    if (!pin) return;
-    const { error } = await db.rpc("set_pin", { p_medewerker: b.dataset.pin, p_pin: pin });
-    if (error) return alert("Mislukt: " + error.message);
-    laadMedewerkers();
-  }));
+     <td class="mono">${tot != null ? urenTekst(tot) : "—"}</td>
+     <td class="mono">${m.verlof_dagen_per_jaar != null ? m.verlof_dagen_per_jaar + " dgn" : "—"}</td>
+     <td class="mono">${m.geboortedatum ? datum(m.geboortedatum) : "—"}</td>
+     <td>${m.auth_user_id ? '<span class="badge groen">actief</span>' : '<span class="badge amber">geen account</span>'}</td>
+     <td><button class="btn btn-grijs btn-klein" data-bewerk="${m.id}">Bewerken</button></td></tr>`;
+  }).join("") || rijLeeg(8, "Nog geen medewerkers.");
   document.querySelectorAll("[data-bewerk]").forEach((b) => b.addEventListener("click", () => openMedewerker(b.dataset.bewerk)));
 }
-$("mToevoegen").addEventListener("click", async () => {
-  const naam = $("mNaam").value.trim();
-  const pin = $("mPin").value.trim();
-  const start = $("mContractStart").value;
-  const uren = leesUrenWeek("mUrenWeek");
-  const meld = $("mMelding");
-
-  // Alles verplicht: zonder pincode kan de monteur niet inklokken en zonder
-  // contracturen kloppen zijn saldo en de rapportages niet.
-  const ontbreekt = [];
-  if (!naam) ontbreekt.push("naam");
-  if (!/^\d{4,6}$/.test(pin)) ontbreekt.push(pin ? "geldige pincode (4 tot 6 cijfers)" : "pincode");
-  if (!start) ontbreekt.push("startdatum contract");
-  if (!uren) ontbreekt.push("contracturen per dag");
-  markeerLeeg({ mNaam: !naam, mPin: !/^\d{4,6}$/.test(pin), mContractStart: !start });
-  if (ontbreekt.length) return toonMeld(meld, "fout", "Vul nog in: " + ontbreekt.join(", ") + ".");
-
-  $("mToevoegen").disabled = true;
-  try {
-    const { data, error } = await db.from("medewerkers").insert({
-      naam, rol: "monteur",
-      contract_type: $("mContractType").value || null,
-      contract_start: start,
-      contract_eind: $("mContractEind").value || null,
-      contract_uren: uren,
-    }).select("id").single();
-    if (error) return toonMeld(meld, "fout", "Mislukt: " + error.message);
-
-    const { error: pinFout } = await db.rpc("set_pin", { p_medewerker: data.id, p_pin: pin });
-    if (pinFout) return toonMeld(meld, "fout", `${naam} is aangemaakt, maar de pincode instellen mislukte: ${pinFout.message}. Stel 'm in met "Pin wijzigen".`);
-
-    $("mNaam").value = ""; $("mPin").value = ""; $("mContractStart").value = ""; $("mContractEind").value = "";
-    $("mContractType").value = "vast";
-    bouwUrenWeek("mUrenWeek", null);
-    toonMeld(meld, "ok", `${naam} toegevoegd en kan meteen inklokken.`);
-    laadMedewerkers();
-  } finally {
-    $("mToevoegen").disabled = false;
-  }
-});
-
 // Bewerk-venster
 let medBewerkId = null;
 function openMedewerker(id) {

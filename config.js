@@ -22,11 +22,11 @@ export function anonClient() {
   });
 }
 
-// Client die namens een ingelogde MONTEUR praat (token uit pin-login).
-export function monteurClient(token) {
+// Client voor de MONTEUR: logt in met e-mail + wachtwoord (Supabase Auth).
+// Eigen opslagsleutel zodat een beheerder op dezelfde computer niet in de weg zit.
+export function monteurClient() {
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: "Bearer " + token } },
-    auth: { persistSession: false },
+    auth: { persistSession: true, storageKey: "spaar-uren-monteur-sessie", autoRefreshToken: true },
   });
 }
 

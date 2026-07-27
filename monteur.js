@@ -3,59 +3,58 @@
 //  Pincode → werkbon kiezen → inklokken (met GPS-check) → uitklokken.
 //  Bouwt voort op de logica uit ../../werknemer.js, nu gekoppeld aan Supabase.
 // ============================================================================
-import { anonClient, monteurClient, PIN_LOGIN_URL, VAPID_PUBLIC } from "./config.js";
+import { monteurClient, VAPID_PUBLIC } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
-let db = null;            // ingelogde monteur-client
+const db = monteurClient();   // eigen sessie, blijft bewaard tussen bezoeken
 let mij = null;          // { medewerker_id, naam }
 let openSessie = null;   // huidige open kloksessie (of null)
 let tikker = null;
 
-// ── Inlogscherm vullen met namen ────────────────────────────────────────────
-(async function init() {
-  try {
-    const { data, error } = await anonClient().rpc("monteur_namen");
-    if (error) throw error;
-    const sel = $("naam");
-    (data || []).forEach((m) => {
-      const o = document.createElement("option");
-      o.value = m.id; o.textContent = m.naam; sel.appendChild(o);
-    });
-  } catch (e) {
-    toon($("inlogFout"), "Kon de namenlijst niet laden. Is de configuratie ingevuld?");
-  }
-})();
-
-// ── Inloggen met pincode ────────────────────────────────────────────────────
+// ── Inloggen met e-mail en wachtwoord ───────────────────────────────────────
 $("inlogBtn").addEventListener("click", inloggen);
-$("pin").addEventListener("keydown", (e) => { if (e.key === "Enter") inloggen(); });
+$("inlogWachtwoord").addEventListener("keydown", (e) => { if (e.key === "Enter") inloggen(); });
 
 async function inloggen() {
-  const medewerker_id = $("naam").value;
-  const pin = $("pin").value.trim();
+  const email = $("inlogEmail").value.trim().toLowerCase();
+  const wachtwoord = $("inlogWachtwoord").value;
   verberg($("inlogFout"));
-  if (!medewerker_id) return toon($("inlogFout"), "Kies eerst je naam.");
-  if (!/^\d{4,6}$/.test(pin)) return toon($("inlogFout"), "Vul je pincode in (4 tot 6 cijfers).");
+  if (!email || !wachtwoord) return toon($("inlogFout"), "Vul je e-mail en wachtwoord in.");
 
   $("inlogBtn").disabled = true;
   try {
-    const res = await fetch(PIN_LOGIN_URL, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ medewerker_id, pin }),
-    });
-    const out = await res.json();
-    if (!res.ok) throw new Error(out.error || "Inloggen mislukt.");
-
-    db = monteurClient(out.token);
-    mij = { medewerker_id: out.medewerker_id, naam: out.naam };
-    sessionStorage.setItem("spaar-uren-monteur", JSON.stringify({ token: out.token, mij }));
+    const { error } = await db.auth.signInWithPassword({ email, password: wachtwoord });
+    if (error) {
+      const m = /email not confirmed/i.test(error.message)
+        ? "Je hebt je e-mailadres nog niet bevestigd. Open de link in de mail die je van ons kreeg."
+        : /invalid login/i.test(error.message)
+          ? "E-mail of wachtwoord klopt niet."
+          : netfout(error, "Inloggen mislukt.");
+      return toon($("inlogFout"), m);
+    }
+    if (!(await haalMijOp())) return;
+    $("inlogWachtwoord").value = "";
     await naarStatus();
   } catch (e) {
     toon($("inlogFout"), netfout(e, "Inloggen mislukt."));
   } finally {
     $("inlogBtn").disabled = false;
   }
+}
+
+// Zoekt het medewerkersrecord dat bij het ingelogde account hoort
+async function haalMijOp() {
+  const { data: auth } = await db.auth.getUser();
+  if (!auth?.user) return false;
+  const { data, error } = await db.from("medewerkers")
+    .select("id, naam").eq("auth_user_id", auth.user.id).is("verwijderd_op", null).maybeSingle();
+  if (error || !data) {
+    await db.auth.signOut();
+    toon($("inlogFout"), "Je account is nog niet gekoppeld aan een medewerker. Neem contact op met kantoor.");
+    return false;
+  }
+  mij = { medewerker_id: data.id, naam: data.naam };
+  return true;
 }
 
 // Maakt van een technische fout een begrijpelijke melding voor de bouwplaats.
@@ -89,7 +88,7 @@ $("regBtn").addEventListener("click", async () => {
 
   $("regBtn").disabled = true;
   try {
-    const { data, error } = await anonClient().auth.signUp({
+    const { data, error } = await db.auth.signUp({
       email,
       password: wachtwoord,
       options: { data: { naam: voornaam + " " + achternaam } },
@@ -100,10 +99,8 @@ $("regBtn").addEventListener("click", async () => {
         : "Registreren mislukt: " + error.message;
       return toon($("regFout"), msg);
     }
-    const bevestigen = !data.session; // e-mailbevestiging vereist?
-    toon($("regOk"), "Je account is aangemaakt en je staat nu bij de beheerder in de medewerkerslijst."
-      + (bevestigen ? " Bevestig ook even je e-mailadres via de link in je inbox." : "")
-      + " Zodra de beheerder je een pincode heeft gegeven, kun je hiernaast inloggen en inklokken.");
+    toon($("regOk"), "Je account is aangemaakt. We hebben een bevestigingsmail gestuurd naar "
+      + email + " — open die link, daarna kun je meteen inloggen met je e-mail en wachtwoord.");
     $("regVoornaam").value = ""; $("regAchternaam").value = ""; $("regEmail").value = ""; $("regWachtwoord").value = "";
   } catch (e) {
     toon($("regFout"), "Registreren mislukt. Controleer je internetverbinding.");
@@ -112,19 +109,15 @@ $("regBtn").addEventListener("click", async () => {
   }
 });
 
-// Sessie herstellen bij herladen
-(function herstel() {
-  const raw = sessionStorage.getItem("spaar-uren-monteur");
-  if (!raw) return;
-  try {
-    const s = JSON.parse(raw);
-    db = monteurClient(s.token); mij = s.mij;
-    naarStatus();
-  } catch (_) { sessionStorage.removeItem("spaar-uren-monteur"); }
+// Al ingelogd? Meteen door naar het klokscherm.
+(async function herstel() {
+  const { data } = await db.auth.getSession();
+  if (!data.session) return;
+  if (await haalMijOp()) naarStatus();
 })();
 
-$("uitloggen").addEventListener("click", () => {
-  sessionStorage.removeItem("spaar-uren-monteur");
+$("uitloggen").addEventListener("click", async () => {
+  await db.auth.signOut();
   location.reload();
 });
 
@@ -410,13 +403,13 @@ async function verversStatus() {
   verberg($("statusFout"));
   const { data, error } = await db.from("kloksessies").select("*").limit(1);
   if (error) {
-    // Verlopen token (na 12 uur)? Netjes terug naar het inlogscherm.
+    // Sessie verlopen? Netjes terug naar het inlogscherm.
     if (/jwt|expired|token|401/i.test(error.message || "")) {
-      sessionStorage.removeItem("spaar-uren-monteur");
+      await db.auth.signOut();
       location.reload();
       return;
     }
-    return toon($("statusFout"), "Kon je status niet ophalen.");
+    return toon($("statusFout"), netfout(error, "Kon je status niet ophalen."));
   }
   openSessie = (data && data[0]) || null;
 
