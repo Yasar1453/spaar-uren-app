@@ -12,6 +12,8 @@ export const SUPABASE_URL = "https://otesjqpjocauonvqngff.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_7rL7nMLExoh_XuRqRj342g_yILqb6CX";
 // URL van de pin-login functie: <SUPABASE_URL>/functions/v1/pin-login
 export const PIN_LOGIN_URL = SUPABASE_URL + "/functions/v1/pin-login";
+// Publieke VAPID-sleutel voor Web Push (de geheime helft leeft als Edge-secret).
+export const VAPID_PUBLIC = "BDN8IVDcU3WFHNwQU4ykPE85_o61TqIWgJykir5EibBbd4GxcYi6-8s2M91zzqWENcp1sA9vCBGjd2rhCa7lwsM";
 
 // Anonieme client (voor het inlogscherm van de monteur en voor de beheerder-login).
 export function anonClient() {

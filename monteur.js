@@ -3,7 +3,7 @@
 //  Pincode → werkbon kiezen → inklokken (met GPS-check) → uitklokken.
 //  Bouwt voort op de logica uit ../../werknemer.js, nu gekoppeld aan Supabase.
 // ============================================================================
-import { anonClient, monteurClient, PIN_LOGIN_URL } from "./config.js";
+import { anonClient, monteurClient, PIN_LOGIN_URL, VAPID_PUBLIC } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
 let db = null;            // ingelogde monteur-client
@@ -129,7 +129,59 @@ async function naarStatus() {
   await verversStatus();
   laadMijnVerlof();
   laadHome();
+  regelMeldingKaart();
 }
+
+// ── Push-meldingen (herinnering in/uit te klokken) ──────────────────────────
+function pushOndersteund() {
+  return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+}
+async function regelMeldingKaart() {
+  const kaart = $("meldKaart");
+  if (!pushOndersteund()) { kaart.classList.add("verborgen"); return; }
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg ? await reg.pushManager.getSubscription() : null;
+    // Al aan (abonnement + toestemming)? Dan de kaart niet tonen.
+    if (sub && Notification.permission === "granted") { kaart.classList.add("verborgen"); return; }
+  } catch (_) {}
+  kaart.classList.remove("verborgen");
+}
+function base64UrlNaarUint8(b64) {
+  const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+  const s = (b64 + pad).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(s);
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+$("meldAanBtn").addEventListener("click", async () => {
+  const meld = $("meldMelding");
+  if (!pushOndersteund()) return toonMelding(meld, "fout", "Meldingen werken niet in deze browser. Zet de app op je beginscherm en probeer opnieuw.");
+  $("meldAanBtn").disabled = true;
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") { toonMelding(meld, "fout", "Meldingen zijn niet toegestaan. Zet ze aan in de instellingen van je telefoon."); return; }
+    const reg = await navigator.serviceWorker.register("sw.js");
+    await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64UrlNaarUint8(VAPID_PUBLIC),
+      });
+    }
+    const j = sub.toJSON();
+    const { error } = await db.from("push_abonnementen").upsert({
+      medewerker_id: mij.medewerker_id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth,
+    }, { onConflict: "endpoint" });
+    if (error) throw error;
+    toonMelding(meld, "ok", "Meldingen staan aan. Je krijgt een seintje als je vergeet in of uit te klokken.");
+    setTimeout(() => $("meldKaart").classList.add("verborgen"), 2500);
+  } catch (e) {
+    toonMelding(meld, "fout", "Aanzetten mislukt: " + e.message);
+  } finally {
+    $("meldAanBtn").disabled = false;
+  }
+});
 
 // ── Home-kaarten (zoals Shiftbase) ──────────────────────────────────────────
 async function laadHome() {
