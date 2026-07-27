@@ -129,6 +129,7 @@ async function naarStatus() {
   $("tabbalk").classList.remove("verborgen");
   document.getElementById("appWrap").classList.add("met-tabbalk");
   await verversStatus();
+  vulVerlofSoorten();
   laadMijnVerlof();
   laadHome();
   regelMeldingKaart();
@@ -243,7 +244,7 @@ async function laadHome() {
     });
     const soorten = Object.keys(perSoort);
     $("homeAfw").innerHTML = soorten.length
-      ? soorten.map((s) => `<span class="chip">${SOORT_LABEL[s] || s}: <b style="margin-left:4px">${perSoort[s]} ${perSoort[s] === 1 ? "dag" : "dagen"}</b></span>`).join("")
+      ? soorten.map((s) => `<span class="chip">${SOORT_NAAM[s] || SOORT_LABEL[s] || s}: <b style="margin-left:4px">${perSoort[s]} ${perSoort[s] === 1 ? "dag" : "dagen"}</b></span>`).join("")
       : `<span class="leeg">Nog geen goedgekeurde afwezigheid in ${jaar}.</span>`;
     $("homeAfwKaart").classList.remove("verborgen");
   } catch (_) {}
@@ -292,7 +293,7 @@ document.querySelectorAll("[data-mnav]").forEach((b) => b.addEventListener("clic
   const view = b.dataset.mnav;
   document.querySelectorAll("[data-mview]").forEach((v) => v.classList.toggle("verborgen", v.dataset.mview !== view));
   $("mTitel").textContent = MVIEW_TITEL[view] || "";
-  if (view === "verlof") laadMijnVerlof();
+  if (view === "verlof") { vulVerlofSoorten(); laadMijnVerlof(); }
   if (view === "rooster") laadMijnRooster();
   if (view === "uren") laadMijnUren();
 }));
@@ -641,6 +642,31 @@ $("uitklokBtn").addEventListener("click", async () => {
 // ── Verlof aanvragen ────────────────────────────────────────────────────────
 const SOORT_LABEL = { vakantie: "Vakantie", ziek: "Ziek", onbetaald: "Onbetaald verlof", bijzonder: "Bijzonder verlof" };
 
+// Welke soorten verlof mag deze monteur aanvragen? Volgt uit zijn beleid.
+async function vulVerlofSoorten() {
+  const sel = $("vaSoort");
+  const { data: ik } = await db.from("medewerkers").select("beleid_id").eq("id", mij.medewerker_id).maybeSingle();
+  let types = [];
+  if (ik?.beleid_id) {
+    const { data } = await db.from("beleid_types")
+      .select("afwezigheid_types(code, naam, volgorde, actief)").eq("beleid_id", ik.beleid_id);
+    types = (data || []).map((r) => r.afwezigheid_types).filter((t) => t && t.actief);
+  } else {
+    const { data } = await db.from("afwezigheid_types").select("code, naam, volgorde, actief").eq("actief", true);
+    types = data || [];
+  }
+  types.sort((a, b) => (a.volgorde || 0) - (b.volgorde || 0));
+  const huidig = sel.value;
+  sel.innerHTML = "";
+  types.forEach((t) => {
+    const o = document.createElement("option");
+    o.value = t.code; o.textContent = t.naam; sel.appendChild(o);
+  });
+  if (huidig && types.some((t) => t.code === huidig)) sel.value = huidig;
+  SOORT_NAAM = Object.fromEntries(types.map((t) => [t.code, t.naam]));
+}
+let SOORT_NAAM = {};
+
 $("vaVerstuur").addEventListener("click", async () => {
   const meld = $("verlofMelding");
   const soort = $("vaSoort").value;
@@ -691,20 +717,17 @@ async function laadMijnVerlof() {
   const ov = $("verlofOverzicht");
   const soorten = Object.keys(perSoort);
   ov.innerHTML = soorten.length
-    ? soorten.map((s) => `<span class="chip">${SOORT_LABEL[s] || s}: <b style="margin-left:4px">${perSoort[s]} ${perSoort[s] === 1 ? "dag" : "dagen"}</b></span>`).join("")
+    ? soorten.map((s) => `<span class="chip">${SOORT_NAAM[s] || SOORT_LABEL[s] || s}: <b style="margin-left:4px">${perSoort[s]} ${perSoort[s] === 1 ? "dag" : "dagen"}</b></span>`).join("")
     : `<span class="leeg">Nog geen goedgekeurde afwezigheid in ${jaar}.</span>`;
 
-  // Verlofsaldo (verschijnt alleen als de beheerder een jaarrecht heeft ingevuld)
-  const profiel = await haalMijnProfiel();
-  if (profiel?.verlof_dagen_per_jaar != null) {
-    const recht = Number(profiel.verlof_dagen_per_jaar);
-    const opgenomen = perSoort.vakantie || 0;
-    const over = Math.round((recht - opgenomen) * 10) / 10;
-    $("verlofSaldoTitel").textContent = "Verlofsaldo " + jaar;
-    $("vsRecht").textContent = String(recht).replace(".", ",");
-    $("vsOpgenomen").textContent = String(opgenomen);
-    $("vsOver").textContent = String(over).replace(".", ",");
-    $("vsOver").style.color = over >= 0 ? "var(--groen)" : "var(--rood-donker)";
+  // Verlofsaldo in uren, opgebouwd uit de gewerkte uren
+  const { data: saldo } = await db.rpc("verlofsaldo", { p_medewerker: mij.medewerker_id });
+  if (saldo) {
+    $("verlofSaldoTitel").textContent = "Verlofsaldo" + (saldo.beleid ? " · " + saldo.beleid : "");
+    $("vsRecht").textContent = urenTekst(saldo.opgebouwd);
+    $("vsOpgenomen").textContent = urenTekst(saldo.opgenomen);
+    $("vsOver").textContent = urenTekst(saldo.saldo);
+    $("vsOver").style.color = Number(saldo.saldo) >= 0 ? "var(--groen)" : "var(--rood-donker)";
     $("verlofSaldoKaart").classList.remove("verborgen");
   } else {
     $("verlofSaldoKaart").classList.add("verborgen");
@@ -719,7 +742,7 @@ async function laadMijnVerlof() {
   };
   el.innerHTML = `<label style="margin-top:0">Mijn aanvragen</label>` + data.map((r) =>
     `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--lijn);font-size:14px">
-       <span style="flex:1">${SOORT_LABEL[r.soort] || r.soort} · <span class="mono">${datumKort(r.van_datum)}${r.van_datum !== r.tot_datum ? " – " + datumKort(r.tot_datum) : ""}</span></span>
+       <span style="flex:1">${SOORT_NAAM[r.soort] || SOORT_LABEL[r.soort] || r.soort} · <span class="mono">${datumKort(r.van_datum)}${r.van_datum !== r.tot_datum ? " – " + datumKort(r.tot_datum) : ""}</span></span>
        ${badge(r.status)}
      </div>`).join("");
 }

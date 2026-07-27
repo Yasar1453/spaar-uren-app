@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Spaar Electra">
-  <link rel="stylesheet" href="uren.css?v=24">
+  <link rel="stylesheet" href="uren.css?v=25">
 </head>
 <body>
   <div class="wrap smal" id="appWrap">
@@ -166,9 +166,9 @@
       <section class="kaart verborgen" id="verlofSaldoKaart">
         <h2 id="verlofSaldoTitel">Verlofsaldo</h2>
         <div class="week-totalen" style="grid-template-columns:repeat(3,1fr)">
-          <div class="wt"><span class="wt-label">Recht</span><span class="wt-getal" id="vsRecht">—</span></div>
+          <div class="wt"><span class="wt-label">Opgebouwd</span><span class="wt-getal" id="vsRecht">—</span></div>
           <div class="wt"><span class="wt-label">Opgenomen</span><span class="wt-getal" id="vsOpgenomen">—</span></div>
-          <div class="wt"><span class="wt-label">Over</span><span class="wt-getal" id="vsOver">—</span></div>
+          <div class="wt"><span class="wt-label">Saldo</span><span class="wt-getal" id="vsOver">—</span></div>
         </div>
       </section>
       <section class="kaart">
@@ -179,12 +179,7 @@
         <h2>Verlof aanvragen</h2>
         <div id="verlofMelding" class="melding verborgen"></div>
         <label for="vaSoort">Soort</label>
-        <select id="vaSoort">
-          <option value="vakantie">Vakantie</option>
-          <option value="ziek">Ziekmelding</option>
-          <option value="onbetaald">Onbetaald verlof</option>
-          <option value="bijzonder">Bijzonder verlof</option>
-        </select>
+        <select id="vaSoort"></select>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div><label for="vaVan">Van</label><input id="vaVan" type="date"></div>
           <div><label for="vaTot">Tot en met</label><input id="vaTot" type="date"></div>
@@ -217,6 +212,6 @@
     </button>
   </nav>
 
-  <script type="module" src="monteur.js?v=22"></script>
+  <script type="module" src="monteur.js?v=23"></script>
 </body>
 </html>

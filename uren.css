@@ -305,3 +305,12 @@ tbody tr:last-child td{border-bottom:none}
   display:flex;flex-direction:column;gap:2px;text-align:center}
 .boek-voorbeeld b{font-size:15px}
 .boek-voorbeeld span{font-size:12.5px;color:var(--grijs)}
+
+/* Verlofsaldo in het bewerkvenster van een medewerker */
+.saldo-vak{background:var(--zacht);border-radius:9px;padding:12px 14px;margin-top:16px}
+.saldo-kop{font-size:11px;font-weight:800;color:var(--grijs);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.saldo-rij{display:flex;justify-content:space-between;gap:12px;padding:4px 0;font-size:13.5px}
+.saldo-rij span{color:var(--grijs)}
+.saldo-rij b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.saldo-rij.totaal{border-top:1px solid var(--lijn);margin-top:5px;padding-top:8px;font-weight:800}
+.saldo-rij.totaal span{color:var(--inkt);font-weight:800}

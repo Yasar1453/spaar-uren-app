@@ -12,7 +12,7 @@ let ikBenId = null;        // medewerker-id van de ingelogde beheerder
 
 const PAGINA_TITEL = {
   dashboard: "Dashboard", rooster: "Rooster", uren: "Urenregistratie",
-  verlof: "Verlof", projecten: "Werkbonnen", medewerkers: "Medewerkers", pauzes: "Pauzes",
+  verlof: "Verlof", projecten: "Werkbonnen", medewerkers: "Medewerkers", beleid: "Verlofbeleid", pauzes: "Pauzes",
   rapporten: "Rapportages",
 };
 const SOORT_LABEL = { vakantie: "Vakantie", ziek: "Ziek", onbetaald: "Onbetaald verlof", bijzonder: "Bijzonder verlof" };
@@ -51,7 +51,7 @@ async function naarDash() {
       .select("id").eq("auth_user_id", data.user.id).is("verwijderd_op", null).maybeSingle();
     ikBenId = ik?.id || null;
   }
-  await Promise.all([laadIngeklokt(), laadUren(), laadProjecten(), laadMedewerkers(), laadRooster(), laadVerlof(), laadPauzes()]);
+  await Promise.all([laadIngeklokt(), laadUren(), laadProjecten(), laadMedewerkers(), laadRooster(), laadVerlof(), laadPauzes(), laadBeleid()]);
   standaardPeriode();
   toonRapport();
   if (tikker) clearInterval(tikker);
@@ -596,7 +596,10 @@ function openMedewerker(id) {
   $("medTitel").textContent = "Medewerker — " + m.naam;
   $("medNaam").value = m.naam || "";
   $("medGeboortedatum").value = m.geboortedatum || "";
-  $("medVerlofDagen").value = m.verlof_dagen_per_jaar != null ? m.verlof_dagen_per_jaar : "";
+  vulSelect("medBeleid", [["", "— geen beleid —"], ..._beleid.map((b) => [b.id, b.naam])]);
+  $("medBeleid").value = m.beleid_id || "";
+  $("medStartUren").value = m.verlof_start_uren != null ? m.verlof_start_uren : 0;
+  toonSaldo(m.id);
   $("medContractType").value = m.contract_type || "";
   $("medContractStart").value = m.contract_start || "";
   $("medContractEind").value = m.contract_eind || "";
@@ -604,6 +607,20 @@ function openMedewerker(id) {
   verberg($("medMelding"));
   $("medModal").classList.remove("verborgen");
 }
+// Verlofsaldo van deze medewerker tonen in het bewerkvenster
+async function toonSaldo(id) {
+  const vak = $("medSaldo");
+  vak.innerHTML = '<span class="leeg">Saldo berekenen…</span>';
+  const { data, error } = await db.rpc("verlofsaldo", { p_medewerker: id });
+  if (error || !data) { vak.innerHTML = '<span class="leeg">Saldo niet beschikbaar.</span>'; return; }
+  vak.innerHTML = `
+    <div class="saldo-rij"><span>Beginsaldo</span><b>${urenTekst(data.startsaldo)}</b></div>
+    <div class="saldo-rij"><span>Opgebouwd (${urenTekst(data.gewerkt)} gewerkt × ${Number(data.factor).toFixed(6)})</span><b>${urenTekst(data.opgebouwd)}</b></div>
+    <div class="saldo-rij"><span>Opgenomen</span><b>− ${urenTekst(data.opgenomen)}</b></div>
+    ${Number(data.aangevraagd) > 0 ? `<div class="saldo-rij"><span>Aangevraagd (nog te beoordelen)</span><b>${urenTekst(data.aangevraagd)}</b></div>` : ""}
+    <div class="saldo-rij totaal"><span>Saldo</span><b>${urenTekst(data.saldo)}</b></div>`;
+}
+
 function sluitMedModal() { $("medModal").classList.add("verborgen"); }
 $("medSluit").addEventListener("click", sluitMedModal);
 $("medAnnuleer").addEventListener("click", sluitMedModal);
@@ -615,7 +632,8 @@ $("medOpslaan").addEventListener("click", async () => {
   const { error } = await db.from("medewerkers").update({
     naam,
     geboortedatum: $("medGeboortedatum").value || null,
-    verlof_dagen_per_jaar: $("medVerlofDagen").value !== "" ? parseFloat($("medVerlofDagen").value) : null,
+    beleid_id: $("medBeleid").value || null,
+    verlof_start_uren: parseFloat($("medStartUren").value) || 0,
     contract_type: $("medContractType").value || null,
     contract_start: $("medContractStart").value || null,
     contract_eind: $("medContractEind").value || null,
@@ -638,6 +656,93 @@ $("medUitDienst").addEventListener("click", async () => {
   if (error) return toonMeld($("medMelding"), "fout", "Mislukt: " + error.message);
   sluitMedModal();
   await Promise.all([laadMedewerkers(), laadIngeklokt(), laadRooster(), laadVerlof()]);
+});
+
+// ── Verlofbeleid en afwezigheidstypes ───────────────────────────────────────
+let _beleid = [], _types = [], _beleidTypes = [];
+
+async function laadBeleid() {
+  const [b, t, bt, m] = await Promise.all([
+    db.from("afwezigheid_beleid").select("*").order("naam"),
+    db.from("afwezigheid_types").select("*").order("volgorde"),
+    db.from("beleid_types").select("*"),
+    db.from("medewerkers").select("id, beleid_id").is("verwijderd_op", null),
+  ]);
+  if (b.error) { $("tbBeleid").innerHTML = rijLeeg(6, "Kon het beleid niet laden: " + b.error.message); return; }
+  _beleid = b.data || []; _types = t.data || []; _beleidTypes = bt.data || [];
+  const tel = (id) => (m.data || []).filter((x) => x.beleid_id === id).length;
+
+  $("tbBeleid").innerHTML = _beleid.map((x) => {
+    const aantalTypes = _beleidTypes.filter((k) => k.beleid_id === x.id).length;
+    return `<tr${x.actief ? "" : ' class="rij-verwerkt"'}>
+      <td class="sterk">${esc(x.naam)}</td>
+      <td><input type="number" step="0.000000001" min="0" value="${x.opbouw_per_uur}"
+            data-factor="${x.id}" style="width:150px" class="mono"></td>
+      <td class="mono">${urenTekst(Number(x.opbouw_per_uur) * 2080)}</td>
+      <td class="mono">${tel(x.id)}</td>
+      <td class="mono">${aantalTypes} van ${_types.length}</td>
+      <td style="white-space:nowrap"><button class="btn btn-grijs btn-klein" data-beleid-del="${x.id}">Verwijder</button></td>
+    </tr>`;
+  }).join("") || rijLeeg(6, "Nog geen beleid.");
+
+  // Kolomkoppen van de typetabel = de beleidsnamen
+  $("kopBeleid1").textContent = _beleid[0]?.naam || "";
+  $("kopBeleid2").textContent = _beleid[1]?.naam || "";
+
+  $("tbTypes").innerHTML = _types.map((ty) => {
+    const vink = (bId) => bId
+      ? `<input type="checkbox" data-bt-beleid="${bId}" data-bt-type="${ty.id}"
+           ${_beleidTypes.some((k) => k.beleid_id === bId && k.type_id === ty.id) ? "checked" : ""}>`
+      : "";
+    return `<tr${ty.actief ? "" : ' class="rij-verwerkt"'}>
+      <td><span class="wb-stip" style="background:${ty.kleur}"></span></td>
+      <td class="sterk">${esc(ty.naam)}</td>
+      <td>${ty.gaat_van_saldo ? '<span class="badge amber">van saldo</span>' : '<span class="badge grijs">nee</span>'}</td>
+      <td><input type="checkbox" data-type-actief="${ty.id}" ${ty.actief ? "checked" : ""}></td>
+      <td class="kies-cel">${vink(_beleid[0]?.id)}</td>
+      <td class="kies-cel">${vink(_beleid[1]?.id)}</td>
+    </tr>`;
+  }).join("") || rijLeeg(6, "Nog geen types.");
+
+  // Opbouwfactor aanpassen
+  document.querySelectorAll("[data-factor]").forEach((i) => i.addEventListener("change", async () => {
+    const { error } = await db.from("afwezigheid_beleid")
+      .update({ opbouw_per_uur: parseFloat(i.value) || 0 }).eq("id", i.dataset.factor);
+    if (error) return toonMeld($("beleidMelding"), "fout", "Mislukt: " + error.message);
+    toonMeld($("beleidMelding"), "ok", "Opbouw aangepast.");
+    laadBeleid();
+  }));
+  // Type aan/uit per beleid
+  document.querySelectorAll("[data-bt-beleid]").forEach((c) => c.addEventListener("change", async () => {
+    const sleutel = { beleid_id: c.dataset.btBeleid, type_id: c.dataset.btType };
+    const { error } = c.checked
+      ? await db.from("beleid_types").insert(sleutel)
+      : await db.from("beleid_types").delete().match(sleutel);
+    if (error) { c.checked = !c.checked; return toonMeld($("beleidMelding"), "fout", "Mislukt: " + error.message); }
+    laadBeleid();
+  }));
+  // Type helemaal aan/uit
+  document.querySelectorAll("[data-type-actief]").forEach((c) => c.addEventListener("change", async () => {
+    const { error } = await db.from("afwezigheid_types").update({ actief: c.checked }).eq("id", c.dataset.typeActief);
+    if (error) { c.checked = !c.checked; return toonMeld($("beleidMelding"), "fout", "Mislukt: " + error.message); }
+    laadBeleid(); laadVerlof();
+  }));
+  document.querySelectorAll("[data-beleid-del]").forEach((b) => b.addEventListener("click", async () => {
+    if (!confirm("Dit beleid verwijderen? Medewerkers die eraan gekoppeld zijn houden geen beleid over.")) return;
+    const { error } = await db.from("afwezigheid_beleid").delete().eq("id", b.dataset.beleidDel);
+    if (error) return toonMeld($("beleidMelding"), "fout", "Mislukt: " + error.message);
+    laadBeleid();
+  }));
+}
+$("blToevoegen").addEventListener("click", async () => {
+  const naam = $("blNaam").value.trim();
+  if (!naam) return toonMeld($("beleidMelding"), "fout", "Geef het beleid een naam.");
+  const { error } = await db.from("afwezigheid_beleid")
+    .insert({ naam, opbouw_per_uur: parseFloat($("blFactor").value) || 0 });
+  if (error) return toonMeld($("beleidMelding"), "fout", "Mislukt: " + error.message);
+  $("blNaam").value = "";
+  toonMeld($("beleidMelding"), "ok", `Beleid "${naam}" toegevoegd.`);
+  laadBeleid();
 });
 
 // ── Pauzetijden ─────────────────────────────────────────────────────────────

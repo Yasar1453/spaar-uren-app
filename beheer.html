@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=24">
+  <link rel="stylesheet" href="uren.css?v=25">
 </head>
 <body>
 
@@ -41,6 +41,7 @@
         <button class="nav" data-tab="verlof"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="7" y2="7"/><line x1="17" y1="17" x2="19" y2="19"/><line x1="5" y1="19" x2="7" y2="17"/><line x1="17" y1="7" x2="19" y2="5"/></svg></span> Verlof <span id="verlofBadge" class="nav-telling verborgen"></span></button>
         <button class="nav" data-tab="projecten"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span> Werkbonnen</button>
         <button class="nav" data-tab="medewerkers"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></span> Medewerkers</button>
+        <button class="nav" data-tab="beleid"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg></span> Verlofbeleid</button>
         <button class="nav" data-tab="pauzes"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg></span> Pauzes</button>
         <button class="nav" data-tab="rapporten"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="21" x2="21" y2="21"/><rect x="6" y="12" width="3" height="7"/><rect x="11" y="8" width="3" height="11"/><rect x="16" y="4" width="3" height="15"/></svg></span> Rapportages</button>
       </nav>
@@ -197,6 +198,29 @@
           </div>
         </section>
 
+        <!-- Verlofbeleid -->
+        <section data-view="beleid" class="verborgen">
+          <div class="kaart">
+            <h2>Afwezigheidsbeleid</h2>
+            <p class="verplicht-uitleg">Per contractvorm bepaal je welk verlof aangevraagd mag worden en hoeveel verlof er per gewerkt uur wordt opgebouwd. Elke medewerker hoort bij één beleid (in te stellen bij Medewerkers &rarr; Bewerken).</p>
+            <div id="beleidMelding" class="melding verborgen"></div>
+            <div class="tabelwrap"><table><thead><tr><th>Beleid</th><th>Opbouw per gewerkt uur</th><th>Bij 40 u/week per jaar</th><th>Medewerkers</th><th>Toegestane types</th><th></th></tr></thead><tbody id="tbBeleid"></tbody></table></div>
+          </div>
+          <div class="kaart">
+            <h2>Beleid toevoegen</h2>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+              <div><label for="blNaam">Naam</label><input id="blNaam" placeholder="Bv. Oproepkracht"></div>
+              <div><label for="blFactor">Opbouw per gewerkt uur</label><input id="blFactor" type="number" step="0.000000001" min="0" value="0.115384615"></div>
+            </div>
+            <button id="blToevoegen" class="btn btn-rood btn-klein" style="margin-top:12px">Toevoegen</button>
+          </div>
+          <div class="kaart">
+            <h2>Afwezigheidstypes</h2>
+            <p class="verplicht-uitleg">Vink per beleid aan welke types aangevraagd mogen worden. Types met "van saldo" schrijven af van het verlofsaldo.</p>
+            <div class="tabelwrap"><table><thead><tr><th>Kleur</th><th>Type</th><th>Van saldo</th><th>Actief</th><th id="kopBeleid1"></th><th id="kopBeleid2"></th></tr></thead><tbody id="tbTypes"></tbody></table></div>
+          </div>
+        </section>
+
         <!-- Pauzes (onder Medewerkers) -->
         <section data-view="pauzes" class="verborgen">
           <div class="kaart">
@@ -273,10 +297,12 @@
         </select></div>
         <div><label>Start contract</label><input id="medContractStart" type="date"></div>
         <div><label>Einde contract</label><input id="medContractEind" type="date"></div>
-        <div><label>Vakantiedagen/jaar</label><input id="medVerlofDagen" type="number" min="0" step="0.5" placeholder="25"></div>
+        <div><label for="medBeleid">Verlofbeleid</label><select id="medBeleid"></select></div>
+        <div><label for="medStartUren">Beginsaldo verlof (uren)</label><input id="medStartUren" type="number" step="0.25" placeholder="0"></div>
       </div>
       <label style="margin-top:16px">Contracturen per dag <span class="ster">*</span></label>
       <div class="uren-week" id="medUrenWeek"></div>
+      <div class="saldo-vak"><div class="saldo-kop">Verlofsaldo</div><div id="medSaldo"></div></div>
       <div class="modal-acties" style="margin-top:18px">
         <button id="medUitDienst" class="btn btn-grijs btn-klein">Uit dienst</button>
         <div style="margin-left:auto;display:flex;gap:8px">
@@ -335,6 +361,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=26"></script>
+  <script type="module" src="beheer.js?v=27"></script>
 </body>
 </html>
