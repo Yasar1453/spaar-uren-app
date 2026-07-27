@@ -129,6 +129,11 @@ td.sterk{font-weight:700}
 .klok-info-regel b{font-size:15px;font-weight:700}
 @media (max-width:640px){.klok-layout{grid-template-columns:1fr}.klok-layout .kaart-map{height:240px}}
 
+/* Verplichte velden */
+.ster{color:var(--rood);font-weight:700}
+.verplicht-uitleg{margin:-6px 0 14px;font-size:13px;color:var(--grijs)}
+input.mist,select.mist{border-color:var(--rood);background:#fdf5f5}
+
 /* Contracturen per dag (ma t/m zo) */
 .uren-week{display:grid;grid-template-columns:repeat(7,minmax(52px,1fr)) minmax(64px,auto);gap:6px;align-items:end}
 .uren-week .dag{display:flex;flex-direction:column;gap:3px}

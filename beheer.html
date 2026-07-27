@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=14">
+  <link rel="stylesheet" href="uren.css?v=15">
 </head>
 <body>
 
@@ -141,10 +141,11 @@
         <section data-view="projecten" class="verborgen">
           <div class="kaart">
             <h2>Werkbon toevoegen</h2>
+            <p class="verplicht-uitleg">Alle velden zijn verplicht. Het adres wordt automatisch omgezet naar een inklok-locatie.</p>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-              <div><label>Werkbon</label><input id="pWerkbon" placeholder="WE230…"></div>
-              <div><label>Naam</label><input id="pNaam" placeholder="Hotel A"></div>
-              <div style="grid-column:1/-1"><label>Locatie (adres)</label><input id="pLocatie" placeholder="Poortland 34, Amsterdam"></div>
+              <div><label for="pWerkbon">Werkbon <span class="ster">*</span></label><input id="pWerkbon" placeholder="WE230…" required></div>
+              <div><label for="pNaam">Naam <span class="ster">*</span></label><input id="pNaam" placeholder="Hotel A" required></div>
+              <div style="grid-column:1/-1"><label for="pLocatie">Locatie (adres) <span class="ster">*</span></label><input id="pLocatie" placeholder="Poortland 34, Amsterdam" required></div>
             </div>
             <input id="pLat" type="hidden"><input id="pLng" type="hidden"><input id="pRadius" type="hidden" value="250">
             <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
@@ -163,18 +164,20 @@
         <section data-view="medewerkers" class="verborgen">
           <div class="kaart">
             <h2>Monteur toevoegen</h2>
+            <p class="verplicht-uitleg">Alle velden zijn verplicht. Zonder pincode kan de monteur niet inklokken; zonder contracturen kloppen zijn saldo en de rapportages niet.</p>
+            <div id="mMelding" class="melding verborgen" style="margin-bottom:10px"></div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
-              <div><label>Naam</label><input id="mNaam" placeholder="Voor- en achternaam"></div>
-              <div><label>Pincode</label><input id="mPin" class="pin-in" inputmode="numeric" maxlength="6" placeholder="••••"></div>
-              <div><label>Contracttype</label><select id="mContractType">
+              <div><label for="mNaam">Naam <span class="ster">*</span></label><input id="mNaam" placeholder="Voor- en achternaam" required></div>
+              <div><label for="mPin">Pincode <span class="ster">*</span></label><input id="mPin" class="pin-in" inputmode="numeric" maxlength="6" placeholder="••••" required></div>
+              <div><label for="mContractType">Contracttype</label><select id="mContractType">
                 <option value="vast">Vast</option>
                 <option value="tijdelijk">Tijdelijk</option>
                 <option value="oproep">Oproep</option>
               </select></div>
-              <div><label>Start contract</label><input id="mContractStart" type="date"></div>
-              <div><label>Einde contract</label><input id="mContractEind" type="date"></div>
+              <div><label for="mContractStart">Start contract <span class="ster">*</span></label><input id="mContractStart" type="date" required></div>
+              <div><label for="mContractEind">Einde contract</label><input id="mContractEind" type="date"></div>
             </div>
-            <label style="margin-top:16px">Contracturen per dag</label>
+            <label style="margin-top:16px">Contracturen per dag <span class="ster">*</span></label>
             <div class="uren-week" id="mUrenWeek"></div>
             <button id="mToevoegen" class="btn btn-rood btn-klein" style="margin-top:14px">Toevoegen</button>
           </div>
@@ -239,7 +242,7 @@
         <div><label>Einde contract</label><input id="medContractEind" type="date"></div>
         <div><label>Vakantiedagen/jaar</label><input id="medVerlofDagen" type="number" min="0" step="0.5" placeholder="25"></div>
       </div>
-      <label style="margin-top:16px">Contracturen per dag</label>
+      <label style="margin-top:16px">Contracturen per dag <span class="ster">*</span></label>
       <div class="uren-week" id="medUrenWeek"></div>
       <div class="modal-acties" style="margin-top:18px">
         <button id="medUitDienst" class="btn btn-grijs btn-klein">Uit dienst</button>
@@ -299,6 +302,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=14"></script>
+  <script type="module" src="beheer.js?v=15"></script>
 </body>
 </html>

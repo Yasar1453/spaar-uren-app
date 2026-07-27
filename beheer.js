@@ -265,25 +265,66 @@ async function laadProjecten() {
   }));
 }
 $("pToevoegen").addEventListener("click", async () => {
+  const werkbon = $("pWerkbon").value.trim();
   const naam = $("pNaam").value.trim();
-  if (!naam) return alert("Geef de werkbon een naam.");
-  let lat = parseFloat($("pLat").value), lng = parseFloat($("pLng").value);
   const locatie = $("pLocatie").value.trim();
-  // Geen coördinaten maar wel adres? Dan automatisch opzoeken.
-  if ((isNaN(lat) || isNaN(lng)) && locatie) {
-    const r = await geocodeer(locatie).catch(() => null);
-    if (r) { lat = r.lat; lng = r.lng; }
+  const meld = $("pGeoMelding");
+
+  // Alle velden zijn verplicht: een werkbon zonder nummer of adres is later niet
+  // terug te vinden en kan geen inklok-controle krijgen.
+  const ontbreekt = [];
+  if (!werkbon) ontbreekt.push("werkbonnummer");
+  if (!naam) ontbreekt.push("naam");
+  if (!locatie) ontbreekt.push("locatie");
+  if (ontbreekt.length) {
+    markeerLeeg({ pWerkbon: !werkbon, pNaam: !naam, pLocatie: !locatie });
+    return toonMeld(meld, "fout", "Vul nog in: " + ontbreekt.join(", ") + ".");
   }
-  const { error } = await db.from("projecten").insert({
-    werkbon: $("pWerkbon").value.trim() || null, naam,
-    locatie: locatie || null, radius_m: parseInt($("pRadius").value) || 250,
-    lat: isNaN(lat) ? null : lat, lng: isNaN(lng) ? null : lng, status: "lopend",
+  markeerLeeg({ pWerkbon: false, pNaam: false, pLocatie: false });
+
+  $("pToevoegen").disabled = true;
+  try {
+    let lat = parseFloat($("pLat").value), lng = parseFloat($("pLng").value);
+    // Nog geen coördinaten? Adres opzoeken — zonder locatie geen inklok-controle.
+    if (isNaN(lat) || isNaN(lng)) {
+      toonMeld(meld, "", "Adres opzoeken…");
+      const r = await geocodeer(locatie).catch(() => null);
+      if (!r) {
+        markeerLeeg({ pLocatie: true });
+        return toonMeld(meld, "fout", "Adres niet gevonden. Schrijf het voluit (bv. \"Poortland 34, Amsterdam\") of kies de locatie op de kaart.");
+      }
+      lat = r.lat; lng = r.lng;
+    }
+    const { error } = await db.from("projecten").insert({
+      werkbon, naam, locatie, radius_m: parseInt($("pRadius").value) || 250,
+      lat, lng, status: "lopend",
+    });
+    if (error) {
+      const msg = error.code === "23505"
+        ? `Werkbonnummer ${werkbon} bestaat al.`
+        : "Mislukt: " + error.message;
+      return toonMeld(meld, "fout", msg);
+    }
+    ["pWerkbon", "pNaam", "pLocatie", "pLat", "pLng"].forEach((id) => $(id).value = "");
+    $("pRadius").value = 250;
+    toonMeld(meld, "ok", `Werkbon ${werkbon} toegevoegd.`);
+    laadProjecten();
+  } finally {
+    $("pToevoegen").disabled = false;
+  }
+});
+
+// Zet een rood randje om velden die nog leeg zijn
+function markeerLeeg(velden) {
+  Object.entries(velden).forEach(([id, leeg]) => {
+    const el = $(id);
+    if (el) el.classList.toggle("mist", !!leeg);
   });
-  if (error) return alert("Mislukt: " + error.message);
-  ["pWerkbon", "pNaam", "pLocatie", "pLat", "pLng"].forEach((id) => $(id).value = "");
-  $("pRadius").value = 250;
-  verberg($("pGeoMelding"));
-  laadProjecten();
+}
+// Zodra iemand begint te typen mag de rode markering weg
+["pWerkbon", "pNaam", "pLocatie", "mNaam", "mPin", "mContractStart"].forEach((id) => {
+  const el = $(id);
+  if (el) el.addEventListener("input", () => el.classList.remove("mist"));
 });
 $("pKaart").addEventListener("click", () => {
   openLocatieKiezer({ modus: "nieuw", naam: $("pNaam").value.trim() || "nieuwe werkbon", adres: $("pLocatie").value.trim(),
@@ -356,26 +397,42 @@ async function laadMedewerkers() {
 $("mToevoegen").addEventListener("click", async () => {
   const naam = $("mNaam").value.trim();
   const pin = $("mPin").value.trim();
-  if (!naam) return alert("Vul een naam in.");
-  const rij = {
-    naam, rol: "monteur",
-    contract_type: $("mContractType").value || null,
-    contract_start: $("mContractStart").value || null,
-    contract_eind: $("mContractEind").value || null,
-    contract_uren: leesUrenWeek("mUrenWeek"),
-  };
-  let { data, error } = await db.from("medewerkers").insert(rij).select("id").single();
-  if (error && /contract/i.test(error.message)) {
-    // Contractkolommen bestaan nog niet (SQL-migratie niet gedraaid): sla dan zonder contract op.
-    ({ data, error } = await db.from("medewerkers").insert({ naam, rol: "monteur" }).select("id").single());
-    if (!error) alert("Let op: de contractvelden zijn nog niet opgeslagen omdat de database-migratie (contract-en-fix.sql) nog niet is uitgevoerd.");
+  const start = $("mContractStart").value;
+  const uren = leesUrenWeek("mUrenWeek");
+  const meld = $("mMelding");
+
+  // Alles verplicht: zonder pincode kan de monteur niet inklokken en zonder
+  // contracturen kloppen zijn saldo en de rapportages niet.
+  const ontbreekt = [];
+  if (!naam) ontbreekt.push("naam");
+  if (!/^\d{4,6}$/.test(pin)) ontbreekt.push(pin ? "geldige pincode (4 tot 6 cijfers)" : "pincode");
+  if (!start) ontbreekt.push("startdatum contract");
+  if (!uren) ontbreekt.push("contracturen per dag");
+  markeerLeeg({ mNaam: !naam, mPin: !/^\d{4,6}$/.test(pin), mContractStart: !start });
+  if (ontbreekt.length) return toonMeld(meld, "fout", "Vul nog in: " + ontbreekt.join(", ") + ".");
+
+  $("mToevoegen").disabled = true;
+  try {
+    const { data, error } = await db.from("medewerkers").insert({
+      naam, rol: "monteur",
+      contract_type: $("mContractType").value || null,
+      contract_start: start,
+      contract_eind: $("mContractEind").value || null,
+      contract_uren: uren,
+    }).select("id").single();
+    if (error) return toonMeld(meld, "fout", "Mislukt: " + error.message);
+
+    const { error: pinFout } = await db.rpc("set_pin", { p_medewerker: data.id, p_pin: pin });
+    if (pinFout) return toonMeld(meld, "fout", `${naam} is aangemaakt, maar de pincode instellen mislukte: ${pinFout.message}. Stel 'm in met "Pin wijzigen".`);
+
+    $("mNaam").value = ""; $("mPin").value = ""; $("mContractStart").value = ""; $("mContractEind").value = "";
+    $("mContractType").value = "vast";
+    bouwUrenWeek("mUrenWeek", null);
+    toonMeld(meld, "ok", `${naam} toegevoegd en kan meteen inklokken.`);
+    laadMedewerkers();
+  } finally {
+    $("mToevoegen").disabled = false;
   }
-  if (error) return alert("Mislukt: " + error.message);
-  if (/^\d{4,6}$/.test(pin)) await db.rpc("set_pin", { p_medewerker: data.id, p_pin: pin });
-  $("mNaam").value = ""; $("mPin").value = ""; $("mContractStart").value = ""; $("mContractEind").value = "";
-  $("mContractType").value = "vast";
-  bouwUrenWeek("mUrenWeek", null);
-  laadMedewerkers();
 });
 
 // Bewerk-venster
