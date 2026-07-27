@@ -46,6 +46,7 @@ async function naarDash() {
   if (data?.user) $("wieBen").textContent = data.user.email;
   await Promise.all([laadIngeklokt(), laadUren(), laadProjecten(), laadMedewerkers(), laadRooster(), laadVerlof()]);
   standaardPeriode();
+  toonRapport();
   if (tikker) clearInterval(tikker);
   tikker = setInterval(laadIngeklokt, 30000);
 }
@@ -58,6 +59,8 @@ document.querySelectorAll(".nav").forEach((t) => t.addEventListener("click", () 
   document.querySelectorAll("[data-view]").forEach((v) => v.classList.toggle("verborgen", v.dataset.view !== tab));
   $("paginaTitel").textContent = PAGINA_TITEL[tab] || "";
   $("app").classList.remove("open"); // mobiel menu sluiten
+  // Rapportages meteen invullen: een leeg scherm oogt als een storing.
+  if (tab === "rapporten") toonRapport();
 }));
 $("menuKnop").addEventListener("click", () => $("app").classList.toggle("open"));
 $("app").addEventListener("click", (e) => { if (e.target === $("app")) $("app").classList.remove("open"); });
@@ -618,7 +621,7 @@ $("rapToon").addEventListener("click", toonRapport);
 
 async function toonRapport() {
   const van = $("rapVan").value, tot = $("rapTot").value;
-  if (!van || !tot) return alert("Kies een periode.");
+  if (!van || !tot) return;
   _rapPeriode = van + "_" + tot;      // vastleggen zodat de CSV-naam bij de cijfers hoort
   const [{ data: uren }, { data: afw }] = await Promise.all([
     // afgekeurde regels tellen niet mee in de rapportage
@@ -649,13 +652,15 @@ async function toonRapport() {
   });
   _rapMonteur = Object.values(perM).sort((a, b) => a.naam.localeCompare(b.naam));
   const openTotaal = _rapMonteur.reduce((s, m) => s + m.open, 0);
+  const dv = (d) => new Date(d + "T12:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" });
+  $("rapPeriodeTekst").textContent = `${dv(van)} t/m ${dv(tot)} — ${_rapMonteur.length} ${_rapMonteur.length === 1 ? "monteur" : "monteurs"} met registraties`;
   $("rapWaarschuwing").textContent = openTotaal > 0
     ? `Let op: ${urenTekst(openTotaal)} is nog niet goedgekeurd en telt wel mee in deze cijfers.` : "";
   $("rapWaarschuwing").classList.toggle("verborgen", openTotaal === 0);
   $("tbRapMonteur").innerHTML = _rapMonteur.length ? _rapMonteur.map((m) =>
     `<tr><td class="sterk">${esc(m.naam)}</td><td class="mono">${m.dagen.size}</td>
      <td class="sterk mono">${urenTekst(m.uren)}</td>
-     <td class="mono">${m.open ? urenTekst(m.open) : "—"}</td>
+     <td class="mono">${m.open > 0 ? urenTekst(m.open) : "—"}</td>
      <td class="mono">${m.km || 0}</td>
      <td class="mono">${m.vakantie || 0}</td><td class="mono">${m.ziek || 0}</td>
      <td class="mono">${m.overig || 0}</td></tr>`).join("") : rijLeeg(8, "Geen gegevens in deze periode.");
