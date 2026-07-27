@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=20">
+  <link rel="stylesheet" href="uren.css?v=21">
 </head>
 <body>
 
@@ -106,11 +106,21 @@
         <!-- Urenregistratie -->
         <section data-view="uren" class="verborgen">
           <div class="kaart">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-              <h2 style="margin:0">Alle uren</h2>
+            <div class="periode-balk">
+              <div class="modus-kies">
+                <button class="modus" data-uren-modus="dag">Dag</button>
+                <button class="modus actief" data-uren-modus="week">Week</button>
+                <button class="modus" data-uren-modus="maand">Maand</button>
+              </div>
+              <div class="periode-nav">
+                <button id="uVorige" class="btn btn-grijs btn-klein" aria-label="Vorige">&larr;</button>
+                <span id="uPeriodeLabel" class="periode-label"></span>
+                <button id="uVolgende" class="btn btn-grijs btn-klein" aria-label="Volgende">&rarr;</button>
+                <button id="uVandaag" class="btn btn-grijs btn-klein">Vandaag</button>
+              </div>
               <button id="urenExport" class="btn btn-grijs btn-klein" style="margin-left:auto">Exporteren (CSV)</button>
             </div>
-            <div class="tabelwrap"><table><thead><tr><th>Datum</th><th>Monteur</th><th>Werkbon</th><th>Start</th><th>Eind</th><th>Pauze</th><th>Km</th><th>Uren</th><th>Status</th><th>Omschrijving</th><th></th></tr></thead><tbody id="tbUren"></tbody></table></div>
+            <div class="tabelwrap"><table><thead><tr><th>Datum</th><th>Monteur</th><th>Werkbon</th><th>Loc</th><th>Start</th><th>Eind</th><th>Pauze</th><th>Km</th><th>Uren</th><th>Status</th><th>Omschrijving</th><th></th></tr></thead><tbody id="tbUren"></tbody></table></div>
           </div>
         </section>
 
@@ -287,6 +297,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=22"></script>
+  <script type="module" src="beheer.js?v=23"></script>
 </body>
 </html>

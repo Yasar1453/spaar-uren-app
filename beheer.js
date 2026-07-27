@@ -118,22 +118,83 @@ async function laadIngeklokt() {
 
 // ── Urenregistratie ──────────────────────────────────────────────────────────
 let _uren = [];
+let urenModus = "week";              // dag | week | maand
+let urenAnker = new Date();          // dag binnen de getoonde periode
+
+// Begin- en einddatum van de gekozen periode
+function urenPeriode() {
+  const d = new Date(urenAnker);
+  if (urenModus === "dag") return { van: isoDatum(d), tot: isoDatum(d) };
+  if (urenModus === "maand") {
+    return {
+      van: isoDatum(new Date(d.getFullYear(), d.getMonth(), 1)),
+      tot: isoDatum(new Date(d.getFullYear(), d.getMonth() + 1, 0)),
+    };
+  }
+  const ma = maandagVan(d);
+  const zo = new Date(ma); zo.setDate(ma.getDate() + 6);
+  return { van: isoDatum(ma), tot: isoDatum(zo) };
+}
+function urenPeriodeLabel() {
+  const { van, tot } = urenPeriode();
+  const lang = (s) => new Date(s + "T12:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" });
+  const kort = (s) => new Date(s + "T12:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+  if (urenModus === "dag") {
+    const dagnaam = new Date(van + "T12:00:00").toLocaleDateString("nl-NL", { weekday: "long" });
+    return dagnaam.charAt(0).toUpperCase() + dagnaam.slice(1) + " " + lang(van);
+  }
+  if (urenModus === "maand") {
+    const m = new Date(van + "T12:00:00").toLocaleDateString("nl-NL", { month: "long", year: "numeric" });
+    return m.charAt(0).toUpperCase() + m.slice(1);
+  }
+  return kort(van) + " – " + kort(tot);
+}
+function verschuifPeriode(richting) {
+  const d = new Date(urenAnker);
+  if (urenModus === "dag") d.setDate(d.getDate() + richting);
+  else if (urenModus === "maand") d.setMonth(d.getMonth() + richting);
+  else d.setDate(d.getDate() + richting * 7);
+  urenAnker = d;
+  laadUren();
+}
+document.querySelectorAll("[data-uren-modus]").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-uren-modus]").forEach((x) => x.classList.remove("actief"));
+  b.classList.add("actief");
+  urenModus = b.dataset.urenModus;
+  laadUren();
+}));
+$("uVorige").addEventListener("click", () => verschuifPeriode(-1));
+$("uVolgende").addEventListener("click", () => verschuifPeriode(1));
+$("uVandaag").addEventListener("click", () => { urenAnker = new Date(); laadUren(); });
+
 async function laadUren() {
+  const { van, tot } = urenPeriode();
+  $("uPeriodeLabel").textContent = urenPeriodeLabel();
   const { data, error } = await db.from("urenregels")
     .select("id, datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, in_lat, in_lng, medewerkers!medewerker_id(naam), projecten(id, werkbon, naam, kleur)")
-    .is("verwijderd_op", null).order("datum", { ascending: false }).order("start_tijd", { ascending: false }).limit(400);
+    .is("verwijderd_op", null).gte("datum", van).lte("datum", tot)
+    .order("datum", { ascending: false }).order("start_tijd", { ascending: false }).limit(500);
   if (error) {
     // Nooit stil falen: een lege lijst en een kapotte query zien er anders identiek uit.
     $("tbRecent").innerHTML = rijLeeg(6, "Kon de uren niet laden: " + error.message);
-    $("tbUren").innerHTML = rijLeeg(11, "Kon de uren niet laden: " + error.message);
+    $("tbUren").innerHTML = rijLeeg(12, "Kon de uren niet laden: " + error.message);
     return;
   }
   _uren = data || [];
-  $("tbRecent").innerHTML = _uren.slice(0, 8).map(recentRij).join("") || rijLeeg(6, "Nog geen uren.");
-  $("tbUren").innerHTML = _uren.map(urenRij).join("") || rijLeeg(11, "Nog geen uren.");
+  $("tbUren").innerHTML = _uren.map(urenRij).join("") || rijLeeg(12, "Geen uren in deze periode.");
+  laadRecenteUren();
   document.querySelectorAll("[data-keur]").forEach((b) => b.addEventListener("click", () => keur(b.dataset.id, b.dataset.keur)));
   koppelKlokKnoppen();
 }
+// Dashboard toont altijd de laatste registraties, los van de gekozen periode.
+async function laadRecenteUren() {
+  const { data, error } = await db.from("urenregels")
+    .select("datum, uren, status, omschrijving, medewerkers!medewerker_id(naam), projecten(id, werkbon, naam, kleur)")
+    .is("verwijderd_op", null).order("datum", { ascending: false }).order("start_tijd", { ascending: false }).limit(8);
+  if (error) { $("tbRecent").innerHTML = rijLeeg(6, "Kon de uren niet laden: " + error.message); return; }
+  $("tbRecent").innerHTML = (data || []).map(recentRij).join("") || rijLeeg(6, "Nog geen uren.");
+}
+
 function statusBadge(s) {
   const st = { onbeslist: "amber", goedgekeurd: "groen", afgekeurd: "rood" }[s] || "grijs";
   return `<span class="badge ${st}">${s}</span>`;
@@ -160,7 +221,8 @@ function urenRij(u) {
     : "<td></td>";
   return `<tr><td class="mono">${datum(u.datum)}</td><td class="sterk">${esc(u.medewerkers?.naam)}</td>
     <td class="mono">${werkbonMetKleur(u.projecten)}</td>
-    <td class="mono">${u.start_tijd ? tijd(u.start_tijd) : "—"}${klokKnop(u.in_lat, u.in_lng, u.medewerkers?.naam, u.start_tijd, werkbonTekst(u.projecten))}</td>
+    <td class="loc-cel">${klokKnop(u.in_lat, u.in_lng, u.medewerkers?.naam, u.start_tijd, werkbonTekst(u.projecten)) || '<span class="loc-geen" title="Geen locatie vastgelegd">–</span>'}</td>
+    <td class="mono">${u.start_tijd ? tijd(u.start_tijd) : "—"}</td>
     <td class="mono">${u.eind_tijd ? tijd(u.eind_tijd) : "—"}</td>
     <td class="mono">${pauzeTekst(u)}</td>
     <td class="mono">${u.km != null ? u.km : "—"}</td>
