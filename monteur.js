@@ -470,9 +470,17 @@ $("inklokBtn").addEventListener("click", async () => {
 
   try {
     let pos = null;
-    if (project.lat != null && project.lng != null) {
-      toonMelding(gm, "", "Locatie controleren…");
+    const heeftGeofence = project.lat != null && project.lng != null;
+    toonMelding(gm, "", "Locatie bepalen…");
+    // Altijd proberen de locatie vast te leggen, zodat de beheerder kan zien
+    // waar er is ingeklokt. Zonder geofence is het optioneel (geen blokkade).
+    try {
       pos = await locatie();
+    } catch (e) {
+      if (heeftGeofence) throw e; // bij een geofence is locatie verplicht
+      pos = null;                 // zonder geofence: gewoon zonder locatie doorgaan
+    }
+    if (heeftGeofence && pos) {
       const m = afstandMeter(pos.lat, pos.lng, project.lat, project.lng);
       if (m > (project.radius_m || 250)) {
         throw new Error("Je bent ~" + Math.round(m) + " m van de bouwplaats. Inklokken kan alleen op locatie.");
