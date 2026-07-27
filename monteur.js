@@ -245,7 +245,7 @@ async function laadHome() {
       .select("soort, van_datum, tot_datum, status").is("verwijderd_op", null);
     const perSoort = {};
     (data || []).filter((r) => r.status === "goedgekeurd" && r.van_datum.startsWith(String(jaar))).forEach((r) => {
-      const dagen = Math.max(1, Math.round((new Date(r.tot_datum) - new Date(r.van_datum)) / 86400000) + 1);
+      const dagen = werkdagenTussen(r.van_datum, r.tot_datum);
       perSoort[r.soort] = (perSoort[r.soort] || 0) + dagen;
     });
     const soorten = Object.keys(perSoort);
@@ -262,7 +262,7 @@ async function laadHome() {
       $("homeCollegas").innerHTML = data.length
         ? data.slice(0, 6).map((r) => `<div class="lijst-rij">
             <div class="lijst-body"><span class="lb-titel">${esc(r.naam)}</span>
-              <span class="lb-sub">${SOORT_LABEL[r.soort] || r.soort} · ${datumKort(r.van_datum)}${r.van_datum !== r.tot_datum ? " – " + datumKort(r.tot_datum) : ""}</span></div>
+              <span class="lb-sub">${r.soort === "vakantie" ? "Vakantie" : "Afwezig"} · ${datumKort(r.van_datum)}${r.van_datum !== r.tot_datum ? " – " + datumKort(r.tot_datum) : ""}</span></div>
           </div>`).join("") + (data.length > 6 ? `<div class="leeg">+ ${data.length - 6} meer</div>` : "")
         : `<div class="leeg">Niemand afwezig.</div>`;
       $("homeCollegasKaart").classList.remove("verborgen");
@@ -585,7 +585,7 @@ $("uitklokBtn").addEventListener("click", async () => {
         eind_tijd: new Date().toISOString(),
         uren,
         omschrijving: $("omschrijving").value.trim() || null,
-        km: Math.max(0, parseInt($("km").value, 10) || 0),
+        km: Math.max(0, Math.round((parseFloat(String($("km").value).replace(",", ".")) || 0) * 10) / 10),
         bron: "klok",
         in_lat: openSessie.in_lat,
         in_lng: openSessie.in_lng,
@@ -684,7 +684,7 @@ async function laadMijnVerlof() {
   if (!data || !data.length) { el.innerHTML = ""; return; }
   const badge = (s) => {
     const kleur = { onbeslist: "amber", goedgekeurd: "groen", afgekeurd: "rood" }[s] || "grijs";
-    const tekst = { onbeslist: "in behandeling", goedgekeurd: "goedgekeurd", afgekeurd: "afgewezen" }[s] || s;
+    const tekst = { onbeslist: "in behandeling", goedgekeurd: "goedgekeurd", afgekeurd: "afgekeurd" }[s] || s;
     return `<span class="badge ${kleur}">${tekst}</span>`;
   };
   el.innerHTML = `<label style="margin-top:0">Mijn aanvragen</label>` + data.map((r) =>
@@ -694,6 +694,48 @@ async function laadMijnVerlof() {
      </div>`).join("");
 }
 function datumKort(d) { return new Date(d + "T12:00:00").toLocaleDateString("nl-NL", { day: "2-digit", month: "short" }); }
+
+// ── Verlofdagen tellen: alleen werkdagen (za/zo en feestdagen tellen niet) ──
+function paasZondag(jaar) {
+  const a = jaar % 19, b = Math.floor(jaar / 100), c = jaar % 100;
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const maand = Math.floor((h + l - 7 * m + 114) / 31);
+  const dag = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(jaar, maand - 1, dag);
+}
+const _feestdagen = {};
+function feestdagen(jaar) {
+  if (_feestdagen[jaar]) return _feestdagen[jaar];
+  const iso = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const plus = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const pasen = paasZondag(jaar);
+  const set = new Set([
+    `${jaar}-01-01`, iso(plus(pasen, -2)), iso(plus(pasen, 1)),
+    iso(plus(pasen, 39)), iso(plus(pasen, 50)), `${jaar}-12-25`, `${jaar}-12-26`,
+  ]);
+  const kd = new Date(jaar, 3, 27);
+  set.add(iso(kd.getDay() === 0 ? plus(kd, -1) : kd));
+  if (jaar % 5 === 0) set.add(`${jaar}-05-05`);
+  _feestdagen[jaar] = set;
+  return set;
+}
+function werkdagenTussen(van, tot) {
+  const a = new Date(van + "T12:00:00"), b = new Date(tot + "T12:00:00");
+  if (isNaN(a) || isNaN(b) || b < a) return 0;
+  let n = 0;
+  for (const d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) {
+    const dag = d.getDay();
+    if (dag === 0 || dag === 6) continue;
+    const s = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    if (feestdagen(d.getFullYear()).has(s)) continue;
+    n++;
+  }
+  return n;
+}
 
 // ── Hulpjes ─────────────────────────────────────────────────────────────────
 async function laadProjectNaam(id) {

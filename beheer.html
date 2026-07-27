@@ -204,7 +204,8 @@
               <h2 style="margin:0">Uren per monteur</h2>
               <button id="rapExportMonteur" class="btn btn-grijs btn-klein" style="margin-left:auto">Exporteren (CSV)</button>
             </div>
-            <div class="tabelwrap"><table><thead><tr><th>Monteur</th><th>Dagen gewerkt</th><th>Uren</th><th>Km</th><th>Verlofdagen</th></tr></thead><tbody id="tbRapMonteur"></tbody></table></div>
+            <div id="rapWaarschuwing" class="melding amber verborgen" style="margin-bottom:12px"></div>
+            <div class="tabelwrap"><table><thead><tr><th>Monteur</th><th>Dagen gewerkt</th><th>Uren</th><th>Nog te keuren</th><th>Km</th><th>Vakantie</th><th>Ziek</th><th>Overig verlof</th></tr></thead><tbody id="tbRapMonteur"></tbody></table></div>
           </div>
           <div class="kaart">
             <h2>Uren per werkbon</h2>
@@ -298,6 +299,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=12"></script>
+  <script type="module" src="beheer.js?v=13"></script>
 </body>
 </html>

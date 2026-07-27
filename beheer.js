@@ -535,31 +535,43 @@ async function toonRapport() {
   if (!van || !tot) return alert("Kies een periode.");
   const [{ data: uren }, { data: afw }] = await Promise.all([
     // afgekeurde regels tellen niet mee in de rapportage
-    db.from("urenregels").select("datum, uren, km, medewerkers(naam), projecten(werkbon, naam)")
+    db.from("urenregels").select("datum, uren, km, status, medewerker_id, medewerkers(naam), projecten(werkbon, naam)")
       .is("verwijderd_op", null).neq("status", "afgekeurd").gte("datum", van).lte("datum", tot),
-    db.from("afwezigheid").select("van_datum, tot_datum, medewerkers(naam)")
+    db.from("afwezigheid").select("van_datum, tot_datum, soort, medewerker_id, medewerkers(naam)")
       .is("verwijderd_op", null).eq("status", "goedgekeurd").lte("van_datum", tot).gte("tot_datum", van),
   ]);
 
-  // Per monteur
+  // Per monteur — groeperen op id (niet op naam: naamgenoten mogen niet samenvallen)
   const perM = {};
+  const nieuw = (id, naam) => ({ id, naam, dagen: new Set(), uren: 0, open: 0, km: 0, vakantie: 0, ziek: 0, overig: 0 });
   (uren || []).forEach((u) => {
-    const naam = u.medewerkers?.naam || "onbekend";
-    perM[naam] = perM[naam] || { naam, dagen: new Set(), uren: 0, km: 0, verlof: 0 };
-    perM[naam].dagen.add(u.datum);
-    perM[naam].uren += Number(u.uren) || 0;
-    perM[naam].km += Number(u.km) || 0;
+    const id = u.medewerker_id;
+    perM[id] = perM[id] || nieuw(id, u.medewerkers?.naam || "onbekend");
+    perM[id].dagen.add(u.datum);
+    perM[id].uren += Number(u.uren) || 0;
+    if (u.status === "onbeslist") perM[id].open += Number(u.uren) || 0;
+    perM[id].km += Number(u.km) || 0;
   });
   (afw || []).forEach((a) => {
-    const naam = a.medewerkers?.naam || "onbekend";
-    perM[naam] = perM[naam] || { naam, dagen: new Set(), uren: 0, km: 0, verlof: 0 };
-    perM[naam].verlof += overlapDagen(a.van_datum, a.tot_datum, van, tot);
+    const id = a.medewerker_id;
+    perM[id] = perM[id] || nieuw(id, a.medewerkers?.naam || "onbekend");
+    const d = overlapDagen(a.van_datum, a.tot_datum, van, tot);
+    if (a.soort === "vakantie") perM[id].vakantie += d;
+    else if (a.soort === "ziek") perM[id].ziek += d;
+    else perM[id].overig += d;
   });
   _rapMonteur = Object.values(perM).sort((a, b) => a.naam.localeCompare(b.naam));
+  const openTotaal = _rapMonteur.reduce((s, m) => s + m.open, 0);
+  $("rapWaarschuwing").textContent = openTotaal > 0
+    ? `Let op: ${openTotaal.toFixed(2).replace(".", ",")} uur is nog niet goedgekeurd en telt wel mee in deze cijfers.` : "";
+  $("rapWaarschuwing").classList.toggle("verborgen", openTotaal === 0);
   $("tbRapMonteur").innerHTML = _rapMonteur.length ? _rapMonteur.map((m) =>
     `<tr><td class="sterk">${esc(m.naam)}</td><td class="mono">${m.dagen.size}</td>
-     <td class="sterk mono">${m.uren.toFixed(2)}</td><td class="mono">${m.km || 0}</td>
-     <td class="mono">${m.verlof || 0}</td></tr>`).join("") : rijLeeg(5, "Geen gegevens in deze periode.");
+     <td class="sterk mono">${m.uren.toFixed(2).replace(".", ",")}</td>
+     <td class="mono">${m.open ? m.open.toFixed(2).replace(".", ",") : "—"}</td>
+     <td class="mono">${m.km || 0}</td>
+     <td class="mono">${m.vakantie || 0}</td><td class="mono">${m.ziek || 0}</td>
+     <td class="mono">${m.overig || 0}</td></tr>`).join("") : rijLeeg(8, "Geen gegevens in deze periode.");
 
   // Per werkbon
   const perP = {};
@@ -574,8 +586,12 @@ async function toonRapport() {
 }
 $("rapExportMonteur").addEventListener("click", () => {
   if (!_rapMonteur.length) return alert("Toon eerst een overzicht.");
-  const rijen = _rapMonteur.map((m) => [m.naam, m.dagen.size, m.uren.toFixed(2), m.km || 0, m.verlof || 0]);
-  csvDownload(["Monteur", "Dagen gewerkt", "Uren", "Km", "Verlofdagen"], rijen, "rapport-" + $("rapVan").value + "_" + $("rapTot").value);
+  const rijen = _rapMonteur.map((m) => [
+    m.naam, m.id, m.dagen.size, komma(m.uren), komma(m.open), m.km || 0,
+    m.vakantie || 0, m.ziek || 0, m.overig || 0,
+  ]);
+  csvDownload(["Monteur", "Medewerker-id", "Dagen gewerkt", "Uren", "Nog te keuren", "Km", "Vakantiedagen", "Ziektedagen", "Overig verlof"],
+    rijen, "rapport-" + _rapPeriode);
 });
 
 // ── Kaart-kiezer (Leaflet) ───────────────────────────────────────────────────
@@ -703,15 +719,62 @@ function csvDownload(koppen, rijen, naam) {
   a.href = url; a.download = naam + ".csv"; a.click();
   URL.revokeObjectURL(url);
 }
-function dagenTussen(van, tot) {
-  const d = Math.round((new Date(tot) - new Date(van)) / 86400000) + 1;
-  return d > 0 ? d : 1;
+// ── Verlofdagen tellen: alleen werkdagen (za/zo en feestdagen tellen niet) ──
+// Nederlandse feestdagen; Pasen-afhankelijke dagen worden berekend.
+function paasZondag(jaar) {
+  const a = jaar % 19, b = Math.floor(jaar / 100), c = jaar % 100;
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const maand = Math.floor((h + l - 7 * m + 114) / 31);
+  const dag = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(jaar, maand - 1, dag);
 }
+const _feestdagen = {};
+function feestdagen(jaar) {
+  if (_feestdagen[jaar]) return _feestdagen[jaar];
+  const iso = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const plus = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const pasen = paasZondag(jaar);
+  const set = new Set([
+    `${jaar}-01-01`,                    // Nieuwjaarsdag
+    iso(plus(pasen, -2)),               // Goede Vrijdag
+    iso(plus(pasen, 1)),                // Tweede paasdag
+    iso(plus(pasen, 39)),               // Hemelvaartsdag
+    iso(plus(pasen, 50)),               // Tweede pinksterdag
+    `${jaar}-12-25`, `${jaar}-12-26`,   // Kerst
+  ]);
+  // Koningsdag: 27 april, op zondag een dag eerder
+  const kd = new Date(jaar, 3, 27);
+  set.add(iso(kd.getDay() === 0 ? plus(kd, -1) : kd));
+  // Bevrijdingsdag is alleen in lustrumjaren een vrije dag voor de meeste cao's
+  if (jaar % 5 === 0) set.add(`${jaar}-05-05`);
+  _feestdagen[jaar] = set;
+  return set;
+}
+function werkdagenTussen(van, tot) {
+  const a = new Date(van + "T12:00:00"), b = new Date(tot + "T12:00:00");
+  if (isNaN(a) || isNaN(b) || b < a) return 0;
+  let n = 0;
+  for (const d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) {
+    const dag = d.getDay();
+    if (dag === 0 || dag === 6) continue; // zondag/zaterdag
+    const s = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    if (feestdagen(d.getFullYear()).has(s)) continue;
+    n++;
+  }
+  return n;
+}
+function dagenTussen(van, tot) {
+  return Math.max(werkdagenTussen(van, tot), 0);
+}
+// Werkdagen van een verlofperiode die binnen de rapportageperiode vallen
 function overlapDagen(van, tot, pVan, pTot) {
-  const a = new Date(Math.max(new Date(van), new Date(pVan)));
-  const b = new Date(Math.min(new Date(tot), new Date(pTot)));
-  const d = Math.round((b - a) / 86400000) + 1;
-  return d > 0 ? d : 0;
+  const a = van > pVan ? van : pVan;
+  const b = tot < pTot ? tot : pTot;
+  return werkdagenTussen(a, b);
 }
 function toonMeld(el, soort, msg) { el.className = "melding" + (soort ? " " + soort : ""); el.textContent = msg; el.classList.remove("verborgen"); }
 function vulSelect(id, paren) {
