@@ -117,7 +117,7 @@ async function laadIngeklokt() {
 let _uren = [];
 async function laadUren() {
   const { data, error } = await db.from("urenregels")
-    .select("id, datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, in_lat, in_lng, medewerkers!medewerker_id(naam), projecten(werkbon, naam)")
+    .select("id, datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, in_lat, in_lng, medewerkers!medewerker_id(naam), projecten(id, werkbon, naam, kleur)")
     .is("verwijderd_op", null).order("datum", { ascending: false }).order("start_tijd", { ascending: false }).limit(400);
   if (error) {
     // Nooit stil falen: een lege lijst en een kapotte query zien er anders identiek uit.
@@ -137,7 +137,7 @@ function statusBadge(s) {
 }
 function recentRij(u) {
   return `<tr><td class="mono">${datum(u.datum)}</td><td class="sterk">${esc(u.medewerkers?.naam)}</td>
-    <td class="mono">${esc(werkbonTekst(u.projecten))}</td>
+    <td class="mono">${werkbonMetKleur(u.projecten)}</td>
     <td class="sterk mono">${urenTekst(u.uren)}</td>
     <td>${statusBadge(u.status)}</td><td>${esc(u.omschrijving || "")}</td></tr>`;
 }
@@ -156,7 +156,7 @@ function urenRij(u) {
          <button class="btn btn-grijs btn-klein" data-keur="afgekeurd" data-id="${u.id}">Afkeuren</button></td>`
     : "<td></td>";
   return `<tr><td class="mono">${datum(u.datum)}</td><td class="sterk">${esc(u.medewerkers?.naam)}</td>
-    <td class="mono">${esc(werkbonTekst(u.projecten))}</td>
+    <td class="mono">${werkbonMetKleur(u.projecten)}</td>
     <td class="mono">${u.start_tijd ? tijd(u.start_tijd) : "—"}${klokKnop(u.in_lat, u.in_lng, u.medewerkers?.naam, u.start_tijd, werkbonTekst(u.projecten))}</td>
     <td class="mono">${u.eind_tijd ? tijd(u.eind_tijd) : "—"}</td>
     <td class="mono">${pauzeTekst(u)}</td>
@@ -247,23 +247,52 @@ $("vToevoegen").addEventListener("click", async () => {
 });
 
 // ── Werkbonnen ──────────────────────────────────────────────────────────────
+// Palet van goed te onderscheiden kleuren; nieuwe werkbonnen krijgen de eerste
+// kleur die nog niet in gebruik is, zodat ze zoveel mogelijk verschillen.
+const KLEUREN = [
+  "#e11d48", "#db2777", "#c026d3", "#9333ea", "#7c3aed", "#4f46e5",
+  "#2563eb", "#0284c7", "#0891b2", "#0d9488", "#059669", "#16a34a",
+  "#65a30d", "#ca8a04", "#d97706", "#ea580c", "#dc2626", "#b91c1c",
+  "#be185d", "#a21caf", "#6d28d9", "#1d4ed8", "#0369a1", "#15803d",
+];
+function kleurVan(p) {
+  if (p && p.kleur) return p.kleur;
+  // Nog geen kleur in de database? Kies er stabiel een op basis van het id.
+  const s = String(p?.id || "");
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return KLEUREN[h % KLEUREN.length];
+}
+function vrijeKleur() {
+  const inGebruik = new Set((window._projecten || []).map((p) => (p.kleur || "").toLowerCase()));
+  return KLEUREN.find((k) => !inGebruik.has(k)) || KLEUREN[inGebruik.size % KLEUREN.length];
+}
 async function laadProjecten() {
   const { data } = await db.from("projecten").select("*").is("verwijderd_op", null).order("naam");
   window._projecten = data || [];
   $("telProjecten").textContent = (data || []).length ? "(" + data.length + ")" : "";
   $("tbProjecten").innerHTML = (data || []).map((p) =>
-    `<tr><td class="mono sterk">${esc(p.werkbon || "—")}</td><td>${esc(p.naam)}</td>
+    `<tr style="border-left:5px solid ${kleurVan(p)}">
+     <td><input type="color" class="kleur-kies" value="${kleurVan(p)}" data-kleur-project="${p.id}" title="Kleur van deze werkbon"></td>
+     <td class="mono sterk">${esc(p.werkbon || "—")}</td><td>${esc(p.naam)}</td>
      <td>${esc(p.locatie || "")}</td>
      <td>${p.lat != null ? `<span class="badge groen">binnen ${p.radius_m} m</span>` : `<span class="badge grijs">geen</span>`}</td>
      <td style="white-space:nowrap">
        <button class="btn btn-grijs btn-klein" data-loc-project="${p.id}" data-loc-adres="${esc(p.locatie || "")}" data-loc-naam="${esc(p.naam)}">Locatie</button>
        <button class="btn btn-grijs btn-klein" data-del-project="${p.id}">Verwijder</button>
      </td></tr>`
-  ).join("") || rijLeeg(5, "Nog geen werkbonnen.");
+  ).join("") || rijLeeg(6, "Nog geen werkbonnen.");
   document.querySelectorAll("[data-del-project]").forEach((b) => b.addEventListener("click", async () => {
     if (!confirm("Deze werkbon verwijderen?")) return;
-    await db.from("projecten").update({ verwijderd_op: new Date().toISOString() }).eq("id", b.dataset.delProject);
+    const { error } = await db.from("projecten").update({ verwijderd_op: new Date().toISOString() }).eq("id", b.dataset.delProject);
+    if (error) return alert("Verwijderen mislukt: " + error.message);
     laadProjecten();
+  }));
+  // Kleur wijzigen: direct opslaan zodra de beheerder een kleur kiest
+  document.querySelectorAll("[data-kleur-project]").forEach((k) => k.addEventListener("change", async () => {
+    const { error } = await db.from("projecten").update({ kleur: k.value }).eq("id", k.dataset.kleurProject);
+    if (error) return alert("Kleur opslaan mislukt: " + error.message);
+    laadProjecten(); laadRooster();
   }));
   document.querySelectorAll("[data-loc-project]").forEach((b) => b.addEventListener("click", () => {
     const p = (window._projecten || []).find((x) => x.id === b.dataset.locProject) || {};
@@ -303,7 +332,7 @@ $("pToevoegen").addEventListener("click", async () => {
     }
     const { error } = await db.from("projecten").insert({
       werkbon, naam, locatie, radius_m: parseInt($("pRadius").value) || 250,
-      lat, lng, status: "lopend",
+      lat, lng, status: "lopend", kleur: vrijeKleur(),
     });
     if (error) {
       const msg = error.code === "23505"
@@ -511,7 +540,7 @@ const DAGDEEL_LABEL = { hele_dag: "hele dag", ochtend: "ochtend", middag: "midda
 async function laadRooster() {
   const [{ data: mws }, { data: prj }] = await Promise.all([
     db.from("medewerkers").select("id, naam").eq("rol", "monteur").is("verwijderd_op", null).order("naam"),
-    db.from("projecten").select("id, werkbon, naam").is("verwijderd_op", null).neq("status", "afgerond").order("naam"),
+    db.from("projecten").select("id, werkbon, naam, kleur").is("verwijderd_op", null).neq("status", "afgerond").order("naam"),
   ]);
   vulSelect("rMedewerker", (mws || []).map((m) => [m.id, m.naam]));
   vulSelect("rProject", (prj || []).map((p) => [p.id, (p.werkbon ? p.werkbon + " · " : "") + p.naam]));
@@ -530,7 +559,7 @@ async function tekenWeek(mws) {
   $("rWeekLabel").textContent = van.slice(8) + "/" + van.slice(5, 7) + " – " + tot.slice(8) + "/" + tot.slice(5, 7);
 
   const { data: plan } = await db.from("planning")
-    .select("id, medewerker_id, datum, dagdeel, projecten(werkbon, naam)")
+    .select("id, medewerker_id, datum, dagdeel, projecten(id, werkbon, naam, kleur)")
     .gte("datum", van).lte("datum", tot).is("verwijderd_op", null);
 
   const dagen = [...Array(7)].map((_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d; });
@@ -542,7 +571,7 @@ async function tekenWeek(mws) {
       const dat = isoDatum(d);
       const items = (plan || []).filter((p) => p.medewerker_id === m.id && p.datum === dat);
       const badges = items.map((p) =>
-        `<span class="badge grijs" style="margin:1px 0;display:inline-flex;gap:4px">${esc(p.projecten?.werkbon || p.projecten?.naam || "?")} · ${DAGDEEL_LABEL[p.dagdeel] || p.dagdeel}
+        `<span class="badge rooster-badge" style="background:${kleurVan(p.projecten)}">${esc(p.projecten?.werkbon || p.projecten?.naam || "?")} · ${DAGDEEL_LABEL[p.dagdeel] || p.dagdeel}
          <button data-plan-del="${p.id}" style="border:none;background:none;cursor:pointer;color:inherit;padding:0;font-weight:700">&times;</button></span>`
       ).join("<br>");
       return `<td>${badges || ""}</td>`;
@@ -859,6 +888,11 @@ function vulSelect(id, paren) {
   if (huidig) sel.value = huidig;
 }
 function werkbonTekst(p) { return p ? (p.werkbon ? p.werkbon + " · " : "") + p.naam : ""; }
+// Werkbon met gekleurd bolletje ervoor (voor in tabellen)
+function werkbonMetKleur(p) {
+  if (!p) return "";
+  return `<span class="wb-stip" style="background:${kleurVan(p)}"></span>${esc(werkbonTekst(p))}`;
+}
 function tijd(iso) { return new Date(iso).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }); }
 function datum(d) { return new Date(d).toLocaleDateString("nl-NL", { day: "2-digit", month: "short" }); }
 function duurTekst(iso) { const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000); return Math.floor(m / 60) + ":" + String(m % 60).padStart(2, "0"); }

@@ -446,7 +446,7 @@ async function toonUitgeklokt() {
   // een klik op Inklokken stilzwijgend de eerste werkbon (alfabetisch) pakken
   sel.innerHTML = '<option value=""></option>';
   const { data, error } = await db.from("projecten")
-    .select("id, werkbon, naam, lat, lng, radius_m")
+    .select("id, werkbon, naam, lat, lng, radius_m, kleur")
     .is("verwijderd_op", null).neq("status", "afgerond").order("naam");
   if (error) return toon($("statusFout"), "Kon de werkbonnen niet laden.");
   window._projecten = data || [];
@@ -483,7 +483,7 @@ function kiesWerkbon(id) {
   const p = (window._projecten || []).find((x) => x.id === id);
   const knop = $("werkbonKnop");
   if (p) {
-    $("werkbonLabel").textContent = (p.werkbon ? p.werkbon + " · " : "") + p.naam;
+    $("werkbonLabel").innerHTML = `<span class="wb-stip" style="background:${kleurVan(p)}"></span>` + esc((p.werkbon ? p.werkbon + " · " : "") + p.naam);
     knop.classList.remove("leeg");
   } else {
     $("werkbonLabel").textContent = "Kies een werkbon…";
@@ -498,7 +498,7 @@ function renderWerkbonOpties(filter) {
     return ((p.werkbon || "") + " " + (p.naam || "")).toLowerCase().includes(q);
   });
   $("werkbonOpties").innerHTML = lijst.length
-    ? lijst.map((p) => `<button type="button" class="kies-optie${p.id === gekozen ? " gekozen" : ""}" data-id="${p.id}">
+    ? lijst.map((p) => `<button type="button" class="kies-optie${p.id === gekozen ? " gekozen" : ""}" data-id="${p.id}" style="border-left:4px solid ${kleurVan(p)}">
         ${p.werkbon ? `<span class="nr">${esc(p.werkbon)}</span>` : ""}<span class="nm">${esc(p.naam)}</span></button>`).join("")
     : `<div class="kies-leeg">Geen werkbon gevonden</div>`;
 }
@@ -697,6 +697,19 @@ async function laadMijnVerlof() {
 function datumKort(d) { return new Date(d + "T12:00:00").toLocaleDateString("nl-NL", { day: "2-digit", month: "short" }); }
 
 // ── Uren: exact opslaan in decimalen, tonen als "2 u 16 min" ────────────────
+const KLEUREN = [
+  "#e11d48", "#db2777", "#c026d3", "#9333ea", "#7c3aed", "#4f46e5",
+  "#2563eb", "#0284c7", "#0891b2", "#0d9488", "#059669", "#16a34a",
+  "#65a30d", "#ca8a04", "#d97706", "#ea580c", "#dc2626", "#b91c1c",
+  "#be185d", "#a21caf", "#6d28d9", "#1d4ed8", "#0369a1", "#15803d",
+];
+function kleurVan(p) {
+  if (p && p.kleur) return p.kleur;
+  const s = String(p?.id || "");
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return KLEUREN[h % KLEUREN.length];
+}
 function urenUitMinuten(min) { return Math.round((Math.max(0, min) / 60) * 100) / 100; }
 function urenTekst(u) {
   const totaal = Math.round((Number(u) || 0) * 60);
