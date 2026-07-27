@@ -887,9 +887,9 @@ async function tekenWeek(mws) {
       }).join("");
       return `<td class="${klas}">${vrijBlok}${blokken}</td>`;
     }).join("");
-    return `<tr><td class="r-naam" title="${esc(m.naam)}">
+    return `<tr><td class="r-naam" title="${esc(m.naam)}"><div class="r-naam-binnen">
       <span class="r-avatar">${esc(initialen(m.naam))}</span>
-      <span class="r-naamtekst">${esc(m.naam)}</span></td>${cellen}</tr>`;
+      <span class="r-naamtekst">${esc(m.naam)}</span></div></td>${cellen}</tr>`;
   }).join("") || rijLeeg(8, "Nog geen monteurs.");
 
   document.querySelectorAll("[data-plan-del]").forEach((b) => b.addEventListener("click", async () => {

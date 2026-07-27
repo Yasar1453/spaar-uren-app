@@ -137,11 +137,11 @@ td.sterk{font-weight:700}
 .kleur-kies{width:38px;height:30px;padding:2px;border-radius:7px;border:1px solid var(--lijn);cursor:pointer;background:#fff}
 /* ── Weekrooster ──────────────────────────────────────────────────────────── */
 #rGrid{border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:920px}
-#rGrid th,#rGrid td{border-bottom:1px solid var(--lijn)}
+#rGrid th,#rGrid td{border-bottom:1px solid var(--lijn);background-clip:padding-box}
 
 /* Monteurkolom blijft staan bij horizontaal scrollen */
 .r-naamkop,.r-naam{position:sticky;left:0;z-index:2;background:var(--vlak);width:190px;max-width:190px}
-.r-naam{font-weight:700;font-size:13px;padding:6px 10px 6px 2px;border-right:1px solid var(--lijn)}
+.r-naam{font-weight:700;font-size:13px;padding:6px 10px 6px 2px;border-right:1px solid var(--lijn);vertical-align:middle}
 .r-naamkop{border-right:1px solid var(--lijn);padding-left:2px}
 
 .r-dagkop{padding:8px 6px;text-align:center;line-height:1.25}
@@ -176,7 +176,7 @@ td.sterk{font-weight:700}
 .r-vrij.wacht{background:#fdf0c4;color:#7a5c00;border:1px dashed #e0bf5a}
 
 /* Naam met initialen-rondje */
-.r-naam{display:flex;align-items:center;gap:8px}
+.r-naam-binnen{display:flex;align-items:center;gap:8px}
 .r-avatar{flex:none;width:24px;height:24px;border-radius:50%;background:var(--zacht);color:var(--grijs);
   display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;letter-spacing:.02em}
 .r-naamtekst{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
