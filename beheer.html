@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=21">
+  <link rel="stylesheet" href="uren.css?v=22">
 </head>
 <body>
 
@@ -118,9 +118,21 @@
                 <button id="uVolgende" class="btn btn-grijs btn-klein" aria-label="Volgende">&rarr;</button>
                 <button id="uVandaag" class="btn btn-grijs btn-klein">Vandaag</button>
               </div>
-              <button id="urenExport" class="btn btn-grijs btn-klein" style="margin-left:auto">Exporteren (CSV)</button>
+              <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+                <select id="urenExportSoort" style="width:auto;font-size:13px;padding:6px 9px">
+                  <option value="goedgekeurd">Alleen goedgekeurd</option>
+                  <option value="alles">Alle uren in deze periode</option>
+                </select>
+                <button id="urenExport" class="btn btn-grijs btn-klein">Exporteren (CSV)</button>
+              </div>
             </div>
-            <div class="tabelwrap"><table><thead><tr><th>Datum</th><th>Monteur</th><th>Werkbon</th><th>Loc</th><th>Start</th><th>Eind</th><th>Pauze</th><th>Km</th><th>Uren</th><th>Status</th><th>Omschrijving</th><th></th></tr></thead><tbody id="tbUren"></tbody></table></div>
+            <div id="bulkBalk" class="bulk-balk verborgen">
+              <span id="bulkAantal"></span>
+              <button id="bulkGoed" class="btn btn-groen btn-klein">Selectie goedkeuren</button>
+              <button id="bulkAf" class="btn btn-grijs btn-klein">Selectie afkeuren</button>
+              <button id="bulkAlles" class="btn btn-grijs btn-klein">Hele periode goedkeuren</button>
+            </div>
+            <div class="tabelwrap"><table><thead><tr><th class="kies-cel"><input type="checkbox" id="kiesAlles" aria-label="Alles selecteren"></th><th>Datum</th><th>Monteur</th><th>Werkbon</th><th>Loc</th><th>Start</th><th>Eind</th><th>Pauze</th><th>Km</th><th>Uren</th><th>Status</th><th>Omschrijving</th><th></th></tr></thead><tbody id="tbUren"></tbody></table></div>
           </div>
         </section>
 
@@ -297,6 +309,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=23"></script>
+  <script type="module" src="beheer.js?v=24"></script>
 </body>
 </html>

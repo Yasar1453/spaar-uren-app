@@ -8,6 +8,7 @@ import { beheerClient } from "./config.js";
 const $ = (id) => document.getElementById(id);
 const db = beheerClient();
 let tikker = null;
+let ikBenId = null;        // medewerker-id van de ingelogde beheerder
 
 const PAGINA_TITEL = {
   dashboard: "Dashboard", rooster: "Rooster", uren: "Urenregistratie",
@@ -43,7 +44,13 @@ async function naarDash() {
   $("loginScherm").classList.add("verborgen");
   $("app").classList.remove("verborgen");
   const { data } = await db.auth.getUser();
-  if (data?.user) $("wieBen").textContent = data.user.email;
+  if (data?.user) {
+    $("wieBen").textContent = data.user.email;
+    // Wie ben ik als medewerker? Nodig om vast te leggen wie goedkeurt.
+    const { data: ik } = await db.from("medewerkers")
+      .select("id").eq("auth_user_id", data.user.id).is("verwijderd_op", null).maybeSingle();
+    ikBenId = ik?.id || null;
+  }
   await Promise.all([laadIngeklokt(), laadUren(), laadProjecten(), laadMedewerkers(), laadRooster(), laadVerlof()]);
   standaardPeriode();
   toonRapport();
@@ -171,21 +178,56 @@ async function laadUren() {
   const { van, tot } = urenPeriode();
   $("uPeriodeLabel").textContent = urenPeriodeLabel();
   const { data, error } = await db.from("urenregels")
-    .select("id, datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, in_lat, in_lng, medewerkers!medewerker_id(naam), projecten(id, werkbon, naam, kleur)")
+    .select("id, datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, in_lat, in_lng, nagekeken_op, verwerkt_op, medewerkers!medewerker_id(naam), keurder:medewerkers!nagekeken_door(naam), projecten(id, werkbon, naam, kleur)")
     .is("verwijderd_op", null).gte("datum", van).lte("datum", tot)
     .order("datum", { ascending: false }).order("start_tijd", { ascending: false }).limit(500);
   if (error) {
     // Nooit stil falen: een lege lijst en een kapotte query zien er anders identiek uit.
     $("tbRecent").innerHTML = rijLeeg(6, "Kon de uren niet laden: " + error.message);
-    $("tbUren").innerHTML = rijLeeg(12, "Kon de uren niet laden: " + error.message);
+    $("tbUren").innerHTML = rijLeeg(13, "Kon de uren niet laden: " + error.message);
     return;
   }
   _uren = data || [];
-  $("tbUren").innerHTML = _uren.map(urenRij).join("") || rijLeeg(12, "Geen uren in deze periode.");
+  $("tbUren").innerHTML = _uren.map(urenRij).join("") || rijLeeg(13, "Geen uren in deze periode.");
   laadRecenteUren();
   document.querySelectorAll("[data-keur]").forEach((b) => b.addEventListener("click", () => keur(b.dataset.id, b.dataset.keur)));
+  document.querySelectorAll(".uren-kies").forEach((c) => c.addEventListener("change", werkBulkBalkBij));
+  $("kiesAlles").checked = false;
+  werkBulkBalkBij();
   koppelKlokKnoppen();
 }
+
+// ── Meerdere regels tegelijk beoordelen ─────────────────────────────────────
+function gekozenIds() {
+  return [...document.querySelectorAll(".uren-kies:checked")].map((c) => c.dataset.kies);
+}
+function werkBulkBalkBij() {
+  const n = gekozenIds().length;
+  const open = document.querySelectorAll(".uren-kies").length;
+  $("bulkAantal").textContent = n
+    ? `${n} van ${open} geselecteerd`
+    : `${open} ${open === 1 ? "regel wacht" : "regels wachten"} op beoordeling`;
+  $("bulkBalk").classList.toggle("verborgen", open === 0);
+  $("bulkGoed").disabled = n === 0;
+  $("bulkAf").disabled = n === 0;
+}
+$("kiesAlles").addEventListener("change", (e) => {
+  document.querySelectorAll(".uren-kies").forEach((c) => { c.checked = e.target.checked; });
+  werkBulkBalkBij();
+});
+$("bulkGoed").addEventListener("click", () => {
+  const ids = gekozenIds();
+  if (confirm(`${ids.length} ${ids.length === 1 ? "regel" : "regels"} goedkeuren?`)) keurMeerdere(ids, "goedgekeurd");
+});
+$("bulkAf").addEventListener("click", () => {
+  const ids = gekozenIds();
+  if (confirm(`${ids.length} ${ids.length === 1 ? "regel" : "regels"} afkeuren?`)) keurMeerdere(ids, "afgekeurd");
+});
+$("bulkAlles").addEventListener("click", () => {
+  const ids = [...document.querySelectorAll(".uren-kies")].map((c) => c.dataset.kies);
+  if (!ids.length) return;
+  if (confirm(`Alle ${ids.length} openstaande ${ids.length === 1 ? "regel" : "regels"} in ${urenPeriodeLabel()} goedkeuren?`)) keurMeerdere(ids, "goedgekeurd");
+});
 // Dashboard toont altijd de laatste registraties, los van de gekozen periode.
 async function laadRecenteUren() {
   const { data, error } = await db.from("urenregels")
@@ -215,11 +257,19 @@ function klokKnop(lat, lng, naam, iso, werkbon) {
   return ` <button class="klok-pin" title="Toon inklok-locatie" data-klok-lat="${lat}" data-klok-lng="${lng}" data-klok-naam="${esc(naam || "")}" data-klok-iso="${esc(iso || "")}" data-klok-werkbon="${esc(werkbon || "")}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></button>`;
 }
 function urenRij(u) {
+  const verwerkt = !!u.verwerkt_op;
   const actie = u.status === "onbeslist"
     ? `<td style="white-space:nowrap"><button class="btn btn-groen btn-klein" data-keur="goedgekeurd" data-id="${u.id}">Keur goed</button>
          <button class="btn btn-grijs btn-klein" data-keur="afgekeurd" data-id="${u.id}">Afkeuren</button></td>`
-    : "<td></td>";
-  return `<tr><td class="mono">${datum(u.datum)}</td><td class="sterk">${esc(u.medewerkers?.naam)}</td>
+    : verwerkt
+      ? `<td><span class="mini-grijs">in loonrun</span></td>`
+      : `<td><button class="btn btn-grijs btn-klein" data-keur="onbeslist" data-id="${u.id}" title="Terug naar in behandeling">Terugdraaien</button></td>`;
+  const keurInfo = u.status !== "onbeslist" && (u.keurder?.naam || u.nagekeken_op)
+    ? `<div class="mini-grijs">${esc(u.keurder?.naam || "")}${u.nagekeken_op ? " · " + datum(u.nagekeken_op) : ""}</div>` : "";
+  const kies = u.status === "onbeslist"
+    ? `<input type="checkbox" class="uren-kies" data-kies="${u.id}" aria-label="Selecteer regel">` : "";
+  return `<tr${verwerkt ? ' class="rij-verwerkt"' : ""}><td class="kies-cel">${kies}</td>
+    <td class="mono">${datum(u.datum)}</td><td class="sterk">${esc(u.medewerkers?.naam)}</td>
     <td class="mono">${werkbonMetKleur(u.projecten)}</td>
     <td class="loc-cel">${klokKnop(u.in_lat, u.in_lng, u.medewerkers?.naam, u.start_tijd, werkbonTekst(u.projecten)) || '<span class="loc-geen" title="Geen locatie vastgelegd">–</span>'}</td>
     <td class="mono">${u.start_tijd ? tijd(u.start_tijd) : "—"}</td>
@@ -227,27 +277,68 @@ function urenRij(u) {
     <td class="mono">${pauzeTekst(u)}</td>
     <td class="mono">${u.km != null ? u.km : "—"}</td>
     <td class="sterk mono">${urenTekst(u.uren)}</td>
-    <td>${statusBadge(u.status)}</td>
+    <td>${statusBadge(u.status)}${keurInfo}</td>
     <td>${esc(u.omschrijving || "")}</td>${actie}</tr>`;
 }
 async function keur(id, status) {
-  const { error } = await db.from("urenregels").update({ status, nagekeken_op: new Date().toISOString() }).eq("id", id);
+  const terug = status === "onbeslist";
+  const { error } = await db.from("urenregels").update({
+    status,
+    nagekeken_op: terug ? null : new Date().toISOString(),
+    nagekeken_door: terug ? null : ikBenId,
+  }).eq("id", id);
+  if (error) return alert("Beoordelen mislukt: " + error.message);
+  await laadUren();
+}
+
+// Meerdere regels tegelijk beoordelen
+async function keurMeerdere(ids, status) {
+  if (!ids.length) return;
+  const { error } = await db.from("urenregels").update({
+    status, nagekeken_op: new Date().toISOString(), nagekeken_door: ikBenId,
+  }).in("id", ids);
   if (error) return alert("Beoordelen mislukt: " + error.message);
   await laadUren();
 }
 $("urenExport").addEventListener("click", async () => {
-  // vers en volledig ophalen — de tabel zelf toont maximaal 400 regels
-  const { data, error } = await db.from("urenregels")
-    .select("datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, medewerkers!medewerker_id(naam), projecten(werkbon, naam)")
-    .is("verwijderd_op", null).order("datum", { ascending: false }).limit(10000);
+  const { van, tot } = urenPeriode();
+  const alleenGoed = $("urenExportSoort").value === "goedgekeurd";
+
+  let q = db.from("urenregels")
+    .select("id, datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, verwerkt_op, medewerker_id, medewerkers!medewerker_id(naam), projecten(werkbon, naam)")
+    .is("verwijderd_op", null).gte("datum", van).lte("datum", tot)
+    .order("datum").order("start_tijd").limit(10000);
+  if (alleenGoed) q = q.eq("status", "goedgekeurd").is("verwerkt_op", null);
+
+  const { data, error } = await q;
   if (error) return alert("Exporteren mislukt: " + error.message);
-  const rijen = (data || []).map((u) => [
-    u.datum, u.medewerkers?.naam || "", werkbonTekst(u.projecten),
+  if (!data || !data.length) {
+    return alert(alleenGoed
+      ? "Er zijn in deze periode geen goedgekeurde uren die nog niet in een loonrun zaten."
+      : "Geen uren in deze periode.");
+  }
+
+  const rijen = data.map((u) => [
+    u.datum, u.medewerkers?.naam || "", u.medewerker_id, werkbonTekst(u.projecten),
     u.start_tijd ? tijd(u.start_tijd) : "", u.eind_tijd ? tijd(u.eind_tijd) : "",
     u.pauze_onbetaald_min || 0, u.pauze_betaald_min || 0, u.km != null ? u.km : "",
     komma(u.uren), urenTekst(u.uren), u.status, u.omschrijving || "",
   ]);
-  csvDownload(["Datum", "Monteur", "Werkbon", "Start", "Eind", "Pauze onbetaald (min)", "Pauze betaald (min)", "Km", "Uren (decimaal)", "Uren", "Status", "Omschrijving"], rijen, "uren");
+  csvDownload(
+    ["Datum", "Monteur", "Medewerker-id", "Werkbon", "Start", "Eind",
+     "Pauze onbetaald (min)", "Pauze betaald (min)", "Km", "Uren (decimaal)", "Uren", "Status", "Omschrijving"],
+    rijen, (alleenGoed ? "loonrun" : "uren") + "-" + van + "_" + tot);
+
+  // Na een loonrun-export markeren wat verwerkt is, zodat je dezelfde uren
+  // niet twee keer uitbetaalt. De regels blijven zichtbaar, maar grijs.
+  if (alleenGoed && confirm(
+      `${data.length} ${data.length === 1 ? "regel" : "regels"} geëxporteerd.\n\n` +
+      `Markeren als verwerkt in de loonrun? Ze verschijnen dan niet meer in een volgende export.`)) {
+    const { error: mErr } = await db.from("urenregels")
+      .update({ verwerkt_op: new Date().toISOString() }).in("id", data.map((u) => u.id));
+    if (mErr) return alert("Markeren mislukt: " + mErr.message);
+    laadUren();
+  }
 });
 
 // ── Verlof / afwezigheid ─────────────────────────────────────────────────────
