@@ -512,6 +512,8 @@ $("rVolgende").addEventListener("click", () => { weekStart.setDate(weekStart.get
 
 // ── Rapportages ──────────────────────────────────────────────────────────────
 let _rapMonteur = [];
+let _rapPeriode = "";                 // periode waarvoor de cijfers zijn berekend
+const komma = (n) => Number(n || 0).toFixed(2).replace(".", ","); // Excel-NL leest zo als getal
 function standaardPeriode() {
   const nu = new Date();
   const eerste = new Date(nu.getFullYear(), nu.getMonth(), 1);
@@ -533,6 +535,7 @@ $("rapToon").addEventListener("click", toonRapport);
 async function toonRapport() {
   const van = $("rapVan").value, tot = $("rapTot").value;
   if (!van || !tot) return alert("Kies een periode.");
+  _rapPeriode = van + "_" + tot;      // vastleggen zodat de CSV-naam bij de cijfers hoort
   const [{ data: uren }, { data: afw }] = await Promise.all([
     // afgekeurde regels tellen niet mee in de rapportage
     db.from("urenregels").select("datum, uren, km, status, medewerker_id, medewerkers(naam), projecten(werkbon, naam)")
