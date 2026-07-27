@@ -136,12 +136,12 @@ td.sterk{font-weight:700}
 /* Werkbon-kleuren */
 .kleur-kies{width:38px;height:30px;padding:2px;border-radius:7px;border:1px solid var(--lijn);cursor:pointer;background:#fff}
 /* ── Weekrooster ──────────────────────────────────────────────────────────── */
-#rGrid{border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:820px}
+#rGrid{border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:920px}
 #rGrid th,#rGrid td{border-bottom:1px solid var(--lijn)}
 
 /* Monteurkolom blijft staan bij horizontaal scrollen */
-.r-naamkop,.r-naam{position:sticky;left:0;z-index:2;background:var(--vlak);width:170px;max-width:170px}
-.r-naam{font-weight:700;font-size:13.5px;padding:7px 12px 7px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-right:1px solid var(--lijn)}
+.r-naamkop,.r-naam{position:sticky;left:0;z-index:2;background:var(--vlak);width:190px;max-width:190px}
+.r-naam{font-weight:700;font-size:13px;padding:6px 10px 6px 2px;border-right:1px solid var(--lijn)}
 .r-naamkop{border-right:1px solid var(--lijn);padding-left:2px}
 
 .r-dagkop{padding:8px 6px;text-align:center;line-height:1.25}
@@ -151,22 +151,36 @@ td.sterk{font-weight:700}
 .r-dagkop.vandaag{background:#fdeeee}
 .r-dagkop.vandaag .r-dagnr{color:var(--rood)}
 
-.r-cel{padding:4px;vertical-align:top;height:38px}
+.r-cel{padding:4px;vertical-align:top;height:42px}
 .r-cel.weekend{background:#faf8f7}
 .r-cel.vandaag{background:#fdf6f6}
 
-/* Compact gekleurd blokje per ingeplande werkbon */
-.r-blok{display:flex;align-items:center;gap:5px;color:#fff;border-radius:6px;
-  padding:5px 6px 5px 8px;margin-bottom:3px;font-size:11.5px;font-weight:700;
-  font-family:var(--mono);line-height:1.1;min-width:0}
+/* Roosterblok in Shiftbase-stijl: witte kaart met gekleurde rand links,
+   werkbon boven en de werktijden eronder */
+.r-blok{display:flex;align-items:flex-start;gap:4px;background:#fff;border:1px solid var(--lijn);
+  border-left:4px solid var(--grijs);border-radius:5px;padding:4px 5px 4px 7px;margin-bottom:3px;
+  line-height:1.25;min-width:0}
 .r-blok:last-child{margin-bottom:0}
-.r-code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
-.r-deel{background:rgba(255,255,255,.28);border-radius:4px;padding:1px 4px;font-size:9.5px;flex:none;letter-spacing:.02em}
-.r-weg{border:none;background:none;color:#fff;cursor:pointer;padding:0 1px;font-size:14px;
+.r-blok-tekst{flex:1;min-width:0;display:flex;flex-direction:column}
+.r-code{font-size:11.5px;font-weight:700;color:var(--inkt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.r-tijd{font-size:10.5px;color:var(--grijs);font-family:var(--mono);font-variant-numeric:tabular-nums}
+.r-weg{border:none;background:none;color:var(--grijs);cursor:pointer;padding:0 1px;font-size:14px;
   line-height:1;opacity:0;flex:none;transition:opacity .12s}
-.r-blok:hover .r-weg,.r-weg:focus-visible{opacity:.9}
-.r-weg:hover{opacity:1}
-@media (hover:none){.r-weg{opacity:.75}}   /* op touch altijd zichtbaar */
+.r-blok:hover .r-weg,.r-weg:focus-visible{opacity:.85}
+.r-weg:hover{opacity:1;color:var(--rood)}
+@media (hover:none){.r-weg{opacity:.7}}
+
+/* Verlof/afwezigheid als volle balk */
+.r-vrij{display:block;background:#f5c518;color:#4a3800;border-radius:5px;padding:5px 7px;
+  margin-bottom:3px;font-size:11.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.r-vrij.wacht{background:#fdf0c4;color:#7a5c00;border:1px dashed #e0bf5a}
+
+/* Naam met initialen-rondje */
+.r-naam{display:flex;align-items:center;gap:8px}
+.r-avatar{flex:none;width:24px;height:24px;border-radius:50%;background:var(--zacht);color:var(--grijs);
+  display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;letter-spacing:.02em}
+.r-naamtekst{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.weeknr{font-size:12px;color:var(--grijs);font-weight:700;margin-left:8px}   /* op touch altijd zichtbaar */
 /* Gekleurd bolletje voor de werkbon in lijsten */
 .wb-stip{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle;flex:none}
 

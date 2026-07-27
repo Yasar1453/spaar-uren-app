@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=22">
+  <link rel="stylesheet" href="uren.css?v=23">
 </head>
 <body>
 
@@ -82,17 +82,19 @@
               <div><label>Monteur</label><select id="rMedewerker"></select></div>
               <div><label>Datum</label><input id="rDatum" type="date"></div>
               <div><label>Werkbon</label><select id="rProject"></select></div>
-              <div><label>Dagdeel</label><select id="rDagdeel">
+              <div><label for="rDagdeel">Dagdeel</label><select id="rDagdeel">
                 <option value="hele_dag">Hele dag</option>
                 <option value="ochtend">Ochtend</option>
                 <option value="middag">Middag</option>
               </select></div>
+              <div><label for="rStart">Van</label><input id="rStart" type="time" value="07:00"></div>
+              <div><label for="rEind">Tot</label><input id="rEind" type="time" value="16:00"></div>
             </div>
             <button id="rInplannen" class="btn btn-rood btn-klein" style="margin-top:14px">Inplannen</button>
           </div>
           <div class="kaart">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-              <h2 style="margin:0">Weekrooster</h2>
+              <h2 style="margin:0">Weekrooster</h2><span id="rWeekNr" class="weeknr"></span>
               <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
                 <button id="rVorige" class="btn btn-grijs btn-klein">&larr;</button>
                 <span id="rWeekLabel" class="mono" style="font-size:13px"></span>
@@ -309,6 +311,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=24"></script>
+  <script type="module" src="beheer.js?v=25"></script>
 </body>
 </html>

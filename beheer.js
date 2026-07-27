@@ -642,6 +642,7 @@ $("medUitDienst").addEventListener("click", async () => {
 
 // ── Rooster (weekplanning) ───────────────────────────────────────────────────
 let weekStart = maandagVan(new Date());
+let _weekAfwezig = [];   // verlof in de getoonde week
 
 function maandagVan(d) {
   const x = new Date(d); const dag = (x.getDay() + 6) % 7;
@@ -674,10 +675,18 @@ async function tekenWeek(mws) {
   const totD = new Date(weekStart); totD.setDate(totD.getDate() + 6);
   const tot = isoDatum(totD);
   $("rWeekLabel").textContent = van.slice(8) + "/" + van.slice(5, 7) + " – " + tot.slice(8) + "/" + tot.slice(5, 7);
+  $("rWeekNr").textContent = "Week " + weeknummer(weekStart);
 
-  const { data: plan } = await db.from("planning")
-    .select("id, medewerker_id, datum, dagdeel, projecten(id, werkbon, naam, kleur)")
-    .gte("datum", van).lte("datum", tot).is("verwijderd_op", null);
+  // Rooster én afwezigheid ophalen: iemand die vrij is mag je niet inplannen.
+  const [{ data: plan }, { data: afw }] = await Promise.all([
+    db.from("planning")
+      .select("id, medewerker_id, datum, dagdeel, start_tijd, eind_tijd, projecten(id, werkbon, naam, kleur)")
+      .gte("datum", van).lte("datum", tot).is("verwijderd_op", null),
+    db.from("afwezigheid")
+      .select("medewerker_id, soort, van_datum, tot_datum, status")
+      .lte("van_datum", tot).gte("tot_datum", van).is("verwijderd_op", null).neq("status", "afgekeurd"),
+  ]);
+  _weekAfwezig = afw || [];
 
   const dagen = [...Array(7)].map((_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d; });
   const vandaag = isoDatum(new Date());
@@ -686,13 +695,11 @@ async function tekenWeek(mws) {
   document.querySelector("#rGrid thead").innerHTML =
     `<tr><th class="r-naamkop">Monteur</th>` + dagen.map((d, i) => {
       const dat = isoDatum(d);
-      const weekend = i >= 5;
-      return `<th class="r-dagkop${weekend ? " weekend" : ""}${dat === vandaag ? " vandaag" : ""}">
+      return `<th class="r-dagkop${i >= 5 ? " weekend" : ""}${dat === vandaag ? " vandaag" : ""}">
         <span class="r-dagnaam">${DAGEN[i]}</span>
         <span class="r-dagnr">${d.getDate()} ${MAAND[d.getMonth()]}</span></th>`;
     }).join("") + "</tr>";
 
-  // Snelle opzoektabel: planning per monteur per dag
   const perCel = {};
   (plan || []).forEach((p) => {
     const k = p.medewerker_id + "|" + p.datum;
@@ -702,18 +709,34 @@ async function tekenWeek(mws) {
   document.querySelector("#rGrid tbody").innerHTML = mws.map((m) => {
     const cellen = dagen.map((d, i) => {
       const dat = isoDatum(d);
-      const items = perCel[m.id + "|" + dat] || [];
       const klas = "r-cel" + (i >= 5 ? " weekend" : "") + (dat === vandaag ? " vandaag" : "");
-      const blokken = items.map((p) => {
+      const blokken = (perCel[m.id + "|" + dat] || []).map((p) => {
         const naam = p.projecten?.naam || "";
-        const code = p.projecten?.werkbon || naam || "?";
-        return `<span class="r-blok" style="background:${kleurVan(p.projecten)}" title="${esc(code + (naam ? " · " + naam : ""))} — ${DAGDEEL_LABEL[p.dagdeel] || p.dagdeel}">
-          <span class="r-code">${esc(code)}</span>${p.dagdeel !== "hele_dag" ? `<span class="r-deel">${p.dagdeel === "ochtend" ? "och" : "mid"}</span>` : ""}
+        const code = p.projecten?.werkbon || "";
+        const tijden = p.start_tijd
+          ? kortTijd(p.start_tijd) + " - " + kortTijd(p.eind_tijd)
+          : (DAGDEEL_LABEL[p.dagdeel] || p.dagdeel);
+        return `<span class="r-blok" style="border-left-color:${kleurVan(p.projecten)}" title="${esc((code ? code + " " : "") + naam)} — ${tijden}">
+          <span class="r-blok-tekst">
+            <span class="r-code">${esc(code)}${code && naam ? " " : ""}${esc(naam)}</span>
+            <span class="r-tijd">${tijden}</span>
+          </span>
           <button class="r-weg" data-plan-del="${p.id}" title="Uit het rooster halen" aria-label="Verwijderen">&times;</button></span>`;
       }).join("");
-      return `<td class="${klas}">${blokken}</td>`;
+      // Verlof/afwezigheid als volle balk, net als in Shiftbase
+      const vrij = _weekAfwezig.filter((a) => a.medewerker_id === m.id && dat >= a.van_datum && dat <= a.tot_datum);
+      const vrijBlok = vrij.map((a) => {
+        const label = a.soort === "vakantie" ? "Vakantie"
+          : a.soort === "ziek" ? "Ziek"
+          : a.soort === "onbetaald" ? "Onbetaald verlof" : "Bijzonder verlof";
+        const wacht = a.status === "onbeslist";
+        return `<span class="r-vrij${wacht ? " wacht" : ""}" title="${label}${wacht ? " (nog niet goedgekeurd)" : ""}">${label}${wacht ? " ?" : ""}</span>`;
+      }).join("");
+      return `<td class="${klas}">${vrijBlok}${blokken}</td>`;
     }).join("");
-    return `<tr><td class="r-naam" title="${esc(m.naam)}">${esc(m.naam)}</td>${cellen}</tr>`;
+    return `<tr><td class="r-naam" title="${esc(m.naam)}">
+      <span class="r-avatar">${esc(initialen(m.naam))}</span>
+      <span class="r-naamtekst">${esc(m.naam)}</span></td>${cellen}</tr>`;
   }).join("") || rijLeeg(8, "Nog geen monteurs.");
 
   document.querySelectorAll("[data-plan-del]").forEach((b) => b.addEventListener("click", async () => {
@@ -722,6 +745,26 @@ async function tekenWeek(mws) {
     tekenWeek();
   }));
 }
+
+// Hulpjes voor het rooster
+function kortTijd(t) { return t ? String(t).slice(0, 5) : ""; }
+function initialen(naam) {
+  const d = String(naam || "").trim().split(/\s+/).filter(Boolean);
+  return ((d[0]?.[0] || "") + (d.length > 1 ? d[d.length - 1][0] : "")).toUpperCase();
+}
+function weeknummer(d) {
+  const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  x.setUTCDate(x.getUTCDate() + 4 - (x.getUTCDay() || 7));
+  const jaarStart = new Date(Date.UTC(x.getUTCFullYear(), 0, 1));
+  return Math.ceil((((x - jaarStart) / 86400000) + 1) / 7);
+}
+
+// Dagdeel kiezen vult de standaardtijden in (aan te passen)
+const DAGDEEL_TIJDEN = { hele_dag: ["07:00", "16:00"], ochtend: ["07:00", "12:00"], middag: ["12:30", "16:00"] };
+$("rDagdeel").addEventListener("change", () => {
+  const t = DAGDEEL_TIJDEN[$("rDagdeel").value];
+  if (t) { $("rStart").value = t[0]; $("rEind").value = t[1]; }
+});
 
 $("rInplannen").addEventListener("click", async () => {
   const medewerker_id = $("rMedewerker").value, project_id = $("rProject").value;
@@ -732,7 +775,19 @@ $("rInplannen").addEventListener("click", async () => {
     .eq("medewerker_id", medewerker_id).eq("project_id", project_id)
     .eq("datum", datum).is("verwijderd_op", null).limit(1);
   if (dubbel && dubbel.length) return alert("Deze monteur staat die dag al op deze werkbon gepland.");
-  const { error } = await db.from("planning").insert({ medewerker_id, project_id, datum, dagdeel });
+  // Staat de monteur die dag vrij? Dan eerst waarschuwen.
+  const { data: vrij } = await db.from("afwezigheid").select("soort")
+    .eq("medewerker_id", medewerker_id).lte("van_datum", datum).gte("tot_datum", datum)
+    .is("verwijderd_op", null).neq("status", "afgekeurd").limit(1);
+  if (vrij && vrij.length) {
+    const naam = $("rMedewerker").selectedOptions[0]?.textContent || "Deze monteur";
+    const wat = SOORT_LABEL[vrij[0].soort]?.toLowerCase() || "afwezig";
+    if (!confirm(`${naam} heeft die dag ${wat}. Toch inplannen?`)) return;
+  }
+  const { error } = await db.from("planning").insert({
+    medewerker_id, project_id, datum, dagdeel,
+    start_tijd: $("rStart").value || null, eind_tijd: $("rEind").value || null,
+  });
   if (error) return alert("Inplannen mislukt: " + error.message);
   weekStart = maandagVan(new Date(datum + "T12:00:00"));
   tekenWeek();
