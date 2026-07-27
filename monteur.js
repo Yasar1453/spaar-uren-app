@@ -417,6 +417,41 @@ async function verversStatus() {
   else await toonUitgeklokt();
 }
 
+// Pauzetijden ophalen (voor het voorbeeld dat de monteur ziet)
+let _pauzes = null;
+async function haalPauzes() {
+  if (_pauzes) return _pauzes;
+  const { data } = await db.from("pauze_instellingen").select("van_tijd, tot_tijd, betaald").eq("actief", true);
+  _pauzes = data || [];
+  return _pauzes;
+}
+// Minuten die van de gewerkte tijd afgaan door onbetaalde pauzes
+function pauzeMinuten(start, eind, pauzes) {
+  const opDag = (d, tijd) => {
+    const [u, m] = String(tijd).split(":").map(Number);
+    const x = new Date(d); x.setHours(u, m, 0, 0); return x;
+  };
+  return (pauzes || []).filter((p) => !p.betaald).reduce((som, p) => {
+    const van = opDag(start, p.van_tijd), tot = opDag(start, p.tot_tijd);
+    const overlap = Math.min(eind, tot) - Math.max(start, van);
+    return som + Math.max(0, Math.floor(overlap / 60000));
+  }, 0);
+}
+// Toont: "Wordt geboekt: 8 u (9 u gewerkt − 1 u pauze)"
+async function toonBoekVoorbeeld() {
+  const vak = $("boekVoorbeeld");
+  if (!openSessie) { vak.classList.add("verborgen"); return; }
+  const pauzes = await haalPauzes();
+  const start = new Date(openSessie.ingeklokt_op), nu = new Date();
+  const gewerkt = Math.max(0, Math.round((nu - start) / 60000));
+  const pauze = Math.min(gewerkt, pauzeMinuten(start, nu, pauzes));
+  const netto = urenUitMinuten(gewerkt - pauze);
+  vak.innerHTML = pauze > 0
+    ? `<b>Wordt geboekt: ${urenTekst(netto)}</b><span>${urenTekst(urenUitMinuten(gewerkt))} gewerkt − ${pauze} min pauze</span>`
+    : `<b>Wordt geboekt: ${urenTekst(netto)}</b>`;
+  vak.classList.remove("verborgen");
+}
+
 function toonIngeklokt() {
   $("uitgeklokt").classList.add("verborgen");
   $("ingeklokt").classList.remove("verborgen");
@@ -424,11 +459,12 @@ function toonIngeklokt() {
     $("ingeklokOp").textContent = "op " + naam + " · sinds " + tijd(openSessie.ingeklokt_op);
   });
   if (tikker) clearInterval(tikker);
-  const upd = () => { $("lopendeDuur").textContent = duurTekst(openSessie.ingeklokt_op); };
+  const upd = () => { $("lopendeDuur").textContent = duurTekst(openSessie.ingeklokt_op); toonBoekVoorbeeld(); };
   upd(); tikker = setInterval(upd, 1000 * 30);
 }
 
 async function toonUitgeklokt() {
+  $("boekVoorbeeld").classList.add("verborgen");
   $("ingeklokt").classList.add("verborgen");
   $("uitgeklokt").classList.remove("verborgen");
   if (tikker) clearInterval(tikker);

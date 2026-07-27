@@ -12,7 +12,7 @@ let ikBenId = null;        // medewerker-id van de ingelogde beheerder
 
 const PAGINA_TITEL = {
   dashboard: "Dashboard", rooster: "Rooster", uren: "Urenregistratie",
-  verlof: "Verlof", projecten: "Werkbonnen", medewerkers: "Medewerkers",
+  verlof: "Verlof", projecten: "Werkbonnen", medewerkers: "Medewerkers", pauzes: "Pauzes",
   rapporten: "Rapportages",
 };
 const SOORT_LABEL = { vakantie: "Vakantie", ziek: "Ziek", onbetaald: "Onbetaald verlof", bijzonder: "Bijzonder verlof" };
@@ -51,7 +51,7 @@ async function naarDash() {
       .select("id").eq("auth_user_id", data.user.id).is("verwijderd_op", null).maybeSingle();
     ikBenId = ik?.id || null;
   }
-  await Promise.all([laadIngeklokt(), laadUren(), laadProjecten(), laadMedewerkers(), laadRooster(), laadVerlof()]);
+  await Promise.all([laadIngeklokt(), laadUren(), laadProjecten(), laadMedewerkers(), laadRooster(), laadVerlof(), laadPauzes()]);
   standaardPeriode();
   toonRapport();
   if (tikker) clearInterval(tikker);
@@ -638,6 +638,54 @@ $("medUitDienst").addEventListener("click", async () => {
   if (error) return toonMeld($("medMelding"), "fout", "Mislukt: " + error.message);
   sluitMedModal();
   await Promise.all([laadMedewerkers(), laadIngeklokt(), laadRooster(), laadVerlof()]);
+});
+
+// ── Pauzetijden ─────────────────────────────────────────────────────────────
+async function laadPauzes() {
+  const { data, error } = await db.from("pauze_instellingen").select("*").order("van_tijd");
+  if (error) { $("tbPauzes").innerHTML = rijLeeg(7, "Kon de pauzes niet laden: " + error.message); return; }
+  $("tbPauzes").innerHTML = (data || []).map((p) => {
+    const min = Math.round((new Date("2000-01-01T" + p.tot_tijd) - new Date("2000-01-01T" + p.van_tijd)) / 60000);
+    return `<tr${p.actief ? "" : ' class="rij-verwerkt"'}>
+      <td class="mono sterk">${p.van_tijd.slice(0, 5)}</td>
+      <td class="mono sterk">${p.tot_tijd.slice(0, 5)}</td>
+      <td class="mono">${min} min</td>
+      <td>${p.betaald ? '<span class="badge groen">betaald</span>' : '<span class="badge grijs">onbetaald</span>'}</td>
+      <td>${esc(p.omschrijving || "")}</td>
+      <td>${p.actief ? '<span class="badge groen">aan</span>' : '<span class="badge grijs">uit</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-grijs btn-klein" data-pauze-aan="${p.id}" data-nu="${p.actief}">${p.actief ? "Uitzetten" : "Aanzetten"}</button>
+        <button class="btn btn-grijs btn-klein" data-pauze-del="${p.id}">Verwijder</button>
+      </td></tr>`;
+  }).join("") || rijLeeg(7, "Nog geen pauzetijden — er wordt dan niets afgetrokken.");
+
+  document.querySelectorAll("[data-pauze-aan]").forEach((b) => b.addEventListener("click", async () => {
+    const { error } = await db.from("pauze_instellingen")
+      .update({ actief: b.dataset.nu !== "true" }).eq("id", b.dataset.pauzeAan);
+    if (error) return toonMeld($("pauzeMelding"), "fout", "Mislukt: " + error.message);
+    laadPauzes();
+  }));
+  document.querySelectorAll("[data-pauze-del]").forEach((b) => b.addEventListener("click", async () => {
+    if (!confirm("Deze pauze verwijderen? Nieuwe registraties worden dan niet meer met deze pauze gecorrigeerd.")) return;
+    const { error } = await db.from("pauze_instellingen").delete().eq("id", b.dataset.pauzeDel);
+    if (error) return toonMeld($("pauzeMelding"), "fout", "Mislukt: " + error.message);
+    laadPauzes();
+  }));
+}
+$("pzToevoegen").addEventListener("click", async () => {
+  const van = $("pzVan").value, tot = $("pzTot").value;
+  const meld = $("pauzeMelding");
+  if (!van || !tot) return toonMeld(meld, "fout", "Vul een begin- en eindtijd in.");
+  if (tot <= van) return toonMeld(meld, "fout", "De eindtijd moet na de begintijd liggen.");
+  const { error } = await db.from("pauze_instellingen").insert({
+    van_tijd: van, tot_tijd: tot,
+    betaald: $("pzSoort").value === "betaald",
+    omschrijving: $("pzOms").value.trim() || null,
+  });
+  if (error) return toonMeld(meld, "fout", "Mislukt: " + error.message);
+  $("pzOms").value = "";
+  toonMeld(meld, "ok", `Pauze ${van} - ${tot} toegevoegd.`);
+  laadPauzes();
 });
 
 // ── Rooster (weekplanning) ───────────────────────────────────────────────────

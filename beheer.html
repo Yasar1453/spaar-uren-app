@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=23">
+  <link rel="stylesheet" href="uren.css?v=24">
 </head>
 <body>
 
@@ -41,6 +41,7 @@
         <button class="nav" data-tab="verlof"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="7" y2="7"/><line x1="17" y1="17" x2="19" y2="19"/><line x1="5" y1="19" x2="7" y2="17"/><line x1="17" y1="7" x2="19" y2="5"/></svg></span> Verlof <span id="verlofBadge" class="nav-telling verborgen"></span></button>
         <button class="nav" data-tab="projecten"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span> Werkbonnen</button>
         <button class="nav" data-tab="medewerkers"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></span> Medewerkers</button>
+        <button class="nav" data-tab="pauzes"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg></span> Pauzes</button>
         <button class="nav" data-tab="rapporten"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="21" x2="21" y2="21"/><rect x="6" y="12" width="3" height="7"/><rect x="11" y="8" width="3" height="11"/><rect x="16" y="4" width="3" height="15"/></svg></span> Rapportages</button>
       </nav>
       <div class="zb-voet">
@@ -196,6 +197,29 @@
           </div>
         </section>
 
+        <!-- Pauzes (onder Medewerkers) -->
+        <section data-view="pauzes" class="verborgen">
+          <div class="kaart">
+            <h2>Pauzetijden</h2>
+            <p class="verplicht-uitleg">Deze pauzes worden automatisch van de gewerkte tijd afgetrokken zodra ze binnen de werkperiode van een monteur vallen. Wijzigingen gelden voor nieuwe registraties.</p>
+            <div id="pauzeMelding" class="melding verborgen"></div>
+            <div class="tabelwrap"><table><thead><tr><th>Van</th><th>Tot</th><th>Duur</th><th>Soort</th><th>Omschrijving</th><th>Actief</th><th></th></tr></thead><tbody id="tbPauzes"></tbody></table></div>
+          </div>
+          <div class="kaart">
+            <h2>Pauze toevoegen</h2>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+              <div><label for="pzVan">Van</label><input id="pzVan" type="time" value="09:30"></div>
+              <div><label for="pzTot">Tot</label><input id="pzTot" type="time" value="10:00"></div>
+              <div><label for="pzSoort">Soort</label><select id="pzSoort">
+                <option value="onbetaald">Onbetaald (gaat van de uren af)</option>
+                <option value="betaald">Betaald (telt gewoon mee)</option>
+              </select></div>
+              <div><label for="pzOms">Omschrijving</label><input id="pzOms" placeholder="Bv. Ochtendpauze"></div>
+            </div>
+            <button id="pzToevoegen" class="btn btn-rood btn-klein" style="margin-top:12px">Toevoegen</button>
+          </div>
+        </section>
+
         <!-- Rapportages -->
         <section data-view="rapporten" class="verborgen">
           <div class="kaart">
@@ -311,6 +335,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=25"></script>
+  <script type="module" src="beheer.js?v=26"></script>
 </body>
 </html>

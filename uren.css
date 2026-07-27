@@ -299,3 +299,9 @@ tbody tr:last-child td{border-bottom:none}
 .bulk-balk span{margin-right:auto}
 .mini-grijs{font-size:11px;color:var(--grijs);font-weight:600;margin-top:2px}
 .rij-verwerkt{background:#faf9f8;color:var(--grijs)}
+
+/* Wat er straks geboekt wordt (monteur, boven de uitklokknop) */
+.boek-voorbeeld{background:var(--zacht);border-radius:9px;padding:10px 12px;margin-top:14px;
+  display:flex;flex-direction:column;gap:2px;text-align:center}
+.boek-voorbeeld b{font-size:15px}
+.boek-voorbeeld span{font-size:12.5px;color:var(--grijs)}
