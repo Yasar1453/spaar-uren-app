@@ -4,7 +4,7 @@
 //  Bouwt voort op de logica uit ../../werknemer.js, nu gekoppeld aan Supabase.
 // ============================================================================
 import { monteurClient, VAPID_PUBLIC } from "./config.js";
-import { icoon } from "./iconen.js?v=1";
+import { icoon } from "./iconen.js?v=26";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();   // eigen sessie, blijft bewaard tussen bezoeken
@@ -113,6 +113,27 @@ $("regBtn").addEventListener("click", async () => {
     $("regBtn").disabled = false;
   }
 });
+
+// ── Zelf bijwerken ──────────────────────────────────────────────────────────
+//  GitHub Pages geeft de HTML tien minuten cache mee en de pagina kan zichzelf
+//  niet cache-bustend laden. Een monteur die de app op zijn beginscherm heeft
+//  staan blijft daardoor op een oude versie hangen. Daarom vragen we bij het
+//  starten het versienummer op (langs de cache heen) en herladen we eenmalig
+//  als er iets nieuwers staat. De vlag in sessionStorage voorkomt een lus als
+//  het herladen om welke reden dan ook niet aanslaat.
+const APP_VERSIE = 26;
+async function controleerVersie() {
+  try {
+    const r = await fetch("versie.json?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) return;
+    const { versie } = await r.json();
+    if (!(versie > APP_VERSIE)) { sessionStorage.removeItem("spaar-herladen"); return; }
+    if (sessionStorage.getItem("spaar-herladen")) return;   // al geprobeerd
+    sessionStorage.setItem("spaar-herladen", "1");
+    location.replace(location.pathname + "?v=" + versie);
+  } catch (_) { /* geen bereik: gewoon doorwerken op wat er staat */ }
+}
+controleerVersie();
 
 // Al ingelogd? Meteen door naar het klokscherm.
 (async function herstel() {
