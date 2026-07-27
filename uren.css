@@ -369,3 +369,14 @@ tbody tr:last-child td{border-bottom:none}
   .med-tab{white-space:nowrap}
   .med-paneel{max-height:none}
 }
+
+/* ── Datumvelden binnen de kaart houden ──────────────────────────────────── */
+/*  Safari op iOS geeft input[type=date] een eigen minimumbreedte, gebaseerd op
+    de datumtekst ("27 jul 2026"). Een grid-kolom van 1fr mag standaard niet
+    smaller worden dan die minimumbreedte, dus duwde het veld zijn kolom buiten
+    de kaart. minmax(0,1fr) en min-width:0 halen die bodem weg.               */
+.datumrij{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.datumrij > *{min-width:0}
+.veldrij > *{min-width:0}
+input[type=date],input[type=time]{
+  -webkit-appearance:none;appearance:none;min-width:0;max-width:100%;text-align:left}
