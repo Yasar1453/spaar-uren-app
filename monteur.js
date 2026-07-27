@@ -516,7 +516,7 @@ $("uitklokBtn").addEventListener("click", async () => {
         eind_tijd: new Date().toISOString(),
         uren,
         omschrijving: $("omschrijving").value.trim() || null,
-        km: Math.max(0, parseInt($("km").value) || 0) || null,
+        km: Math.max(0, parseInt($("km").value, 10) || 0),
         bron: "klok",
         in_lat: openSessie.in_lat,
         in_lng: openSessie.in_lng,
