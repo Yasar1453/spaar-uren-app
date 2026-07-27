@@ -118,6 +118,17 @@ td.sterk{font-weight:700}
 .klok-pin{border:none;background:none;cursor:pointer;padding:0 2px;line-height:0;vertical-align:middle;color:var(--grijs)}
 .klok-pin:hover{color:var(--rood)}
 
+/* Klok-plattegrond modal: kaart + info naast elkaar (zoals Shiftbase) */
+.klok-layout{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;align-items:start}
+.klok-layout .kaart-map{height:300px}
+.klok-info-vak{background:var(--zacht);border-radius:12px;padding:16px}
+.klok-info-kop{font-size:13px;font-weight:800;color:var(--grijs);text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px}
+.klok-info-regel{display:flex;flex-direction:column;gap:2px;padding:8px 0;border-bottom:1px solid var(--lijn)}
+.klok-info-regel:last-child{border-bottom:none}
+.klok-info-regel span{font-size:12px;color:var(--grijs)}
+.klok-info-regel b{font-size:15px;font-weight:700}
+@media (max-width:640px){.klok-layout{grid-template-columns:1fr}.klok-layout .kaart-map{height:240px}}
+
 /* Contracturen per dag (ma t/m zo) */
 .uren-week{display:grid;grid-template-columns:repeat(7,minmax(52px,1fr)) minmax(64px,auto);gap:6px;align-items:end}
 .uren-week .dag{display:flex;flex-direction:column;gap:3px}

@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="spaarlogo.svg">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=13">
+  <link rel="stylesheet" href="uren.css?v=14">
 </head>
 <body>
 
@@ -252,14 +252,20 @@
 
   <!-- Klok-plattegrond: waar heeft de monteur ingeklokt? -->
   <div id="klokModal" class="modal-overlay verborgen">
-    <div class="modal">
+    <div class="modal" style="max-width:760px">
       <div class="modal-kop">
-        <h2 id="klokTitel">Inklok-locatie</h2>
+        <h2 id="klokTitel">Klok-plattegrond</h2>
         <button id="klokSluit" class="modal-x" aria-label="Sluiten">&times;</button>
       </div>
-      <div id="klokInfo" class="melding verborgen" style="margin-bottom:10px"></div>
-      <div id="klokKaart" class="kaart-map"></div>
-      <p class="map-hint">De speld toont waar de monteur op zijn telefoon heeft ingeklokt.</p>
+      <div class="klok-layout">
+        <div id="klokKaart" class="kaart-map" style="margin:0"></div>
+        <div class="klok-info-vak">
+          <div class="klok-info-kop">Tijdregistratie</div>
+          <div class="klok-info-regel"><span>Monteur</span><b id="klokNaam">—</b></div>
+          <div class="klok-info-regel"><span>Ingeklokt</span><b id="klokTijd">—</b></div>
+          <div class="klok-info-regel"><span>Werkbon</span><b id="klokWerkbon">—</b></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -292,6 +298,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=11"></script>
+  <script type="module" src="beheer.js?v=12"></script>
 </body>
 </html>

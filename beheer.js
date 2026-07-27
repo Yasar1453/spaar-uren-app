@@ -78,7 +78,7 @@ async function laadIngeklokt() {
   tb.innerHTML = (data || []).length
     ? data.map((k) => `<tr><td class="sterk">${esc(k.medewerkers?.naam)}</td>
         <td class="mono">${esc(werkbonTekst(k.projecten))}</td>
-        <td class="mono">${tijd(k.ingeklokt_op)}${klokKnop(k.in_lat, k.in_lng, k.medewerkers?.naam, "Ingeklokt om " + tijd(k.ingeklokt_op))}</td>
+        <td class="mono">${tijd(k.ingeklokt_op)}${klokKnop(k.in_lat, k.in_lng, k.medewerkers?.naam, k.ingeklokt_op, werkbonTekst(k.projecten))}</td>
         <td><span class="badge groen"><span class="dot"></span> ${duurTekst(k.ingeklokt_op)}</span></td>
         <td><button class="btn btn-grijs btn-klein" data-forceer-uit="${k.id}">Uitklokken</button></td></tr>`).join("")
     : rijLeeg(5, "Niemand is nu ingeklokt.");
@@ -141,9 +141,9 @@ function pauzeTekst(u) {
   if (!o && !b) return "—";
   return (o ? o + "m" : "") + (o && b ? " / " : "") + (b ? b + "m betaald" : "");
 }
-function klokKnop(lat, lng, naam, tijdstip) {
+function klokKnop(lat, lng, naam, iso, werkbon) {
   if (lat == null || lng == null) return "";
-  return ` <button class="klok-pin" title="Toon inklok-locatie" data-klok-lat="${lat}" data-klok-lng="${lng}" data-klok-naam="${esc(naam || "")}" data-klok-tijd="${esc(tijdstip || "")}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></button>`;
+  return ` <button class="klok-pin" title="Toon inklok-locatie" data-klok-lat="${lat}" data-klok-lng="${lng}" data-klok-naam="${esc(naam || "")}" data-klok-iso="${esc(iso || "")}" data-klok-werkbon="${esc(werkbon || "")}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></button>`;
 }
 function urenRij(u) {
   const actie = u.status === "onbeslist"
@@ -152,7 +152,7 @@ function urenRij(u) {
     : "<td></td>";
   return `<tr><td class="mono">${datum(u.datum)}</td><td class="sterk">${esc(u.medewerkers?.naam)}</td>
     <td class="mono">${esc(werkbonTekst(u.projecten))}</td>
-    <td class="mono">${u.start_tijd ? tijd(u.start_tijd) : "—"}${klokKnop(u.in_lat, u.in_lng, u.medewerkers?.naam, u.start_tijd ? "Ingeklokt om " + tijd(u.start_tijd) : "")}</td>
+    <td class="mono">${u.start_tijd ? tijd(u.start_tijd) : "—"}${klokKnop(u.in_lat, u.in_lng, u.medewerkers?.naam, u.start_tijd, werkbonTekst(u.projecten))}</td>
     <td class="mono">${u.eind_tijd ? tijd(u.eind_tijd) : "—"}</td>
     <td class="mono">${pauzeTekst(u)}</td>
     <td class="mono">${u.km != null ? u.km : "—"}</td>
@@ -664,13 +664,14 @@ function koppelKlokKnoppen() {
     b.dataset.gekoppeld = "1";
     b.addEventListener("click", () => toonKlokKaart(
       parseFloat(b.dataset.klokLat), parseFloat(b.dataset.klokLng),
-      b.dataset.klokNaam, b.dataset.klokTijd));
+      b.dataset.klokNaam, b.dataset.klokIso, b.dataset.klokWerkbon));
   });
 }
-function toonKlokKaart(lat, lng, naam, tijdstip) {
-  $("klokTitel").textContent = "Inklok-locatie — " + (naam || "");
-  $("klokInfo").textContent = tijdstip || "";
-  $("klokInfo").classList.toggle("verborgen", !tijdstip);
+function tijdSec(iso) { return new Date(iso).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", second: "2-digit" }); }
+function toonKlokKaart(lat, lng, naam, iso, werkbon) {
+  $("klokNaam").textContent = naam || "—";
+  $("klokTijd").textContent = iso ? tijdSec(iso) + " via de app" : "—";
+  $("klokWerkbon").textContent = werkbon || "—";
   $("klokModal").classList.remove("verborgen");
   if (!klokMap) {
     klokMap = L.map("klokKaart");
