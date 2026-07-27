@@ -4,7 +4,7 @@
 //  Bouwt voort op de logica uit ../../werknemer.js, nu gekoppeld aan Supabase.
 // ============================================================================
 import { monteurClient, VAPID_PUBLIC } from "./config.js";
-import { icoon } from "./iconen.js?v=31";
+import { icoon } from "./iconen.js?v=32";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();   // eigen sessie, blijft bewaard tussen bezoeken
@@ -74,6 +74,21 @@ function netfout(e, standaard) {
 
 $("vaSoort").addEventListener("change", toonSoortIcoon);
 
+// ── Ruimte onder de laatste kaart ───────────────────────────────────────────
+//  De tabbalk zweeft boven de pagina, dus de inhoud heeft onderaan evenveel
+//  ruimte nodig als de balk hoog is. Die hoogte is niet vast: hij groeit mee
+//  met de thuisknop-balk van de iPhone en met een grotere systeemletter. Een
+//  vast getal in de stijl viel daardoor op de ene telefoon te krap uit en
+//  schoof de laatste kaart onder de balk. Daarom meten we hem gewoon.
+function stelRuimteOnderIn() {
+  const balk = $("tabbalk"), wrap = $("appWrap");
+  if (!balk || !wrap || balk.classList.contains("verborgen")) return;
+  wrap.style.paddingBottom = Math.round(balk.getBoundingClientRect().height) + 24 + "px";
+}
+addEventListener("resize", stelRuimteOnderIn);
+addEventListener("orientationchange", stelRuimteOnderIn);
+if (window.ResizeObserver && $("tabbalk")) new ResizeObserver(stelRuimteOnderIn).observe($("tabbalk"));
+
 // ── Zelf bijwerken ──────────────────────────────────────────────────────────
 //  GitHub Pages geeft de HTML tien minuten cache mee en de pagina kan zichzelf
 //  niet cache-bustend laden. Een monteur die de app op zijn beginscherm heeft
@@ -81,7 +96,7 @@ $("vaSoort").addEventListener("change", toonSoortIcoon);
 //  starten het versienummer op (langs de cache heen) en herladen we eenmalig
 //  als er iets nieuwers staat. De vlag in sessionStorage voorkomt een lus als
 //  het herladen om welke reden dan ook niet aanslaat.
-const APP_VERSIE = 31;
+const APP_VERSIE = 32;
 async function controleerVersie() {
   try {
     const r = await fetch("versie.json?t=" + Date.now(), { cache: "no-store" });
@@ -113,7 +128,8 @@ async function naarStatus() {
   $("status").classList.remove("verborgen");
   $("uitloggen").classList.remove("verborgen");
   $("tabbalk").classList.remove("verborgen");
-  document.getElementById("appWrap").classList.add("met-tabbalk");
+  $("appWrap").classList.add("met-tabbalk");
+  stelRuimteOnderIn();
   await verversStatus();
   vulVerlofSoorten();
   laadMijnVerlof();
