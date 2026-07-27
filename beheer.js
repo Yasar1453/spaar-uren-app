@@ -66,7 +66,7 @@ $("app").addEventListener("click", (e) => { if (e.target === $("app")) $("app").
 async function laadIngeklokt() {
   const [{ data, error }, { data: monteurs }] = await Promise.all([
     db.from("kloksessies")
-      .select("id, medewerker_id, project_id, ingeklokt_op, in_lat, in_lng, medewerkers(naam), projecten(werkbon, naam)")
+      .select("id, medewerker_id, project_id, ingeklokt_op, in_lat, in_lng, medewerkers!medewerker_id(naam), projecten(werkbon, naam)")
       .order("ingeklokt_op"),
     db.from("medewerkers").select("id, naam").eq("rol", "monteur").is("verwijderd_op", null).order("naam"),
   ]);
@@ -117,9 +117,14 @@ async function laadIngeklokt() {
 let _uren = [];
 async function laadUren() {
   const { data, error } = await db.from("urenregels")
-    .select("id, datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, in_lat, in_lng, medewerkers(naam), projecten(werkbon, naam)")
+    .select("id, datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, in_lat, in_lng, medewerkers!medewerker_id(naam), projecten(werkbon, naam)")
     .is("verwijderd_op", null).order("datum", { ascending: false }).order("start_tijd", { ascending: false }).limit(400);
-  if (error) return;
+  if (error) {
+    // Nooit stil falen: een lege lijst en een kapotte query zien er anders identiek uit.
+    $("tbRecent").innerHTML = rijLeeg(6, "Kon de uren niet laden: " + error.message);
+    $("tbUren").innerHTML = rijLeeg(11, "Kon de uren niet laden: " + error.message);
+    return;
+  }
   _uren = data || [];
   $("tbRecent").innerHTML = _uren.slice(0, 8).map(recentRij).join("") || rijLeeg(6, "Nog geen uren.");
   $("tbUren").innerHTML = _uren.map(urenRij).join("") || rijLeeg(11, "Nog geen uren.");
@@ -168,7 +173,7 @@ async function keur(id, status) {
 $("urenExport").addEventListener("click", async () => {
   // vers en volledig ophalen — de tabel zelf toont maximaal 400 regels
   const { data, error } = await db.from("urenregels")
-    .select("datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, medewerkers(naam), projecten(werkbon, naam)")
+    .select("datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, medewerkers!medewerker_id(naam), projecten(werkbon, naam)")
     .is("verwijderd_op", null).order("datum", { ascending: false }).limit(10000);
   if (error) return alert("Exporteren mislukt: " + error.message);
   const rijen = (data || []).map((u) => [
@@ -182,11 +187,12 @@ $("urenExport").addEventListener("click", async () => {
 
 // ── Verlof / afwezigheid ─────────────────────────────────────────────────────
 async function laadVerlof() {
-  const [{ data: mws }, { data }] = await Promise.all([
+  const [{ data: mws }, { data, error }] = await Promise.all([
     db.from("medewerkers").select("id, naam").eq("rol", "monteur").is("verwijderd_op", null).order("naam"),
-    db.from("afwezigheid").select("id, soort, van_datum, tot_datum, reden, status, medewerkers(naam)")
+    db.from("afwezigheid").select("id, soort, van_datum, tot_datum, reden, status, medewerkers!medewerker_id(naam)")
       .is("verwijderd_op", null).order("van_datum", { ascending: false }),
   ]);
+  if (error) { $("tbVerlof").innerHTML = rijLeeg(8, "Kon verlof niet laden: " + error.message); return; }
   vulSelect("vMedewerker", (mws || []).map((m) => [m.id, m.naam]));
 
   const rijen = data || [];
@@ -595,9 +601,9 @@ async function toonRapport() {
   _rapPeriode = van + "_" + tot;      // vastleggen zodat de CSV-naam bij de cijfers hoort
   const [{ data: uren }, { data: afw }] = await Promise.all([
     // afgekeurde regels tellen niet mee in de rapportage
-    db.from("urenregels").select("datum, uren, km, status, medewerker_id, medewerkers(naam), projecten(werkbon, naam)")
+    db.from("urenregels").select("datum, uren, km, status, medewerker_id, medewerkers!medewerker_id(naam), projecten(werkbon, naam)")
       .is("verwijderd_op", null).neq("status", "afgekeurd").gte("datum", van).lte("datum", tot),
-    db.from("afwezigheid").select("van_datum, tot_datum, soort, medewerker_id, medewerkers(naam)")
+    db.from("afwezigheid").select("van_datum, tot_datum, soort, medewerker_id, medewerkers!medewerker_id(naam)")
       .is("verwijderd_op", null).eq("status", "goedgekeurd").lte("van_datum", tot).gte("tot_datum", van),
   ]);
 
