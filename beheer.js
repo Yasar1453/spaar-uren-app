@@ -6,7 +6,7 @@
 import { beheerClient } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=28";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=29";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -606,8 +606,9 @@ async function laadMedewerkers() {
   const waarschuwing = $("medGeenGeboorte");
   if (waarschuwing) {
     if (zonderDatum.length) {
-      waarschuwing.textContent = zonderDatum.length + " medewerker" + (zonderDatum.length === 1 ? "" : "s")
-        + " zonder geboortedatum kan zich niet aanmelden en staat niet in de uitnodigingslijst. Vul die eerst in via Bewerken.";
+      waarschuwing.textContent = zonderDatum.length === 1
+        ? "1 medewerker heeft nog geen geboortedatum en kan zich daardoor niet aanmelden. Vul die in via Bewerken."
+        : zonderDatum.length + " medewerkers hebben nog geen geboortedatum en kunnen zich daardoor niet aanmelden. Vul die in via Bewerken.";
       waarschuwing.classList.remove("verborgen");
     } else waarschuwing.classList.add("verborgen");
   }
