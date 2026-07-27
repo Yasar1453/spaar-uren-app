@@ -6,7 +6,7 @@
 import { beheerClient } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=33";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=34";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -569,6 +569,77 @@ function urenWeekTotaal(u) {
   if (!u) return null;
   return Math.round(DAG_KEYS.reduce((s, d) => s + (parseFloat(u[d]) || 0), 0) * 10) / 10;
 }
+
+// ── Verlofdagen uit de contracturen ─────────────────────────────────────────
+//  De opbouwfactor van het beleid is uitgedrukt per gewerkt uur. Uit de
+//  contracturen volgt hoeveel er per jaar gewerkt wordt, en daaruit het
+//  verlofrecht. Dat rekenen we hier uit in plaats van het aan de beheerder te
+//  vragen, want een verkeerd getal hier werkt door in de loonadministratie.
+const WEKEN_PER_JAAR = 52;
+
+// "30 dagen van 8 u" leest prettiger dan "30,00 dagen van 8,00 u".
+function netGetal(n) {
+  const afgerond = Math.round((Number(n) || 0) * 100) / 100;
+  return String(afgerond).replace(".", ",");
+}
+
+function verlofBerekening() {
+  const week = urenWeekTotaal(leesUrenWeek("medUrenWeek"));
+  if (!week) return null;
+  const beleid = _beleid.find((b) => b.id === $("medBeleid").value);
+  const factor = beleid ? Number(beleid.opbouw_per_uur) : 0;
+  const jaarUren = week * WEKEN_PER_JAAR;
+  const verlofUren = jaarUren * factor;
+  // Een "dag" is hier de gemiddelde lengte van een werkdag, niet een vaste 8
+  // uur: bij een vierdaagse week van 32 uur is een verlofdag 8 uur, bij vijf
+  // dagen van 6 uur is dat er 6.
+  const werkdagen = DAG_KEYS.filter((d) => (leesUrenWeek("medUrenWeek") || {})[d] > 0).length;
+  const daglengte = werkdagen ? week / werkdagen : 0;
+  return {
+    week, beleid, factor, jaarUren, verlofUren, werkdagen, daglengte,
+    dagen: daglengte ? verlofUren / daglengte : 0,
+    // Wettelijk minimum: vier keer de wekelijkse arbeidsduur per jaar.
+    minimumUren: week * 4,
+  };
+}
+
+function toonVerlofBerekening() {
+  const vak = $("medVerlofUitleg");
+  if (!vak) return;
+  const b = verlofBerekening();
+  if (!b) {
+    vak.innerHTML = '<span class="leeg">Vul eerst de contracturen per dag in op het tabblad Contract.</span>';
+    return;
+  }
+  if (!b.beleid) {
+    vak.innerHTML = '<span class="leeg">Kies een afwezigheidsbeleid om het verlofrecht te berekenen.</span>';
+    return;
+  }
+  const tekort = b.verlofUren + 0.01 < b.minimumUren;
+  vak.innerHTML = `
+    <div class="saldo-rij"><span>Contracturen</span><b>${netGetal(b.week)} u per week over ${b.werkdagen} dag${b.werkdagen === 1 ? "" : "en"}</b></div>
+    <div class="saldo-rij"><span>Gewerkt per jaar (${WEKEN_PER_JAAR} weken)</span><b>${netGetal(b.jaarUren)} u</b></div>
+    <div class="saldo-rij"><span>Opbouw volgens ${esc(b.beleid.naam)} (× ${Number(b.factor).toFixed(6)})</span><b>${urenTekst(b.verlofUren)}</b></div>
+    <div class="saldo-rij totaal"><span>Verlofrecht per jaar</span><b>${netGetal(b.dagen)} dagen van ${netGetal(b.daglengte)} u</b></div>
+    ${tekort ? `<div class="melding fout" style="margin-top:10px">Dit is minder dan het wettelijk minimum van ${netGetal(b.minimumUren)} uur (vier keer de wekelijkse arbeidsduur). Controleer de opbouwfactor van het beleid.</div>` : ""}`;
+}
+
+// Het berekende aantal invullen, tenzij de beheerder er zelf iets neergezet heeft.
+let verlofDagenHandmatig = false;
+function vulVerlofDagen() {
+  toonVerlofBerekening();
+  if (verlofDagenHandmatig) return;
+  const b = verlofBerekening();
+  $("medVerlofDagen").value = b && b.beleid && b.dagen ? Math.round(b.dagen * 10) / 10 : "";
+}
+$("medVerlofDagen").addEventListener("input", () => { verlofDagenHandmatig = true; });
+$("medBeleid").addEventListener("change", vulVerlofDagen);
+$("medUrenWeek").addEventListener("input", vulVerlofDagen);
+// Bij het openen van het tabblad opnieuw rekenen: de contracturen kunnen net
+// op een ander tabblad zijn aangepast.
+document.querySelectorAll(".med-tab").forEach((t) =>
+  t.addEventListener("click", () => { if (t.dataset.mtab === "afwezigheid") toonVerlofBerekening(); }));
+
 // Een zelf aangemeld account heeft wel een inlog, maar mag nog niets tot de beheerder het vrijgeeft.
 function wachtOpVrijgave(m) { return !!m.auth_user_id && !m.actief; }   // geblokkeerd: bovenaan tonen
 function accountBadge(m) {
@@ -669,12 +740,14 @@ function leegMedVenster() {
   $("medAccountVak").classList.add("verborgen");
   vulSelect("medBeleid", [["", "— geen beleid —"], ..._beleid.map((b) => [b.id, b.naam])]);
   bouwUrenWeek("medUrenWeek", null);
+  toonVerlofBerekening();
   verberg($("medMelding"));
   toonMedTab("basis");
 }
 
 function nieuweMedewerker() {
   medBewerkId = null;
+  verlofDagenHandmatig = false;
   leegMedVenster();
   $("medTitel").textContent = "Medewerker toevoegen";
   $("medUitDienst").classList.add("verborgen");
@@ -698,7 +771,9 @@ async function openMedewerker(id) {
   $("medBeleid").value = m.beleid_id || "";
   $("medStartUren").value = m.verlof_start_uren != null ? m.verlof_start_uren : 0;
   $("medVerlofDagen").value = m.verlof_dagen_per_jaar != null ? m.verlof_dagen_per_jaar : "";
+  verlofDagenHandmatig = m.verlof_dagen_per_jaar != null;
   bouwUrenWeek("medUrenWeek", m.contract_uren);
+  toonVerlofBerekening();
   $("medAccountVak").innerHTML = m.auth_user_id
     ? `Account gekoppeld. Status: ${m.actief ? "actief" : "geblokkeerd"}.`
     : "Nog geen account. De medewerker meldt zich aan via de uitnodigingslink.";

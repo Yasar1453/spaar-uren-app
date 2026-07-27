@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=33">
+  <link rel="stylesheet" href="uren.css?v=34">
 </head>
 <body>
 
@@ -378,6 +378,11 @@
               <div><label for="medStartUren">Beginsaldo verlof (uren)</label><input id="medStartUren" type="number" step="0.25" placeholder="0"></div>
               <div><label for="medVerlofDagen">Vakantiedagen per jaar</label><input id="medVerlofDagen" type="number" step="0.5" min="0"></div>
             </div>
+            <div class="saldo-vak">
+              <div class="saldo-kop">Berekend uit de contracturen</div>
+              <div id="medVerlofUitleg"></div>
+            </div>
+            <p class="verplicht-uitleg">Het aantal vakantiedagen wordt hierboven berekend en automatisch ingevuld. Zet je er zelf een getal neer, dan blijft dat staan.</p>
             <div class="saldo-vak"><div class="saldo-kop">Verlofsaldo</div><div id="medSaldo"></div></div>
           </div>
 
@@ -451,6 +456,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=33"></script>
+  <script type="module" src="beheer.js?v=34"></script>
 </body>
 </html>
