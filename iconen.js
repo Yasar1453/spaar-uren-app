@@ -10,7 +10,7 @@
 
 const PADEN = {
   // Vakantie — palmboom
-  palm: '<path d="M12 22c0-5 .4-8.5 1.2-11"/><path d="M13 11c-1.7-2.6-5.2-3.2-7.8-1.4"/><path d="M13 11c1.7-2.6 5.2-3.2 7.8-1.4"/><path d="M13 11c-.5-3.2-3-5.5-6.2-5.6"/><path d="M13 11c1.2-3 4.4-4.7 7.5-3.9"/>',
+  palm: '<path d="M11 21c.3-4.5.9-7.6 2-9.5"/><path d="M13 11.5c-1.5-2.5-4.6-3.3-7.3-1.9"/><path d="M13 11.5c1.5-2.5 4.6-3.3 7.3-1.9"/><path d="M13 11.5C12.3 8.7 10 6.8 7 6.8"/><path d="M13 11.5c.9-2.8 3.7-4.5 6.6-4.1"/><circle cx="13" cy="11.5" r="1" fill="currentColor" stroke="none"/><path d="M8 21h7"/>',
   // Ziek — thermometer
   thermometer: '<path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>',
   // Nationale feestdag — vlag
@@ -26,7 +26,7 @@ const PADEN = {
   // Onbetaald verlof — portemonnee
   portemonnee: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/>',
   // Medische afspraak — stethoscoop
-  stethoscoop: '<path d="M6 2v6a5 5 0 0 0 10 0V2"/><line x1="4" y1="2" x2="7" y2="2"/><line x1="15" y1="2" x2="18" y2="2"/><path d="M11 13v3a5 5 0 0 0 9 3"/><circle cx="20" cy="17" r="2"/>',
+  stethoscoop: '<path d="M5 3v5.5a5 5 0 0 0 10 0V3"/><path d="M3 3h3.5"/><path d="M13.5 3H17"/><path d="M10 13.5v1.5a4.5 4.5 0 0 0 8.6 1.9"/><circle cx="19.5" cy="14.5" r="2.3"/>',
   // School — studiehoed
   studiehoed: '<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"/>',
   // Te laat — klok
