@@ -114,6 +114,10 @@ td.sterk{font-weight:700}
 .tab{padding:9px 15px;border-radius:9px;border:1px solid var(--lijn);background:#fff;font-size:14px;font-weight:600;cursor:pointer;color:var(--grijs)}
 .tab.actief{background:var(--inkt);color:#fff;border-color:var(--inkt)}
 
+/* Klok-locatie pin-knopje in de tabellen */
+.klok-pin{border:none;background:none;cursor:pointer;padding:0 2px;line-height:0;vertical-align:middle;color:var(--grijs)}
+.klok-pin:hover{color:var(--rood)}
+
 /* Contracturen per dag (ma t/m zo) */
 .uren-week{display:grid;grid-template-columns:repeat(7,minmax(52px,1fr)) minmax(64px,auto);gap:6px;align-items:end}
 .uren-week .dag{display:flex;flex-direction:column;gap:3px}

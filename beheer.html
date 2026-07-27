@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="spaarlogo.svg">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=12">
+  <link rel="stylesheet" href="uren.css?v=13">
 </head>
 <body>
 
@@ -250,6 +250,19 @@
     </div>
   </div>
 
+  <!-- Klok-plattegrond: waar heeft de monteur ingeklokt? -->
+  <div id="klokModal" class="modal-overlay verborgen">
+    <div class="modal">
+      <div class="modal-kop">
+        <h2 id="klokTitel">Inklok-locatie</h2>
+        <button id="klokSluit" class="modal-x" aria-label="Sluiten">&times;</button>
+      </div>
+      <div id="klokInfo" class="melding verborgen" style="margin-bottom:10px"></div>
+      <div id="klokKaart" class="kaart-map"></div>
+      <p class="map-hint">De speld toont waar de monteur op zijn telefoon heeft ingeklokt.</p>
+    </div>
+  </div>
+
   <!-- Locatie-kiezer: adres zoeken + speld op de kaart -->
   <div id="locModal" class="modal-overlay verborgen">
     <div class="modal">
@@ -279,6 +292,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=10"></script>
+  <script type="module" src="beheer.js?v=11"></script>
 </body>
 </html>

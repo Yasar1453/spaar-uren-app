@@ -78,10 +78,11 @@ async function laadIngeklokt() {
   tb.innerHTML = (data || []).length
     ? data.map((k) => `<tr><td class="sterk">${esc(k.medewerkers?.naam)}</td>
         <td class="mono">${esc(werkbonTekst(k.projecten))}</td>
-        <td class="mono">${tijd(k.ingeklokt_op)}</td>
+        <td class="mono">${tijd(k.ingeklokt_op)}${klokKnop(k.in_lat, k.in_lng, k.medewerkers?.naam, "Ingeklokt om " + tijd(k.ingeklokt_op))}</td>
         <td><span class="badge groen"><span class="dot"></span> ${duurTekst(k.ingeklokt_op)}</span></td>
         <td><button class="btn btn-grijs btn-klein" data-forceer-uit="${k.id}">Uitklokken</button></td></tr>`).join("")
     : rijLeeg(5, "Niemand is nu ingeklokt.");
+  koppelKlokKnoppen();
 
   // Beheerder klokt een vergeten sessie uit: urenregel (onbeslist) + sessie sluiten
   document.querySelectorAll("[data-forceer-uit]").forEach((b) => b.addEventListener("click", async () => {
@@ -96,7 +97,7 @@ async function laadIngeklokt() {
       medewerker_id: s.medewerker_id, project_id: s.project_id,
       datum: datumLokaal, start_tijd: s.ingeklokt_op, eind_tijd: new Date().toISOString(),
       uren, omschrijving: "Door beheerder uitgeklokt (vergeten uit te klokken)",
-      bron: "beheer", in_lat: s.in_lat, in_lng: s.in_lng,
+      bron: "handmatig", in_lat: s.in_lat, in_lng: s.in_lng,
     });
     if (e1) return alert("Uitklokken mislukt: " + e1.message);
     const { error: e2 } = await db.from("kloksessies").delete().eq("id", s.id);
@@ -116,13 +117,14 @@ async function laadIngeklokt() {
 let _uren = [];
 async function laadUren() {
   const { data, error } = await db.from("urenregels")
-    .select("id, datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, medewerkers(naam), projecten(werkbon, naam)")
+    .select("id, datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, in_lat, in_lng, medewerkers(naam), projecten(werkbon, naam)")
     .is("verwijderd_op", null).order("datum", { ascending: false }).order("start_tijd", { ascending: false }).limit(400);
   if (error) return;
   _uren = data || [];
   $("tbRecent").innerHTML = _uren.slice(0, 8).map(recentRij).join("") || rijLeeg(6, "Nog geen uren.");
   $("tbUren").innerHTML = _uren.map(urenRij).join("") || rijLeeg(11, "Nog geen uren.");
   document.querySelectorAll("[data-keur]").forEach((b) => b.addEventListener("click", () => keur(b.dataset.id, b.dataset.keur)));
+  koppelKlokKnoppen();
 }
 function statusBadge(s) {
   const st = { onbeslist: "amber", goedgekeurd: "groen", afgekeurd: "rood" }[s] || "grijs";
@@ -139,6 +141,10 @@ function pauzeTekst(u) {
   if (!o && !b) return "—";
   return (o ? o + "m" : "") + (o && b ? " / " : "") + (b ? b + "m betaald" : "");
 }
+function klokKnop(lat, lng, naam, tijdstip) {
+  if (lat == null || lng == null) return "";
+  return ` <button class="klok-pin" title="Toon inklok-locatie" data-klok-lat="${lat}" data-klok-lng="${lng}" data-klok-naam="${esc(naam || "")}" data-klok-tijd="${esc(tijdstip || "")}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></button>`;
+}
 function urenRij(u) {
   const actie = u.status === "onbeslist"
     ? `<td style="white-space:nowrap"><button class="btn btn-groen btn-klein" data-keur="goedgekeurd" data-id="${u.id}">Keur goed</button>
@@ -146,7 +152,7 @@ function urenRij(u) {
     : "<td></td>";
   return `<tr><td class="mono">${datum(u.datum)}</td><td class="sterk">${esc(u.medewerkers?.naam)}</td>
     <td class="mono">${esc(werkbonTekst(u.projecten))}</td>
-    <td class="mono">${u.start_tijd ? tijd(u.start_tijd) : "—"}</td>
+    <td class="mono">${u.start_tijd ? tijd(u.start_tijd) : "—"}${klokKnop(u.in_lat, u.in_lng, u.medewerkers?.naam, u.start_tijd ? "Ingeklokt om " + tijd(u.start_tijd) : "")}</td>
     <td class="mono">${u.eind_tijd ? tijd(u.eind_tijd) : "—"}</td>
     <td class="mono">${pauzeTekst(u)}</td>
     <td class="mono">${u.km != null ? u.km : "—"}</td>
@@ -649,6 +655,35 @@ $("locOpslaan").addEventListener("click", async () => {
   if (error) return toonMeld($("locMelding"), "fout", "Opslaan mislukt: " + error.message);
   sluitLocModal(); laadProjecten();
 });
+
+// ── Klok-plattegrond: waar heeft de monteur ingeklokt? ──────────────────────
+let klokMap = null, klokMarker = null;
+function koppelKlokKnoppen() {
+  document.querySelectorAll("[data-klok-lat]").forEach((b) => {
+    if (b.dataset.gekoppeld) return;
+    b.dataset.gekoppeld = "1";
+    b.addEventListener("click", () => toonKlokKaart(
+      parseFloat(b.dataset.klokLat), parseFloat(b.dataset.klokLng),
+      b.dataset.klokNaam, b.dataset.klokTijd));
+  });
+}
+function toonKlokKaart(lat, lng, naam, tijdstip) {
+  $("klokTitel").textContent = "Inklok-locatie — " + (naam || "");
+  $("klokInfo").textContent = tijdstip || "";
+  $("klokInfo").classList.toggle("verborgen", !tijdstip);
+  $("klokModal").classList.remove("verborgen");
+  if (!klokMap) {
+    klokMap = L.map("klokKaart");
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(klokMap);
+  }
+  klokMap.setView([lat, lng], 17);
+  if (klokMarker) klokMarker.setLatLng([lat, lng]);
+  else klokMarker = L.marker([lat, lng]).addTo(klokMap);
+  setTimeout(() => klokMap.invalidateSize(), 60);
+}
+function sluitKlokModal() { $("klokModal").classList.add("verborgen"); }
+$("klokSluit").addEventListener("click", sluitKlokModal);
+$("klokModal").addEventListener("click", (e) => { if (e.target === $("klokModal")) sluitKlokModal(); });
 
 async function geocodeer(adres) {
   const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=nl&q=" + encodeURIComponent(adres);
