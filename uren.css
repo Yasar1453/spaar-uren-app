@@ -133,9 +133,38 @@ td.sterk{font-weight:700}
 
 /* Werkbon-kleuren */
 .kleur-kies{width:38px;height:30px;padding:2px;border-radius:7px;border:1px solid var(--lijn);cursor:pointer;background:#fff}
-.rooster-badge{color:#fff;margin:1px 0;display:inline-flex;gap:4px;align-items:center;font-size:11px;padding:4px 9px;font-weight:700}
-.rooster-badge button{color:#fff;opacity:.85}
-.rooster-badge button:hover{opacity:1}
+/* ── Weekrooster ──────────────────────────────────────────────────────────── */
+#rGrid{border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:820px}
+#rGrid th,#rGrid td{border-bottom:1px solid var(--lijn)}
+
+/* Monteurkolom blijft staan bij horizontaal scrollen */
+.r-naamkop,.r-naam{position:sticky;left:0;z-index:2;background:var(--vlak);width:170px;max-width:170px}
+.r-naam{font-weight:700;font-size:13.5px;padding:7px 12px 7px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-right:1px solid var(--lijn)}
+.r-naamkop{border-right:1px solid var(--lijn);padding-left:2px}
+
+.r-dagkop{padding:8px 6px;text-align:center;line-height:1.25}
+.r-dagkop .r-dagnaam{display:block;font-size:10.5px;letter-spacing:.06em;color:var(--grijs)}
+.r-dagkop .r-dagnr{display:block;font-size:12.5px;font-weight:800;color:var(--inkt);text-transform:none;letter-spacing:0}
+.r-dagkop.weekend .r-dagnr,.r-dagkop.weekend .r-dagnaam{color:#a89f9b}
+.r-dagkop.vandaag{background:#fdeeee}
+.r-dagkop.vandaag .r-dagnr{color:var(--rood)}
+
+.r-cel{padding:4px;vertical-align:top;height:38px}
+.r-cel.weekend{background:#faf8f7}
+.r-cel.vandaag{background:#fdf6f6}
+
+/* Compact gekleurd blokje per ingeplande werkbon */
+.r-blok{display:flex;align-items:center;gap:5px;color:#fff;border-radius:6px;
+  padding:5px 6px 5px 8px;margin-bottom:3px;font-size:11.5px;font-weight:700;
+  font-family:var(--mono);line-height:1.1;min-width:0}
+.r-blok:last-child{margin-bottom:0}
+.r-code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.r-deel{background:rgba(255,255,255,.28);border-radius:4px;padding:1px 4px;font-size:9.5px;flex:none;letter-spacing:.02em}
+.r-weg{border:none;background:none;color:#fff;cursor:pointer;padding:0 1px;font-size:14px;
+  line-height:1;opacity:0;flex:none;transition:opacity .12s}
+.r-blok:hover .r-weg,.r-weg:focus-visible{opacity:.9}
+.r-weg:hover{opacity:1}
+@media (hover:none){.r-weg{opacity:.75}}   /* op touch altijd zichtbaar */
 /* Gekleurd bolletje voor de werkbon in lijsten */
 .wb-stip{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle;flex:none}
 

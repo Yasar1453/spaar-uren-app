@@ -575,24 +575,45 @@ async function tekenWeek(mws) {
     .gte("datum", van).lte("datum", tot).is("verwijderd_op", null);
 
   const dagen = [...Array(7)].map((_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d; });
+  const vandaag = isoDatum(new Date());
+  const MAAND = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+
   document.querySelector("#rGrid thead").innerHTML =
-    "<tr><th>Monteur</th>" + dagen.map((d, i) => `<th>${DAGEN[i]} ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}</th>`).join("") + "</tr>";
+    `<tr><th class="r-naamkop">Monteur</th>` + dagen.map((d, i) => {
+      const dat = isoDatum(d);
+      const weekend = i >= 5;
+      return `<th class="r-dagkop${weekend ? " weekend" : ""}${dat === vandaag ? " vandaag" : ""}">
+        <span class="r-dagnaam">${DAGEN[i]}</span>
+        <span class="r-dagnr">${d.getDate()} ${MAAND[d.getMonth()]}</span></th>`;
+    }).join("") + "</tr>";
+
+  // Snelle opzoektabel: planning per monteur per dag
+  const perCel = {};
+  (plan || []).forEach((p) => {
+    const k = p.medewerker_id + "|" + p.datum;
+    (perCel[k] = perCel[k] || []).push(p);
+  });
 
   document.querySelector("#rGrid tbody").innerHTML = mws.map((m) => {
-    const cellen = dagen.map((d) => {
+    const cellen = dagen.map((d, i) => {
       const dat = isoDatum(d);
-      const items = (plan || []).filter((p) => p.medewerker_id === m.id && p.datum === dat);
-      const badges = items.map((p) =>
-        `<span class="badge rooster-badge" style="background:${kleurVan(p.projecten)}">${esc(p.projecten?.werkbon || p.projecten?.naam || "?")} · ${DAGDEEL_LABEL[p.dagdeel] || p.dagdeel}
-         <button data-plan-del="${p.id}" style="border:none;background:none;cursor:pointer;color:inherit;padding:0;font-weight:700">&times;</button></span>`
-      ).join("<br>");
-      return `<td>${badges || ""}</td>`;
+      const items = perCel[m.id + "|" + dat] || [];
+      const klas = "r-cel" + (i >= 5 ? " weekend" : "") + (dat === vandaag ? " vandaag" : "");
+      const blokken = items.map((p) => {
+        const naam = p.projecten?.naam || "";
+        const code = p.projecten?.werkbon || naam || "?";
+        return `<span class="r-blok" style="background:${kleurVan(p.projecten)}" title="${esc(code + (naam ? " · " + naam : ""))} — ${DAGDEEL_LABEL[p.dagdeel] || p.dagdeel}">
+          <span class="r-code">${esc(code)}</span>${p.dagdeel !== "hele_dag" ? `<span class="r-deel">${p.dagdeel === "ochtend" ? "och" : "mid"}</span>` : ""}
+          <button class="r-weg" data-plan-del="${p.id}" title="Uit het rooster halen" aria-label="Verwijderen">&times;</button></span>`;
+      }).join("");
+      return `<td class="${klas}">${blokken}</td>`;
     }).join("");
-    return `<tr><td class="sterk">${esc(m.naam)}</td>${cellen}</tr>`;
+    return `<tr><td class="r-naam" title="${esc(m.naam)}">${esc(m.naam)}</td>${cellen}</tr>`;
   }).join("") || rijLeeg(8, "Nog geen monteurs.");
 
   document.querySelectorAll("[data-plan-del]").forEach((b) => b.addEventListener("click", async () => {
-    await db.from("planning").update({ verwijderd_op: new Date().toISOString() }).eq("id", b.dataset.planDel);
+    const { error } = await db.from("planning").update({ verwijderd_op: new Date().toISOString() }).eq("id", b.dataset.planDel);
+    if (error) return alert("Uit het rooster halen mislukt: " + error.message);
     tekenWeek();
   }));
 }
