@@ -6,7 +6,7 @@
 import { beheerClient } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=30";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=31";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
