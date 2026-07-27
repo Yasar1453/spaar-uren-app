@@ -6,7 +6,7 @@
 //  koppeling via koppel_account() — die controleert de code uit de link én de
 //  geboortedatum. Het account blijft inactief tot kantoor het vrijgeeft.
 // ============================================================================
-import { monteurClient } from "./config.js?v=29";
+import { monteurClient } from "./config.js?v=30";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();
@@ -64,13 +64,12 @@ $("aanmeldBtn").addEventListener("click", async () => {
     }
     if (error) return toon($("fout"), "Account aanmaken mislukt: " + error.message);
 
-    // 2) Zonder sessie kunnen we nog niet koppelen — dat gebeurt als Supabase
-    //    e-mailbevestiging eist. De monteur moet dan eerst de mail openen.
+    // 2) Bevestiging per e-mail staat uit, dus signUp levert meteen een sessie.
+    //    Blijft die toch weg, dan is er iets mis met de instelling; dan liever
+    //    een eerlijke melding dan een half aangemaakt account.
     const { data: sessie } = await db.auth.getSession();
     if (!sessie.session) {
-      $("formulier").classList.add("verborgen");
-      return toon($("ok"), "We hebben een bevestigingsmail gestuurd naar " + email
-        + ". Open die link en kom daarna terug op deze pagina om je aanmelding af te ronden.");
+      return toon($("fout"), "Je account is aangemaakt, maar aanmelden lukte niet in één keer. Probeer in te loggen met je e-mailadres en wachtwoord, of neem contact op met kantoor.");
     }
 
     // 3) Inlog aan het personeelsrecord hangen.
@@ -80,7 +79,10 @@ $("aanmeldBtn").addEventListener("click", async () => {
 
     if (uitkomst === "gekoppeld" || uitkomst === "al_gekoppeld") {
       $("formulier").classList.add("verborgen");
-      return toon($("ok"), "Gelukt. Kantoor geeft je account vrij; daarna kun je inloggen met je e-mailadres en wachtwoord.");
+      // Meteen door: hij is al ingelogd, dus de app kan direct open.
+      toon($("ok"), "Gelukt. Je bent ingelogd — je gaat nu door naar de app.");
+      setTimeout(() => location.replace("index.html"), 1200);
+      return;
     }
     if (uitkomst === "link_ongeldig") return toon($("fout"), "Deze link is verlopen. Vraag kantoor om een nieuwe.");
     // "geen_match" dekt bewust drie gevallen tegelijk, zodat je er geen

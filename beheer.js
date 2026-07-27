@@ -6,7 +6,7 @@
 import { beheerClient } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=29";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=30";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -570,23 +570,23 @@ function urenWeekTotaal(u) {
   return Math.round(DAG_KEYS.reduce((s, d) => s + (parseFloat(u[d]) || 0), 0) * 10) / 10;
 }
 // Een zelf aangemeld account heeft wel een inlog, maar mag nog niets tot de beheerder het vrijgeeft.
-function wachtOpVrijgave(m) { return !!m.auth_user_id && !m.actief; }
+function wachtOpVrijgave(m) { return !!m.auth_user_id && !m.actief; }   // geblokkeerd: bovenaan tonen
 function accountBadge(m) {
-  if (!m.auth_user_id) return '<span class="badge grijs">geen account</span>';
-  if (!m.actief) return '<span class="badge amber">wacht op vrijgave</span>';
+  if (!m.auth_user_id) return '<span class="badge grijs">nog niet aangemeld</span>';
+  if (!m.actief) return '<span class="badge amber">geblokkeerd</span>';
   return '<span class="badge groen">actief</span>';
 }
 function vrijgeefKnop(m) {
   if (!m.auth_user_id) return "";
   return m.actief
     ? `<button class="btn btn-grijs btn-klein" data-vrijgeef="${m.id}" data-nu="true">Blokkeren</button>`
-    : `<button class="btn btn-klein" data-vrijgeef="${m.id}" data-nu="false">Vrijgeven</button>`;
+    : `<button class="btn btn-klein" data-vrijgeef="${m.id}" data-nu="false">Deblokkeren</button>`;
 }
 async function zetActief(id, aan) {
   const m = _medewerkers.find((x) => x.id === id);
   if (!aan && !confirm(`${m ? m.naam : "Deze medewerker"} blokkeren? Diegene kan dan niet meer inloggen of klokken.`)) return;
   const { error } = await db.from("medewerkers").update({ actief: aan }).eq("id", id);
-  if (error) return alert((aan ? "Vrijgeven" : "Blokkeren") + " mislukt: " + error.message);
+  if (error) return alert((aan ? "Deblokkeren" : "Blokkeren") + " mislukt: " + error.message);
   await laadMedewerkers();
 }
 let _medewerkers = [];
@@ -700,7 +700,7 @@ async function openMedewerker(id) {
   $("medVerlofDagen").value = m.verlof_dagen_per_jaar != null ? m.verlof_dagen_per_jaar : "";
   bouwUrenWeek("medUrenWeek", m.contract_uren);
   $("medAccountVak").innerHTML = m.auth_user_id
-    ? `Account gekoppeld. Status: ${m.actief ? "actief" : "wacht op vrijgave"}.`
+    ? `Account gekoppeld. Status: ${m.actief ? "actief" : "geblokkeerd"}.`
     : "Nog geen account. De medewerker meldt zich aan via de uitnodigingslink.";
   $("medAccountVak").classList.remove("verborgen");
   toonSaldo(m.id);
@@ -768,7 +768,7 @@ $("medOpslaan").addEventListener("click", async () => {
       const { error } = await db.from("medewerkers").update(rij).eq("id", id);
       if (error) return toonMeld($("medMelding"), "fout", "Opslaan mislukt: " + error.message);
     } else {
-      const { data, error } = await db.from("medewerkers").insert({ ...rij, actief: false }).select("id").single();
+      const { data, error } = await db.from("medewerkers").insert({ ...rij, actief: true }).select("id").single();
       if (error) return toonMeld($("medMelding"), "fout", "Toevoegen mislukt: " + error.message);
       id = data.id;
     }

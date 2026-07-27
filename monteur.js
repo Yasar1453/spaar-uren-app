@@ -4,7 +4,7 @@
 //  Bouwt voort op de logica uit ../../werknemer.js, nu gekoppeld aan Supabase.
 // ============================================================================
 import { monteurClient, VAPID_PUBLIC } from "./config.js";
-import { icoon } from "./iconen.js?v=29";
+import { icoon } from "./iconen.js?v=30";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();   // eigen sessie, blijft bewaard tussen bezoeken
@@ -51,9 +51,9 @@ async function haalMijOp() {
     .select("id, naam").eq("auth_user_id", auth.user.id).is("verwijderd_op", null).maybeSingle();
   if (error || !data) {
     await db.auth.signOut();
-    // RLS verbergt de rij zowel bij "nog niet vrijgegeven" als bij "niet gekoppeld";
-    // de app kan die twee niet uit elkaar houden, dus noemen we ze allebei.
-    toon($("inlogFout"), "Je account is nog niet vrijgegeven door kantoor. Zodra dat gebeurd is, kun je inloggen.");
+    // RLS verbergt de rij zowel bij "geblokkeerd" als bij "nog niet gekoppeld";
+    // de app kan die twee niet uit elkaar houden, dus houden we het algemeen.
+    toon($("inlogFout"), "Dit account hoort nog niet bij een medewerker, of is geblokkeerd. Neem contact op met kantoor.");
     return false;
   }
   mij = { medewerker_id: data.id, naam: data.naam };
@@ -81,7 +81,7 @@ $("vaSoort").addEventListener("change", toonSoortIcoon);
 //  starten het versienummer op (langs de cache heen) en herladen we eenmalig
 //  als er iets nieuwers staat. De vlag in sessionStorage voorkomt een lus als
 //  het herladen om welke reden dan ook niet aanslaat.
-const APP_VERSIE = 29;
+const APP_VERSIE = 30;
 async function controleerVersie() {
   try {
     const r = await fetch("versie.json?t=" + Date.now(), { cache: "no-store" });
