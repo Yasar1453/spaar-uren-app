@@ -565,11 +565,37 @@ function urenWeekTotaal(u) {
   if (!u) return null;
   return Math.round(DAG_KEYS.reduce((s, d) => s + (parseFloat(u[d]) || 0), 0) * 10) / 10;
 }
+// Een zelf aangemeld account heeft wel een inlog, maar mag nog niets tot de beheerder het vrijgeeft.
+function wachtOpVrijgave(m) { return !!m.auth_user_id && !m.actief; }
+function accountBadge(m) {
+  if (!m.auth_user_id) return '<span class="badge grijs">geen account</span>';
+  if (!m.actief) return '<span class="badge amber">wacht op vrijgave</span>';
+  return '<span class="badge groen">actief</span>';
+}
+function vrijgeefKnop(m) {
+  if (!m.auth_user_id) return "";
+  return m.actief
+    ? `<button class="btn btn-grijs btn-klein" data-vrijgeef="${m.id}" data-nu="true">Blokkeren</button>`
+    : `<button class="btn btn-klein" data-vrijgeef="${m.id}" data-nu="false">Vrijgeven</button>`;
+}
+async function zetActief(id, aan) {
+  const m = _medewerkers.find((x) => x.id === id);
+  if (!aan && !confirm(`${m ? m.naam : "Deze medewerker"} blokkeren? Diegene kan dan niet meer inloggen of klokken.`)) return;
+  const { error } = await db.from("medewerkers").update({ actief: aan }).eq("id", id);
+  if (error) return alert((aan ? "Vrijgeven" : "Blokkeren") + " mislukt: " + error.message);
+  await laadMedewerkers();
+}
 let _medewerkers = [];
 async function laadMedewerkers() {
-  const { data } = await db.from("medewerkers").select("*").is("verwijderd_op", null).order("naam");
-  _medewerkers = data || [];
+  const { data, error } = await db.from("medewerkers").select("*").is("verwijderd_op", null).order("naam");
+  if (error) { $("tbMedewerkers").innerHTML = rijLeeg(8, "Medewerkers laden mislukt: " + error.message); return; }
+  // Nieuwe aanmeldingen bovenaan: die wachten op actie van de beheerder.
+  _medewerkers = (data || []).sort((a, b) =>
+    (wachtOpVrijgave(b) ? 1 : 0) - (wachtOpVrijgave(a) ? 1 : 0) || a.naam.localeCompare(b.naam, "nl"));
+  const wacht = _medewerkers.filter(wachtOpVrijgave).length;
   $("telMedewerkers").textContent = _medewerkers.length ? "(" + _medewerkers.length + ")" : "";
+  const badge = $("badgeMedewerkers");
+  if (badge) { badge.textContent = wacht || ""; badge.classList.toggle("verborgen", wacht === 0); }
   $("tbMedewerkers").innerHTML = _medewerkers.map((m) => {
     const tot = urenWeekTotaal(m.contract_uren);
     const contract = m.contract_type
@@ -582,10 +608,11 @@ async function laadMedewerkers() {
      <td class="mono">${tot != null ? urenTekst(tot) : "—"}</td>
      <td class="mono">${m.verlof_dagen_per_jaar != null ? m.verlof_dagen_per_jaar + " dgn" : "—"}</td>
      <td class="mono">${m.geboortedatum ? datum(m.geboortedatum) : "—"}</td>
-     <td>${m.auth_user_id ? '<span class="badge groen">actief</span>' : '<span class="badge amber">geen account</span>'}</td>
-     <td><button class="btn btn-grijs btn-klein" data-bewerk="${m.id}">Bewerken</button></td></tr>`;
+     <td>${accountBadge(m)}</td>
+     <td class="knoprij">${vrijgeefKnop(m)}<button class="btn btn-grijs btn-klein" data-bewerk="${m.id}">Bewerken</button></td></tr>`;
   }).join("") || rijLeeg(8, "Nog geen medewerkers.");
   document.querySelectorAll("[data-bewerk]").forEach((b) => b.addEventListener("click", () => openMedewerker(b.dataset.bewerk)));
+  document.querySelectorAll("[data-vrijgeef]").forEach((b) => b.addEventListener("click", () => zetActief(b.dataset.vrijgeef, b.dataset.nu !== "true")));
 }
 // Bewerk-venster
 let medBewerkId = null;

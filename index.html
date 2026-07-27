@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Spaar Electra">
-  <link rel="stylesheet" href="uren.css?v=26">
+  <link rel="stylesheet" href="uren.css?v=27">
 </head>
 <body>
   <div class="wrap smal" id="appWrap">
@@ -33,7 +33,7 @@
       <div id="inlogFout" class="melding fout verborgen"></div>
       <label for="inlogEmail">E-mail</label>
       <input id="inlogEmail" type="email" inputmode="email" autocomplete="username"
-             autocapitalize="none" spellcheck="false" placeholder="naam@spaarelectra.nl">
+             autocapitalize="none" spellcheck="false" placeholder="naam@voorbeeld.nl">
       <label for="inlogWachtwoord">Wachtwoord</label>
       <input id="inlogWachtwoord" type="password" autocomplete="current-password">
       <button id="inlogBtn" class="btn btn-rood" style="margin-top:18px">Inloggen</button>
@@ -43,15 +43,15 @@
     <!-- Registratiescherm (nieuwe medewerker) -->
     <section id="registreer" class="kaart verborgen">
       <h2>Registreren</h2>
-      <p style="margin:0 0 10px;color:var(--grijs);font-size:14px">Maak eenmalig een account aan met je Spaar Electra-mailadres. Je krijgt een bevestigingsmail; zodra je die link opent kun je inloggen en inklokken.</p>
+      <p style="margin:0 0 10px;color:var(--grijs);font-size:14px">Maak eenmalig een account aan met je eigen e-mailadres. Je krijgt een bevestigingsmail; open die link. Daarna geeft kantoor je account vrij en kun je inloggen en inklokken.</p>
       <div id="regFout" class="melding fout verborgen"></div>
       <div id="regOk" class="melding ok verborgen"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div><label for="regVoornaam">Voornaam</label><input id="regVoornaam" autocomplete="given-name"></div>
         <div><label for="regAchternaam">Achternaam</label><input id="regAchternaam" autocomplete="family-name"></div>
       </div>
-      <label for="regEmail">E-mail (@spaarelectra.nl)</label>
-      <input id="regEmail" type="email" placeholder="naam@spaarelectra.nl" autocomplete="email">
+      <label for="regEmail">E-mail</label>
+      <input id="regEmail" type="email" placeholder="naam@voorbeeld.nl" autocomplete="email">
       <label for="regWachtwoord">Wachtwoord</label>
       <input id="regWachtwoord" type="password" autocomplete="new-password" placeholder="Minimaal 8 tekens">
       <button id="regBtn" class="btn btn-rood" style="margin-top:18px">Registreren</button>
@@ -212,6 +212,6 @@
     </button>
   </nav>
 
-  <script type="module" src="monteur.js?v=23"></script>
+  <script type="module" src="monteur.js?v=24"></script>
 </body>
 </html>

@@ -314,3 +314,6 @@ tbody tr:last-child td{border-bottom:none}
 .saldo-rij b{font-variant-numeric:tabular-nums;white-space:nowrap}
 .saldo-rij.totaal{border-top:1px solid var(--lijn);margin-top:5px;padding-top:8px;font-weight:800}
 .saldo-rij.totaal span{color:var(--inkt);font-weight:800}
+
+/* Meerdere knoppen naast elkaar in een tabelcel */
+.knoprij{display:flex;gap:6px;flex-wrap:wrap}

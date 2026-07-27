@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=26">
+  <link rel="stylesheet" href="uren.css?v=27">
 </head>
 <body>
 
@@ -20,7 +20,7 @@
       <h2>Urenregistratie — beheer</h2>
       <div id="loginFout" class="melding fout verborgen"></div>
       <label for="email">E-mail</label>
-      <input id="email" type="email" placeholder="jij@spaarelectra.nl" autocomplete="username">
+      <input id="email" type="email" placeholder="jij@voorbeeld.nl" autocomplete="username">
       <label for="wachtwoord">Wachtwoord</label>
       <input id="wachtwoord" type="password" autocomplete="current-password">
       <button id="loginBtn" class="btn btn-rood" style="margin-top:18px">Inloggen</button>
@@ -40,7 +40,7 @@
         <button class="nav" data-tab="uren"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/></svg></span> Urenregistratie</button>
         <button class="nav" data-tab="verlof"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="7" y2="7"/><line x1="17" y1="17" x2="19" y2="19"/><line x1="5" y1="19" x2="7" y2="17"/><line x1="17" y1="7" x2="19" y2="5"/></svg></span> Verlof <span id="verlofBadge" class="nav-telling verborgen"></span></button>
         <button class="nav" data-tab="projecten"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span> Werkbonnen</button>
-        <button class="nav" data-tab="medewerkers"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></span> Medewerkers</button>
+        <button class="nav" data-tab="medewerkers"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></span> Medewerkers <span id="badgeMedewerkers" class="nav-telling verborgen"></span></button>
         <button class="nav" data-tab="beleid"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg></span> Verlofbeleid</button>
         <button class="nav" data-tab="pauzes"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg></span> Pauzes</button>
         <button class="nav" data-tab="rapporten"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="21" x2="21" y2="21"/><rect x="6" y="12" width="3" height="7"/><rect x="11" y="8" width="3" height="11"/><rect x="16" y="4" width="3" height="15"/></svg></span> Rapportages</button>
@@ -193,7 +193,7 @@
         <section data-view="medewerkers" class="verborgen">
           <div class="kaart">
             <h2>Medewerkers <span class="telling" id="telMedewerkers"></span></h2>
-            <p class="verplicht-uitleg">Monteurs maken zelf een account aan in de app met hun @spaarelectra.nl-adres. Klik op Bewerken om contract, vakantiedagen en geboortedatum in te vullen.</p>
+            <p class="verplicht-uitleg">Monteurs maken zelf een account aan in de app, met hun eigen e-mailadres. Een nieuw account staat op <strong>wacht op vrijgave</strong> en kan pas inloggen nadat jij het vrijgeeft. Klik op Bewerken om contract, vakantiedagen en geboortedatum in te vullen.</p>
             <div class="tabelwrap"><table><thead><tr><th>Naam</th><th>Rol</th><th>Contract</th><th>Uren/week</th><th>Vakantie</th><th>Geboren</th><th>Account</th><th></th></tr></thead><tbody id="tbMedewerkers"></tbody></table></div>
           </div>
         </section>
@@ -361,6 +361,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=28"></script>
+  <script type="module" src="beheer.js?v=29"></script>
 </body>
 </html>

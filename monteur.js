@@ -50,7 +50,9 @@ async function haalMijOp() {
     .select("id, naam").eq("auth_user_id", auth.user.id).is("verwijderd_op", null).maybeSingle();
   if (error || !data) {
     await db.auth.signOut();
-    toon($("inlogFout"), "Je account is nog niet gekoppeld aan een medewerker. Neem contact op met kantoor.");
+    // RLS verbergt de rij zowel bij "nog niet vrijgegeven" als bij "niet gekoppeld";
+    // de app kan die twee niet uit elkaar houden, dus noemen we ze allebei.
+    toon($("inlogFout"), "Je account is nog niet vrijgegeven door kantoor. Zodra dat gebeurd is, kun je inloggen.");
     return false;
   }
   mij = { medewerker_id: data.id, naam: data.naam };
@@ -83,7 +85,7 @@ $("regBtn").addEventListener("click", async () => {
   const email = $("regEmail").value.trim().toLowerCase();
   const wachtwoord = $("regWachtwoord").value;
   if (!voornaam || !achternaam) return toon($("regFout"), "Vul je voor- en achternaam in.");
-  if (!/^[^@\s]+@spaarelectra\.nl$/.test(email)) return toon($("regFout"), "Gebruik je Spaar Electra-mailadres (eindigt op @spaarelectra.nl).");
+  if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(email)) return toon($("regFout"), "Vul een geldig e-mailadres in.");
   if (wachtwoord.length < 8) return toon($("regFout"), "Kies een wachtwoord van minimaal 8 tekens.");
 
   $("regBtn").disabled = true;
@@ -100,7 +102,7 @@ $("regBtn").addEventListener("click", async () => {
       return toon($("regFout"), msg);
     }
     toon($("regOk"), "Je account is aangemaakt. We hebben een bevestigingsmail gestuurd naar "
-      + email + " — open die link, daarna kun je meteen inloggen met je e-mail en wachtwoord.");
+      + email + " — open die link. Daarna geeft de beheerder je account vrij; dan kun je inloggen.");
     $("regVoornaam").value = ""; $("regAchternaam").value = ""; $("regEmail").value = ""; $("regWachtwoord").value = "";
   } catch (e) {
     toon($("regFout"), "Registreren mislukt. Controleer je internetverbinding.");
