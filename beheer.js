@@ -3,15 +3,20 @@
 //  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
 //  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
-import { beheerClient } from "./config.js?v=45";
+import { beheerClient } from "./config.js?v=46";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=45";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=46";
+import { bouwNieuwsBeheer } from "./communicatie.js?v=46";
+import { bouwPeriodes } from "./periode.js?v=46";
+import { bouwRoosterExtra } from "./rooster-extra.js?v=46";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
 
 const PAGINA_TITEL = {
+  communicatie: "Communicatie",
+  periodes: "Periode sluiten",
   dashboard: "Dashboard", rooster: "Rooster", uren: "Urenregistratie",
   verlof: "Verlof", projecten: "Werkbonnen", medewerkers: "Medewerkers", beleid: "Verlofbeleid", pauzes: "Pauzes",
   rapporten: "Rapportages",
@@ -58,6 +63,20 @@ async function naarDash() {
   await Promise.all([laadIngeklokt(), laadUren(), laadProjecten(), laadMedewerkers(), laadRooster(), laadVerlof(), laadPauzes()]);
   standaardPeriode();
   toonRapport();
+
+  // De losse modules krijgen de client en de gedeelde hulpfuncties mee in
+  // plaats van ze te dupliceren; ze maken bewust geen eigen Supabase-client.
+  bouwPeriodes(db, {
+    esc, rijLeeg, toonMeld, verberg, csvDownload, urenTekst, komma, isoDatum,
+    naVerandering: laadUren,
+  });
+  const communicatie = bouwNieuwsBeheer(db, {
+    esc, rijLeeg, toonMeld, datum, tijd, haalAlles, initialen,
+    mijnId: () => ikBenId,
+  });
+  await communicatie.laad();
+  bouwRoosterExtra(db, { esc, toonMeld, rijLeeg, kleurVan, werkbonTekst, haalAlles, isoDatum, ikBenId: () => ikBenId });
+
   if (tikker) clearInterval(tikker);
   tikker = setInterval(laadIngeklokt, 30000);
 }

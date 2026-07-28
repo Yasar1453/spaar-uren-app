@@ -1,0 +1,201 @@
+============================================================================
+ Spaar Electra — Urenregistratie · roosteruitbreiding
+ HTML om in te plakken. Hoort bij app/rooster-extra.js, app/rooster-extra.css
+ en migraties/120-rooster.sql.
+
+ Alle id's beginnen met `rx` en alle klassen met `rx-`, zodat er niets botst
+ met beheer.js, monteur.js of uren.css. Er hoeft in die bestanden niets
+ gewijzigd te worden behalve de twee regels onder "AANSLUITEN" hieronder.
+============================================================================
+
+
+############################################################################
+# 1. BEHEER — app/beheer.html
+############################################################################
+
+--- 1a. In <head>, direct ONDER de regel met uren.css -----------------------
+
+  <link rel="stylesheet" href="rooster-extra.css?v=42">
+
+
+--- 1b. In de kaart "Inplannen", direct ONDER de knop #rInplannen ----------
+--- (dus binnen <section data-view="rooster">, in de eerste .kaart)         -
+--- Hier verschijnt de waarschuwing als de gekozen monteur die dag heeft    -
+--- doorgegeven dat hij niet of liever niet kan.                            -
+
+  <div id="rxInplanWaarschuwing" class="melding verborgen"></div>
+
+
+--- 1c. Binnen <section data-view="rooster">, ONDER de kaart met het -------
+--- weekrooster (#rGrid) en VÓÓR de afsluitende </section>                  -
+
+          <!-- ── Dagweergave: één dag, alle monteurs onder elkaar ──────── -->
+          <div class="kaart">
+            <div class="rx-dagbalk">
+              <h2 style="margin:0">Dagweergave</h2>
+              <span id="rxDagLabel" class="rx-daglabel"></span>
+              <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+                <button id="rxDagVorige" class="btn btn-grijs btn-klein" aria-label="Vorige dag">&larr;</button>
+                <input id="rxDagDatum" type="date">
+                <button id="rxDagVolgende" class="btn btn-grijs btn-klein" aria-label="Volgende dag">&rarr;</button>
+                <button id="rxDagVandaag" class="btn btn-grijs btn-klein">Vandaag</button>
+              </div>
+            </div>
+            <div class="tabelwrap">
+              <table id="rxDagTabel">
+                <thead><tr><th>Monteur</th><th>Waar staat hij</th><th>Locatie</th><th>Bijzonderheden</th></tr></thead>
+                <tbody id="rxDagBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ── Open diensten ───────────────────────────────────────────── -->
+          <div class="kaart">
+            <h2>Open dienst aanmaken</h2>
+            <div class="rx-form">
+              <div><label for="rxOdProject">Werkbon</label><select id="rxOdProject"></select></div>
+              <div><label for="rxOdDatum">Datum</label><input id="rxOdDatum" type="date"></div>
+              <div><label for="rxOdDagdeel">Dagdeel</label><select id="rxOdDagdeel">
+                <option value="hele_dag">Hele dag</option>
+                <option value="ochtend">Ochtend</option>
+                <option value="middag">Middag</option>
+              </select></div>
+              <div><label for="rxOdStart">Van</label><input id="rxOdStart" type="time" value="07:00"></div>
+              <div><label for="rxOdEind">Tot</label><input id="rxOdEind" type="time" value="16:00"></div>
+              <div><label for="rxOdAantal">Monteurs nodig</label><input id="rxOdAantal" type="number" min="1" max="25" value="1"></div>
+              <div><label for="rxOdToewijzing">Toewijzen</label><select id="rxOdToewijzing">
+                <option value="kantoor">Kantoor wijst toe na aanvraag</option>
+                <option value="eerste">Wie het eerst reageert, krijgt hem</option>
+              </select></div>
+              <div class="rx-form-breed"><label for="rxOdOpmerking">Opmerking (optioneel)</label>
+                <input id="rxOdOpmerking" placeholder="Bv. gereedschap meenemen"></div>
+            </div>
+            <button id="rxOdMaak" class="btn btn-rood btn-klein" style="margin-top:14px">Open dienst aanmaken</button>
+            <div id="rxOdMeld" class="melding verborgen"></div>
+          </div>
+
+          <div class="kaart">
+            <h2>Open diensten</h2>
+            <div id="rxOdLijst"></div>
+          </div>
+
+          <!-- ── Diensten ruilen ─────────────────────────────────────────── -->
+          <div class="kaart">
+            <h2>Ruilverzoeken</h2>
+            <div id="rxRuilMeld" class="melding verborgen"></div>
+            <div id="rxRuilLijst"></div>
+          </div>
+
+          <!-- ── Beschikbaarheid ─────────────────────────────────────────── -->
+          <div class="kaart">
+            <h2>Beschikbaarheidsregels</h2>
+            <div class="rx-form">
+              <div><label for="rxBsMinDagen">Minimaal in te vullen dagen per week</label>
+                <input id="rxBsMinDagen" type="number" min="0" max="7" value="0"></div>
+              <div><label for="rxBsTermijn">Wijzigen kan tot … dagen vooraf</label>
+                <input id="rxBsTermijn" type="number" min="0" max="60" value="0"></div>
+              <div><label for="rxBsWeken">Aantal weken vooruit invullen</label>
+                <input id="rxBsWeken" type="number" min="1" max="26" value="4"></div>
+            </div>
+            <button id="rxBsRegelsOpslaan" class="btn btn-rood btn-klein" style="margin-top:14px">Regels opslaan</button>
+            <div id="rxBsRegelsMeld" class="melding verborgen"></div>
+          </div>
+
+          <div class="kaart">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <h2 style="margin:0">Beschikbaarheid per week</h2>
+              <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+                <button id="rxBsVorige" class="btn btn-grijs btn-klein" aria-label="Vorige week">&larr;</button>
+                <span id="rxBsLabel" class="mono" style="font-size:13px"></span>
+                <button id="rxBsVolgende" class="btn btn-grijs btn-klein" aria-label="Volgende week">&rarr;</button>
+              </div>
+            </div>
+            <div id="rxBsMeld" class="melding verborgen"></div>
+            <div class="tabelwrap"><table id="rxBsGrid"><thead></thead><tbody></tbody></table></div>
+            <div class="rx-legenda">
+              <span><i class="rx-bs-punt rx-bs-beschikbaar"></i> beschikbaar</span>
+              <span><i class="rx-bs-punt rx-bs-liever_niet"></i> liever niet</span>
+              <span><i class="rx-bs-punt rx-bs-niet_beschikbaar"></i> niet beschikbaar</span>
+              <span><i class="rx-bs-punt rx-bs-leeg"></i> niet ingevuld</span>
+            </div>
+            <div id="rxBsTekort"></div>
+          </div>
+
+
+############################################################################
+# 2. MONTEUR — app/monteur.html
+############################################################################
+
+--- 2a. In <head>, direct ONDER de regel met uren.css -----------------------
+
+  <link rel="stylesheet" href="rooster-extra.css?v=42">
+
+
+--- 2b. Binnen <div data-mview="rooster">, ONDER de kaart "Mijn rooster" ----
+--- (dus na </section> van #mijnRooster, vóór de afsluitende </div>)        -
+
+      <section class="kaart">
+        <h2>Open diensten</h2>
+        <div id="rxMonOpenMeld" class="melding verborgen"></div>
+        <div id="rxMonOpen"></div>
+      </section>
+
+      <section class="kaart">
+        <h2>Mijn beschikbaarheid</h2>
+        <p id="rxMonBesRegels" class="rx-stil" style="margin:0 0 10px"></p>
+        <div id="rxMonBesMeld" class="melding verborgen"></div>
+        <div id="rxMonBesLijst"></div>
+      </section>
+
+      <section class="kaart">
+        <h2>Diensten ruilen</h2>
+        <div id="rxMonRuilMeld" class="melding verborgen"></div>
+        <label style="margin-top:0">Mijn komende diensten</label>
+        <div id="rxMonRuilMijn"></div>
+        <label>Aanbod en mijn verzoeken</label>
+        <div id="rxMonRuilAanbod"></div>
+      </section>
+
+
+############################################################################
+# 3. AANSLUITEN
+############################################################################
+
+De module heeft één regel nodig in het bijbehorende script. Die twee bestanden
+zijn in beheer van een andere agent; dit is wat erin moet:
+
+--- 3a. app/beheer.js — bij de andere imports bovenaan --------------------
+
+  import { bouwRoosterExtra } from "./rooster-extra.js?v=42";
+
+--- en onderaan naarDash(), na de bestaande laad-aanroepen ----------------
+
+  // Rooster-uitbreiding: open diensten, beschikbaarheid, ruilen, dagweergave.
+  bouwRoosterExtra(db, { esc, toonMeld, rijLeeg, kleurVan, werkbonTekst, haalAlles, isoDatum, ikBenId: () => ikBenId });
+
+--- 3b. app/monteur.js — bij de andere imports bovenaan -------------------
+
+  import { bouwRoosterMonteur } from "./rooster-extra.js?v=42";
+
+--- en in naarStatus(), na het ophalen van `mij` --------------------------
+
+  bouwRoosterMonteur(db, { esc, netfout, toonMelding, mij: () => mij });
+
+Alle sleutels van dat tweede argument zijn optioneel: ontbreekt er een, dan
+gebruikt de module zijn eigen versie. Dat is met opzet — een ontbrekende
+hulpfunctie mag nooit een leeg rooster opleveren.
+
+Wil je helemaal niets in beheer.js of monteur.js aanraken, dan kan het ook met
+een los blokje onderaan de HTML, vlak voor </body>:
+
+  <script type="module">
+    import { beheerClient } from "./config.js?v=42";
+    import { bouwRoosterExtra } from "./rooster-extra.js?v=42";
+    // Let op: dit maakt een tweede clientinstantie op dezelfde opslagsleutel.
+    // Werkt, maar de variant hierboven (3a) is netter.
+    bouwRoosterExtra(beheerClient(), {});
+  </script>
+
+De module laadt zichzelf zodra er een sessie is, en opnieuw bij elke klik op
+het tabblad Rooster (`.nav[data-tab="rooster"]` in beheer, `[data-mnav="rooster"]`
+in de monteur-app). Verder is er geen aanroep nodig.

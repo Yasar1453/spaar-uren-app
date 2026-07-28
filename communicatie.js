@@ -379,8 +379,11 @@ export function bouwNieuwsBeheer(db, hulp) {
 
   async function laadBestanden() {
     const tb = $("cmTbBestanden");
+    // De verwijzing expliciet op medewerker_id: `bestanden` heeft twee
+    // koppelingen naar medewerkers (de eigenaar en wie het uploadde), en zonder
+    // die aanwijzing weigert PostgREST de vraag als dubbelzinnig.
     const { data, error } = await h.haalAlles((van, tot) => db.from("bestanden")
-      .select("id, titel, omschrijving, pad, bestandsnaam, grootte, mime, medewerker_id, aangemaakt_op, medewerkers(naam)")
+      .select("id, titel, omschrijving, pad, bestandsnaam, grootte, mime, medewerker_id, aangemaakt_op, medewerkers!medewerker_id(naam)")
       .order("aangemaakt_op", { ascending: false }).range(van, tot));
     if (error) {
       tb.innerHTML = h.rijLeeg(5, "Kon de bestanden niet laden: " + h.esc(error.message));

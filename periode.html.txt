@@ -2,11 +2,10 @@
  PERIODE SLUITEN — HTML om in app/beheer.html te plakken
 ================================================================================
 
- Vier losse stukken. Ze staan hieronder in de volgorde waarin ze in het bestand
- komen te staan. Beheer.html wordt door een andere agent bewerkt, dus dit is
- bewust een tekstbestand gebleven.
+ Stuk 1 tot en met 4 gaan in beheer.html, in deze volgorde. Beheer.html wordt
+ door een andere agent bewerkt, dus dit is bewust een tekstbestand gebleven.
 
- Er hoort één wijziging in app/beheer.js bij; die staat onderaan (stuk 5).
+ Stuk 5 gaat in app/beheer.js.
  Zonder dat stuk is het tabblad zichtbaar maar leeg — het scherm wordt vanuit
  beheer.js opgebouwd, omdat db en de gedeelde hulpfuncties daar leven.
 
@@ -52,6 +51,10 @@
               <li>De uitbetaling per medewerker wordt onveranderlijk vastgelegd, zodat later te herleiden is wat er is doorgegeven.</li>
               <li>Klokt een monteur daarna alsnog uit op zo'n dag, dan landt zijn regel op de eerstvolgende open dag met een aantekening. Hij blijft dus nooit ingeklokt staan.</li>
             </ul>
+            <p class="pd-uitleg">
+              <strong>Volgorde:</strong> keur de uren na, exporteer de loonrun-CSV bij Urenregistratie, en sluit daarna pas.
+              Het sluiten markeert zelf alles wat goedgekeurd is als verwerkt, dus een export ná het sluiten levert een leeg bestand op.
+            </p>
             <div class="pd-velden">
               <div><label>Van</label><input id="pdVan" type="date"></div>
               <div><label>Tot en met</label><input id="pdTot" type="date"></div>
@@ -92,6 +95,8 @@
               <span><i class="pd-stip pd-open"></i> open — hier kan nog gewijzigd worden</span>
               <span><i class="pd-stip pd-op-slot"></i> gesloten — vastgezet voor de loonadministratie</span>
             </div>
+            <!-- "nog te keuren" en "weggeschoven" komen als merkje in de kolom Regels;
+                 als losse kolommen wordt deze tabel op een telefoon onleesbaar -->
             <div class="tabelwrap"><table><thead><tr>
               <th>Datum</th><th>Stand</th><th>Afsluiting</th><th>Gesloten door</th><th>Gesloten op</th><th>Regels</th><th>Uren</th>
             </tr></thead><tbody id="pdTbDagen"></tbody></table></div>
@@ -100,8 +105,9 @@
           <div class="kaart">
             <h2>Verschoven regels</h2>
             <p class="pd-stand-uitleg">
-              Uren die geboekt werden op een dag die al dicht stond. Ze staan op de eerstvolgende open dag en wachten op beoordeling;
-              hoort er iets van in de oude periode thuis, heropen die dan eerst.
+              Uren die geklokt zijn op een dag die al dicht stond. Ze staan op de eerstvolgende open dag en wachten op beoordeling;
+              hoort er iets van in de oude periode thuis, heropen die dan eerst. Gefilterd op de dag waarop echt gewerkt is,
+              niet op de dag waarop de regel geland is.
             </p>
             <div class="tabelwrap"><table><thead><tr>
               <th>Gewerkt op</th><th>Geboekt op</th><th>Monteur</th><th>Werkbon</th><th>Uren</th><th>Omschrijving</th>
@@ -141,7 +147,8 @@
 
 --------------------------------------------------------------------------------
  STUK 5 — aanhaken in app/beheer.js
- Dit stuk hoort niet in beheer.html maar in beheer.js. Twee regels.
+ Zonder dit stuk staat het tabblad er wel maar blijft het leeg: het scherm wordt
+ vanuit beheer.js opgebouwd, omdat db en de gedeelde hulpfuncties daar leven.
 --------------------------------------------------------------------------------
 
  5a. Bovenaan, bij de andere imports (naast iconen.js):
@@ -179,3 +186,8 @@
      melding geven, geen stille mislukking.
   3. Heropen de periode weer; die handeling staat daarna met naam, tijd en
      reden in "Afgesloten periodes".
+  4. Loop één keer een echte monteurdoorloop af — aanmelden, inklokken,
+     uitklokken — met een gesloten dag ertussen. Dat is de doorloop waarmee in
+     091-uitklokken-hersteld.sql aan het licht kwam dat een trigger met de
+     rechten van de monteur draait; een losse controle op de functies vindt dat
+     niet.

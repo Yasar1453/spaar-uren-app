@@ -55,6 +55,12 @@ export function bouwPeriodes(db, hulp) {
     $("pdTot").value = isoDatum(tot);
     $("pdRapVan").value = isoDatum(van);
     $("pdRapTot").value = isoDatum(tot);
+    // De datumkiezer laat morgen niet eens aanklikken. De database weigert het
+    // ook, maar een grijze dag legt beter uit waarom dan een foutmelding:
+    // een dag in de toekomst sluiten zou de monteur van morgen blokkeren.
+    const vandaag = isoDatum(nu);
+    $("pdVan").max = vandaag;
+    $("pdTot").max = vandaag;
   }
 
   document.querySelectorAll(".pd-snel").forEach((b) => b.addEventListener("click", () => {
@@ -258,11 +264,14 @@ export function bouwPeriodes(db, hulp) {
     if (!van || !tot) return;
     const [{ data: dagen, error: dagFout }, { data: versch, error: vFout }] = await Promise.all([
       db.rpc("gesloten_dagen", { p_van: van, p_tot: tot }),
+      // Filteren op verschoven_van en niet op datum: de vraag is "welke uren
+      // hoorden in deze periode maar zijn elders geland". Op datum filteren zou
+      // juist de regels missen die uit de getoonde periode zijn weggeschoven.
       db.from("urenregels")
         .select("id, datum, verschoven_van, uren, status, omschrijving, medewerkers!medewerker_id(naam), projecten(werkbon, naam)")
         .is("verwijderd_op", null).not("verschoven_van", "is", null)
-        .gte("datum", van).lte("datum", tot)
-        .order("datum", { ascending: false }).limit(500),
+        .gte("verschoven_van", van).lte("verschoven_van", tot)
+        .order("verschoven_van", { ascending: false }).limit(500),
     ]);
 
     if (dagFout) {
@@ -279,7 +288,8 @@ export function bouwPeriodes(db, hulp) {
           <td class="mono">${d.gesloten ? dv(d.periode_van) + " t/m " + dv(d.periode_tot) : "—"}</td>
           <td>${d.gesloten ? esc(d.gesloten_door || "onbekend") : "—"}${d.gesloten && d.reden ? `<div class="mini-grijs">${esc(d.reden)}</div>` : ""}</td>
           <td class="mono">${d.gesloten ? dt(d.gesloten_op) : "—"}</td>
-          <td class="mono">${d.regels}${Number(d.open_regels) ? ` <span class="badge amber">${d.open_regels} open</span>` : ""}</td>
+          <td class="mono">${d.regels}${Number(d.open_regels) ? ` <span class="badge amber">${d.open_regels} nog te keuren</span>` : ""}${
+            Number(d.verschoven) ? ` <span class="badge rood">${d.verschoven} weggeschoven</span>` : ""}</td>
           <td class="mono">${Number(d.uren) ? urenTekst(d.uren) : "—"}</td>
         </tr>`).join("") : rijLeeg(7, "Geen dagen in deze periode.");
     }

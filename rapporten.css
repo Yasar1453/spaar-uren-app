@@ -1,0 +1,35 @@
+/* ==========================================================================
+   Rapportages — alleen wat uren.css nog niet heeft.
+   Alle klassen beginnen met rp- zodat ze niets in het beheerscherm overschrijven.
+   ========================================================================== */
+
+/* ── Rapportkiezer ─────────────────────────────────────────────────────────
+   Twaalf rapporten passen niet in een uitklaplijst zonder dat je moet raden
+   wat er in zit; als knoppenrij staat de hele lijst tegelijk in beeld. */
+.rp-keuze{display:flex;flex-wrap:wrap;gap:6px}
+.rp-tab{border:1px solid var(--lijn);background:#fff;color:var(--grijs);
+  font-family:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:8px;
+  cursor:pointer;white-space:nowrap}
+.rp-tab:hover{color:var(--inkt);border-color:#d6cdc8}
+.rp-tab.actief{background:var(--inkt);color:#fff;border-color:var(--inkt)}
+
+/* ── Periodebalk ───────────────────────────────────────────────────────────*/
+.rp-periode-balk{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}
+.rp-periode-balk > *{min-width:0}
+.rp-periode-balk .btn{margin-top:0}
+.rp-hint{font-size:13px;color:var(--grijs);margin:10px 0 0}
+
+/* ── Blokken ───────────────────────────────────────────────────────────────
+   Eén rapport kan meerdere tabellen bevatten (roostertotalen per monteur én
+   per werkbon). Elk blok houdt zijn eigen exportknop, zodat er nooit twee
+   tabellen in één CSV door elkaar lopen. */
+.rp-blok + .rp-blok{margin-top:20px;padding-top:18px;border-top:1px solid var(--lijn)}
+.rp-blok h3{font-size:14px;margin:0;font-weight:800;letter-spacing:-.01em}
+.rp-blok .kaart-kop{margin-bottom:11px}
+.rp-telling{color:var(--grijs);font-weight:600;font-family:var(--mono);font-size:12.5px;margin-left:7px}
+.rp-voet{font-size:12.5px;color:var(--grijs);margin-top:10px}
+.rp-voet b{color:var(--inkt);font-variant-numeric:tabular-nums}
+
+/* Een dagboekregel is smal maar de toelichting kan lang zijn; laat die afbreken
+   in plaats van de tabel eindeloos breed te maken. */
+.rp-blok td:last-child{max-width:320px}

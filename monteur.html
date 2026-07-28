@@ -12,7 +12,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Spaar Electra">
-  <link rel="stylesheet" href="uren.css?v=45">
+  <link rel="stylesheet" href="uren.css?v=46">
+  <link rel="stylesheet" href="communicatie.css?v=46">
+  <link rel="stylesheet" href="rooster-extra.css?v=46">
 </head>
 <body>
   <div class="wrap smal" id="appWrap">
@@ -101,6 +103,18 @@
       </section>
 
       <!-- Home-kaarten (zoals Shiftbase) -->
+      <section class="kaart verborgen home-kaart" id="cmNieuwsKaart">
+        <h2>Nieuws <span id="cmNieuwsTelling" class="cm-telling verborgen"></span></h2>
+        <div id="cmNieuws"></div>
+      </section>
+
+      <!-- Bestanden: algemeen + eigen documenten -->
+      <section class="kaart verborgen home-kaart" id="cmBestandenKaart">
+        <h2>Bestanden</h2>
+        <div id="cmBestandMelding" class="melding verborgen"></div>
+        <div id="cmBestanden"></div>
+      </section>
+
       <section class="kaart verborgen home-kaart" id="homeRoosterKaart">
         <h2>Mijn rooster</h2>
         <div id="homeRooster"></div>
@@ -128,6 +142,28 @@
       <section class="kaart">
         <h2>Mijn rooster</h2>
         <div id="mijnRooster"></div>
+      </section>
+    
+      <section class="kaart">
+        <h2>Open diensten</h2>
+        <div id="rxMonOpenMeld" class="melding verborgen"></div>
+        <div id="rxMonOpen"></div>
+      </section>
+
+      <section class="kaart">
+        <h2>Mijn beschikbaarheid</h2>
+        <p id="rxMonBesRegels" class="rx-stil" style="margin:0 0 10px"></p>
+        <div id="rxMonBesMeld" class="melding verborgen"></div>
+        <div id="rxMonBesLijst"></div>
+      </section>
+
+      <section class="kaart">
+        <h2>Diensten ruilen</h2>
+        <div id="rxMonRuilMeld" class="melding verborgen"></div>
+        <label style="margin-top:0">Mijn komende diensten</label>
+        <div id="rxMonRuilMijn"></div>
+        <label>Aanbod en mijn verzoeken</label>
+        <div id="rxMonRuilAanbod"></div>
       </section>
     </div>
 
@@ -185,6 +221,31 @@
   </div>
 
   <!-- Tabbalk onderin (zoals Shiftbase) -->
+  <div id="cmDetail" class="modal-overlay verborgen">
+    <div class="modal cm-venster">
+      <div class="modal-kop">
+        <h2 id="cmDetailTitel"></h2>
+        <button class="modal-x" id="cmDetailX" aria-label="Sluiten">&times;</button>
+      </div>
+      <div id="cmDetailMeta" class="cm-detail-meta"></div>
+      <div id="cmDetailTekst" class="cm-tekst"></div>
+
+      <h3 class="cm-kop">Reacties</h3>
+      <p class="cm-uitleg">Wat je hier schrijft kan de hele ploeg lezen.</p>
+      <div id="cmDetailReacties"></div>
+
+      <div class="cm-reactie-veld">
+        <div id="cmReactieMelding" class="melding verborgen"></div>
+        <label for="cmReactieTekst">Jouw reactie</label>
+        <textarea id="cmReactieTekst" rows="3" maxlength="2000" placeholder="Typ je reactie…"></textarea>
+        <div class="cm-reactie-knoppen">
+          <button id="cmReactieBtn" class="btn btn-rood">Reactie plaatsen</button>
+          <button id="cmReactieAnnuleer" class="btn btn-grijs verborgen">Annuleren</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <nav id="tabbalk" class="tabbalk verborgen">
     <button class="tb actief" data-mnav="klok">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
@@ -204,6 +265,6 @@
     </button>
   </nav>
 
-  <script type="module" src="monteur.js?v=45"></script>
+  <script type="module" src="monteur.js?v=46"></script>
 </body>
 </html>

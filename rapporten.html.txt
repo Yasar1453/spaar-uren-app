@@ -1,0 +1,95 @@
+================================================================================
+ app/rapporten.html.txt — te plakken HTML voor de twaalf extra rapportages
+================================================================================
+
+Drie plakjes. Niets hiervan raakt bestaande id's aan: alles begint met "rp".
+
+
+--------------------------------------------------------------------------------
+ 1) In de <head> van app/beheer.html, direct ONDER de regel met uren.css
+--------------------------------------------------------------------------------
+
+  <link rel="stylesheet" href="rapporten.css?v=44">
+
+
+--------------------------------------------------------------------------------
+ 2) In <section data-view="rapporten"> van app/beheer.html, ONDERAAN de sectie
+    (dus na de kaart "Uren per werkbon", vlak voor </section>)
+--------------------------------------------------------------------------------
+
+          <!-- Meer rapportages (app/rapporten.js) -->
+          <div class="kaart">
+            <h2>Meer rapportages</h2>
+            <p class="verplicht-uitleg">De overzichten die in Shiftbase onder Rapportages stonden. Kies een rapport, kies de periode en exporteer.</p>
+            <div id="rpKeuze" class="rp-keuze"></div>
+          </div>
+
+          <div class="kaart">
+            <div class="rp-periode-balk">
+              <div id="rpVanVak"><label for="rpVan">Van</label><input id="rpVan" type="date"></div>
+              <div id="rpTotVak"><label for="rpTot">Tot en met</label><input id="rpTot" type="date"></div>
+              <div id="rpDatumVak" class="verborgen"><label for="rpDatum">Datum</label><input id="rpDatum" type="date"></div>
+              <div><button id="rpToon" class="btn btn-rood btn-klein">Toon rapport</button></div>
+            </div>
+            <div id="rpSnelBalk" class="knoprij" style="margin-top:10px">
+              <button class="btn btn-grijs btn-klein rp-snel" data-rpsnel="week">Deze week</button>
+              <button class="btn btn-grijs btn-klein rp-snel" data-rpsnel="vorige-week">Vorige week</button>
+              <button class="btn btn-grijs btn-klein rp-snel" data-rpsnel="maand">Deze maand</button>
+              <button class="btn btn-grijs btn-klein rp-snel" data-rpsnel="vorige-maand">Vorige maand</button>
+              <button class="btn btn-grijs btn-klein rp-snel" data-rpsnel="jaar">Dit jaar</button>
+            </div>
+            <p id="rpGeenPeriode" class="rp-hint verborgen">Dit rapport geldt op dit moment; er valt geen periode te kiezen.</p>
+          </div>
+
+          <div class="kaart">
+            <div class="kaart-kop">
+              <div>
+                <h2 id="rpTitel">Rapport</h2>
+                <div id="rpUitleg" class="rap-periode"></div>
+              </div>
+            </div>
+            <div id="rpMelding" class="melding verborgen"></div>
+            <div id="rpBlokken"></div>
+          </div>
+
+
+--------------------------------------------------------------------------------
+ 3) In app/beheer.js — de module inhangen
+--------------------------------------------------------------------------------
+
+Bovenaan, bij de andere imports:
+
+  import { bouwRapporten } from "./rapporten.js?v=44";
+
+Onderaan het bestand, ná de definities van de hulpfuncties (dus onder het blok
+"Hulpjes"), één keer aanroepen:
+
+  const rapporten = bouwRapporten(db, {
+    esc, komma, urenTekst, tijd, rijLeeg, csvDownload, haalAlles,
+    statusBadge, werkbonMetKleur, typeLabel, werkdagenTussen, urenWeekTotaal,
+    DAG_KEYS, isoDatum, maandagVan, toonMeld, verberg,
+  });
+
+`bouwRapporten` zet het scherm zelf klaar maar haalt nog niets op — dat gebeurt
+zodra de beheerder een rapport aanklikt. Wil je dat het gekozen rapport meteen
+ververst als de tab wordt geopend, zet er dan in de bestaande navigatie-handler
+achter `if (tab === "rapporten") toonRapport();` deze regel bij:
+
+      if (tab === "rapporten") rapporten.toon();
+
+Dat is niet verplicht: zonder die regel blijft het laatst getoonde rapport
+gewoon staan.
+
+
+--------------------------------------------------------------------------------
+ Waar de gebruikte hulpfuncties vandaan komen
+--------------------------------------------------------------------------------
+
+Allemaal uit beheer.js, ongewijzigd:
+
+  esc, komma, urenTekst, tijd, rijLeeg, csvDownload, haalAlles, statusBadge,
+  werkbonMetKleur, typeLabel, werkdagenTussen, urenWeekTotaal, DAG_KEYS,
+  isoDatum, maandagVan, toonMeld, verberg
+
+Ontbreekt er één, dan stopt `bouwRapporten` meteen met een duidelijke fout in
+plaats van een half werkend scherm op te leveren.

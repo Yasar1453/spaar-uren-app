@@ -55,7 +55,10 @@ const _JARGON = /violates|constraint|duplicate key|permission denied|row-level|r
 function _netfout(e, standaard) {
   const m = String(e?.message || e || "").trim();
   const code = e?.code || "";
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
+  // Uitdrukkelijk op `false` vergelijken: als de browser het niet weet is
+  // `onLine` undefined, en dan "geen internetverbinding" melden stuurt de
+  // monteur naar buiten op zoek naar bereik dat hij allang heeft.
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
     return "Geen internetverbinding. Zoek even een plek met bereik en probeer opnieuw.";
   }
   if (/failed to fetch|networkerror|load failed/i.test(m)) {
@@ -302,9 +305,11 @@ export function bouwRoosterExtra(db, hulp = {}) {
       .select("medewerker_id, datum, soort, toelichting")
       .gte("datum", van).lte("datum", tot).order("datum").range(a, b));
     if (error) {
-      grid.querySelector("tbody").innerHTML = rijLeeg(8, "Kon de beschikbaarheid niet laden: " + esc(error.message));
+      grid.querySelector("tbody").innerHTML = rijLeeg(9, "Kon de beschikbaarheid niet laden.");
+      toonMeld($("rxBsMeld"), "fout", "Kon de beschikbaarheid niet laden: " + error.message);
       return;
     }
+    verbergMeld($("rxBsMeld"));
     const per = {};
     (data || []).forEach((b) => { per[b.medewerker_id + "|" + b.datum] = b; });
 
@@ -422,7 +427,7 @@ export function bouwRoosterExtra(db, hulp = {}) {
     body.innerHTML = data.map((r) => {
       const diensten = Array.isArray(r.diensten) ? r.diensten : [];
       const blokken = diensten.map((p) => `<span class="rx-blok" style="border-left-color:${kleurVan(p)}">
-          <span class="rx-blok-naam">${esc(_werkbonTekst({ werkbon: p.werkbon, naam: p.project }))}</span>
+          <span class="rx-blok-naam">${esc(werkbonTekst({ werkbon: p.werkbon, naam: p.project }))}</span>
           <span class="rx-blok-tijd">${esc(p.start_tijd ? kortTijd(p.start_tijd) + " – " + kortTijd(p.eind_tijd) : (DAGDEEL_LABEL[p.dagdeel] || p.dagdeel || ""))}</span>
         </span>`).join("");
       const vrij = r.afwezig
@@ -443,16 +448,26 @@ export function bouwRoosterExtra(db, hulp = {}) {
   }
 
   // ── Acties (gedelegeerd; de lijsten worden steeds opnieuw getekend) ───────
-  async function doeActie(knop, uitvoeren, opnieuw) {
+  async function doeActie(knop, meldId, uitvoeren, opnieuw) {
+    const meld = $(meldId);
     const oud = knop.textContent;
     knop.disabled = true; knop.textContent = "Bezig…";
-    const { error } = await uitvoeren();
+    let fout = null;
+    try {
+      const { error } = await uitvoeren();
+      fout = error;
+    } catch (e) {
+      fout = e;
+    }
     knop.disabled = false; knop.textContent = oud;
-    if (error) {
-      toonMeld($("rxOdMeld"), "fout", _netfout(error, "De actie is niet gelukt."));
+    if (fout) {
+      // De database geeft bij een geweigerde actie een uitgeschreven reden mee
+      // ("Deze dienst is al volledig bezet"); die is voor kantoor het meest
+      // bruikbaar, dus die tonen we onveranderd.
+      toonMeld(meld, "fout", _netfout(fout, "De actie is niet gelukt."));
       return false;
     }
-    verbergMeld($("rxOdMeld"));
+    verbergMeld(meld);
     await opnieuw();
     return true;
   }
@@ -464,28 +479,30 @@ export function bouwRoosterExtra(db, hulp = {}) {
     if (t.dataset.rxUitnodig) {
       const sel = document.querySelector(`[data-rx-kies="${t.dataset.rxUitnodig}"]`);
       if (!sel || !sel.value) return;
-      await doeActie(t, () => db.from("open_dienst_reacties").insert({
+      await doeActie(t, "rxOdMeld", () => db.from("open_dienst_reacties").insert({
         open_dienst_id: t.dataset.rxUitnodig, medewerker_id: sel.value, status: "uitgenodigd",
       }), laadOpenDiensten);
     } else if (t.dataset.rxToewijs) {
-      await doeActie(t, () => db.from("open_dienst_reacties")
-        .update({ status: "toegewezen" }).eq("id", t.dataset.rxToewijs), laadOpenDiensten);
+      await doeActie(t, "rxOdMeld", () => db.from("open_dienst_reacties")
+        .update({ status: "toegewezen" }).eq("id", t.dataset.rxToewijs),
+        async () => { await laadOpenDiensten(); await laadDag(); });
     } else if (t.dataset.rxAfwijs) {
-      await doeActie(t, () => db.from("open_dienst_reacties")
+      await doeActie(t, "rxOdMeld", () => db.from("open_dienst_reacties")
         .update({ status: "afgewezen" }).eq("id", t.dataset.rxAfwijs), laadOpenDiensten);
     } else if (t.dataset.rxIntrek) {
       if (!confirm("Deze open dienst intrekken? Monteurs kunnen er dan niet meer op reageren.")) return;
-      await doeActie(t, () => db.from("open_diensten")
+      await doeActie(t, "rxOdMeld", () => db.from("open_diensten")
         .update({ status: "ingetrokken" }).eq("id", t.dataset.rxIntrek), laadOpenDiensten);
     } else if (t.dataset.rxOdweg) {
       if (!confirm("Deze open dienst verwijderen? Al toegewezen diensten blijven gewoon in het rooster staan.")) return;
-      await doeActie(t, () => db.from("open_diensten")
+      await doeActie(t, "rxOdMeld", () => db.from("open_diensten")
         .update({ verwijderd_op: new Date().toISOString() }).eq("id", t.dataset.rxOdweg), laadOpenDiensten);
     } else if (t.dataset.rxRuilgoed) {
-      await doeActie(t, () => db.from("dienst_ruil")
-        .update({ status: "goedgekeurd" }).eq("id", t.dataset.rxRuilgoed), async () => { await laadRuil(); await laadDag(); });
+      await doeActie(t, "rxRuilMeld", () => db.from("dienst_ruil")
+        .update({ status: "goedgekeurd" }).eq("id", t.dataset.rxRuilgoed),
+        async () => { await laadRuil(); await laadDag(); });
     } else if (t.dataset.rxRuilaf) {
-      await doeActie(t, () => db.from("dienst_ruil")
+      await doeActie(t, "rxRuilMeld", () => db.from("dienst_ruil")
         .update({ status: "afgewezen" }).eq("id", t.dataset.rxRuilaf), laadRuil);
     }
   });
@@ -531,18 +548,29 @@ export function bouwRoosterMonteur(db, hulp = {}) {
   const toonMeld = hulp.toonMelding || hulp.toonMeld || _toonMeld;
 
   let _mijnId = null;
+  let _mijnFout = null;
   let _regels = { min_dagen_per_week: 0, wijzigen_tot_dagen_vooraf: 0, weken_vooruit: 4 };
 
   async function mijnId() {
     const g = typeof hulp.mij === "function" ? hulp.mij() : hulp.mij;
     if (g?.medewerker_id) return g.medewerker_id;
     if (_mijnId) return _mijnId;
+    _mijnFout = null;
     const { data: auth } = await db.auth.getUser();
     if (!auth?.user) return null;
-    const { data } = await db.from("medewerkers")
+    const { data, error } = await db.from("medewerkers")
       .select("id").eq("auth_user_id", auth.user.id).is("verwijderd_op", null).maybeSingle();
+    // Een storing en "niet ingelogd" zien er hier hetzelfde uit. Het verschil
+    // vasthouden, anders sturen we iemand met een haperende verbinding het
+    // inlogscherm in terwijl zijn sessie prima is.
+    if (error) { _mijnFout = error; return null; }
     _mijnId = data?.id || null;
     return _mijnId;
+  }
+  function geenIdTekst() {
+    return _mijnFout
+      ? netfout(_mijnFout, "Je gegevens konden niet opgehaald worden. Probeer het zo nog eens.")
+      : "Log opnieuw in en probeer het nog een keer.";
   }
 
   // ── 1. Open diensten ──────────────────────────────────────────────────────
@@ -591,7 +619,7 @@ export function bouwRoosterMonteur(db, hulp = {}) {
     const el = $("rxMonBesLijst");
     if (!el) return;
     const mid = await mijnId();
-    if (!mid) { el.innerHTML = `<div class="leeg">Log opnieuw in om je beschikbaarheid door te geven.</div>`; return; }
+    if (!mid) { el.innerHTML = `<div class="leeg">${esc(geenIdTekst())}</div>`; return; }
 
     const { data: r } = await db.from("beschikbaarheid_regels").select("*").eq("id", 1).maybeSingle();
     if (r) _regels = r;
@@ -654,7 +682,7 @@ export function bouwRoosterMonteur(db, hulp = {}) {
     const meld = $("rxMonBesMeld");
     verbergMeld(meld);
     const mid = await mijnId();
-    if (!mid) return toonMeld(meld, "fout", "Log opnieuw in en probeer het nog een keer.");
+    if (!mid) return toonMeld(meld, "fout", geenIdTekst());
     const oud = knop.textContent;
     knop.disabled = true; knop.textContent = "…";
     const { error } = await db.from("beschikbaarheid").upsert({
@@ -732,20 +760,25 @@ export function bouwRoosterMonteur(db, hulp = {}) {
     }
   }
 
+  // Geeft { gelukt, rijen } terug. `rijen` is nodig omdat een update die niets
+  // raakt géén fout is: bij het overnemen van een dienst betekent nul rijen
+  // dat een collega net eerder was, en dat moet de monteur te zien krijgen in
+  // plaats van een groene bevestiging.
   async function monteurActie(knop, meldEl, uitvoeren, standaardfout) {
     verbergMeld(meldEl);
     const oud = knop.textContent;
     knop.disabled = true; knop.textContent = "Bezig…";
-    let fout = null;
+    let fout = null, rijen = null;
     try {
-      const { error } = await uitvoeren();
-      fout = error;
+      const res = await uitvoeren();
+      fout = res?.error;
+      rijen = res?.data;
     } catch (e) {
       fout = e;
     }
     knop.disabled = false; knop.textContent = oud;
-    if (fout) { toonMeld(meldEl, "fout", netfout(fout, standaardfout)); return false; }
-    return true;
+    if (fout) { toonMeld(meldEl, "fout", netfout(fout, standaardfout)); return { gelukt: false, rijen: null }; }
+    return { gelukt: true, rijen };
   }
 
   document.addEventListener("click", async (e) => {
@@ -755,32 +788,39 @@ export function bouwRoosterMonteur(db, hulp = {}) {
     if (t.dataset.rxBes) {
       await zetBeschikbaar(t);
     } else if (t.dataset.rxWil) {
-      const ok = await monteurActie(t, $("rxMonOpenMeld"), () => db.from("open_dienst_reacties")
+      const r = await monteurActie(t, $("rxMonOpenMeld"), () => db.from("open_dienst_reacties")
         .update({ status: "aangevraagd" }).eq("id", t.dataset.rxWil), "Reageren is niet gelukt.");
-      if (ok) { toonMeld($("rxMonOpenMeld"), "ok", "Je reactie is doorgegeven."); await laadOpenDiensten(); }
+      if (r.gelukt) { toonMeld($("rxMonOpenMeld"), "ok", "Je reactie is doorgegeven."); await laadOpenDiensten(); }
     } else if (t.dataset.rxNietwil) {
-      const ok = await monteurActie(t, $("rxMonOpenMeld"), () => db.from("open_dienst_reacties")
+      const r = await monteurActie(t, $("rxMonOpenMeld"), () => db.from("open_dienst_reacties")
         .update({ status: "uitgenodigd" }).eq("id", t.dataset.rxNietwil), "Intrekken is niet gelukt.");
-      if (ok) { toonMeld($("rxMonOpenMeld"), "ok", "Je aanvraag is ingetrokken."); await laadOpenDiensten(); }
+      if (r.gelukt) { toonMeld($("rxMonOpenMeld"), "ok", "Je aanvraag is ingetrokken."); await laadOpenDiensten(); }
     } else if (t.dataset.rxAanbied) {
       const mid = await mijnId();
-      if (!mid) return toonMeld($("rxMonRuilMeld"), "fout", "Log opnieuw in en probeer het nog een keer.");
+      if (!mid) return toonMeld($("rxMonRuilMeld"), "fout", geenIdTekst());
       const reden = prompt("Waarom bied je deze dienst aan? (mag leeg blijven)") ?? "";
-      const ok = await monteurActie(t, $("rxMonRuilMeld"), () => db.from("dienst_ruil").insert({
+      const r = await monteurActie(t, $("rxMonRuilMeld"), () => db.from("dienst_ruil").insert({
         planning_id: t.dataset.rxAanbied, aanbieder_id: mid, reden: reden.trim() || null,
       }), "Aanbieden is niet gelukt.");
-      if (ok) { toonMeld($("rxMonRuilMeld"), "ok", "Je dienst staat aangeboden. Kantoor keurt de ruil goed."); await laadRuil(); }
+      if (r.gelukt) { toonMeld($("rxMonRuilMeld"), "ok", "Je dienst staat aangeboden. Kantoor keurt de ruil goed."); await laadRuil(); }
     } else if (t.dataset.rxOverneem) {
       const mid = await mijnId();
-      if (!mid) return toonMeld($("rxMonRuilMeld"), "fout", "Log opnieuw in en probeer het nog een keer.");
-      const ok = await monteurActie(t, $("rxMonRuilMeld"), () => db.from("dienst_ruil")
+      if (!mid) return toonMeld($("rxMonRuilMeld"), "fout", geenIdTekst());
+      const r = await monteurActie(t, $("rxMonRuilMeld"), () => db.from("dienst_ruil")
         .update({ status: "geclaimd", overnemer_id: mid })
-        .eq("id", t.dataset.rxOverneem).eq("status", "aangeboden"), "Overnemen is niet gelukt.");
-      if (ok) { toonMeld($("rxMonRuilMeld"), "ok", "Doorgegeven. Kantoor moet de ruil nog goedkeuren."); await laadRuil(); }
+        .eq("id", t.dataset.rxOverneem).eq("status", "aangeboden").select("id"),
+        "Overnemen is niet gelukt.");
+      if (r.gelukt && (!r.rijen || !r.rijen.length)) {
+        toonMeld($("rxMonRuilMeld"), "fout", "Een collega was je net voor; deze dienst is al overgenomen.");
+        await laadRuil();
+      } else if (r.gelukt) {
+        toonMeld($("rxMonRuilMeld"), "ok", "Doorgegeven. Kantoor moet de ruil nog goedkeuren.");
+        await laadRuil();
+      }
     } else if (t.dataset.rxRuilintrek) {
-      const ok = await monteurActie(t, $("rxMonRuilMeld"), () => db.from("dienst_ruil")
+      const r = await monteurActie(t, $("rxMonRuilMeld"), () => db.from("dienst_ruil")
         .update({ status: "ingetrokken" }).eq("id", t.dataset.rxRuilintrek), "Intrekken is niet gelukt.");
-      if (ok) { toonMeld($("rxMonRuilMeld"), "ok", "Je aanbod is ingetrokken."); await laadRuil(); }
+      if (r.gelukt) { toonMeld($("rxMonRuilMeld"), "ok", "Je aanbod is ingetrokken."); await laadRuil(); }
     }
   });
 

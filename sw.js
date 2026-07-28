@@ -23,7 +23,7 @@
 //  als dit bestand ooit stukgaat — zonder dat er 25 telefoons langs hoeven.
 const NOODSTOP = false;
 
-const CACHE = "spaar-uren-v45";
+const CACHE = "spaar-uren-v46";
 const NETWERK_TIMEOUT_MS = 3000;
 
 // Wat er klaar moet staan om te kunnen starten zonder bereik.
@@ -37,6 +37,10 @@ const BESTANDEN = [
   "./aanmelden.js",
   "./config.js",
   "./iconen.js",
+  "./communicatie.js",
+  "./communicatie.css",
+  "./rooster-extra.js",
+  "./rooster-extra.css",
   "./vendor/supabase-js.js",
   "./vendor/node-process.js",
   "./vendor/node-buffer.js",

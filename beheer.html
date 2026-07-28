@@ -9,7 +9,10 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=45">
+  <link rel="stylesheet" href="uren.css?v=46">
+  <link rel="stylesheet" href="communicatie.css?v=46">
+  <link rel="stylesheet" href="periode.css?v=46">
+  <link rel="stylesheet" href="rooster-extra.css?v=46">
 </head>
 <body>
 
@@ -40,10 +43,12 @@
         <button class="nav" data-tab="uren"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/></svg></span> Urenregistratie</button>
         <button class="nav" data-tab="verlof"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="7" y2="7"/><line x1="17" y1="17" x2="19" y2="19"/><line x1="5" y1="19" x2="7" y2="17"/><line x1="17" y1="7" x2="19" y2="5"/></svg></span> Verlof <span id="verlofBadge" class="nav-telling verborgen"></span></button>
         <button class="nav" data-tab="projecten"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6 7-12a7 7 0 1 0-14 0c0 6 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span> Werkbonnen</button>
+        <button class="nav" data-tab="communicatie"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span> Communicatie</button>
         <button class="nav" data-tab="medewerkers"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></span> Medewerkers <span id="badgeMedewerkers" class="nav-telling verborgen"></span></button>
         <button class="nav" data-tab="beleid"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg></span> Verlofbeleid</button>
         <button class="nav" data-tab="pauzes"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg></span> Pauzes</button>
         <button class="nav" data-tab="rapporten"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="21" x2="21" y2="21"/><rect x="6" y="12" width="3" height="7"/><rect x="11" y="8" width="3" height="11"/><rect x="16" y="4" width="3" height="15"/></svg></span> Rapportages</button>
+        <button class="nav" data-tab="periodes"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span> Periode sluiten</button>
       </nav>
       <div class="zb-voet">
         <span id="wieBen" class="zb-user"></span>
@@ -96,6 +101,7 @@
             <label class="vinkregel"><input type="checkbox" id="rAlleenWerkdagen" checked> Alleen werkdagen (weekend en feestdagen overslaan)</label>
             <div id="rPlanMelding" class="melding verborgen" style="margin-top:10px"></div>
             <button id="rInplannen" class="btn btn-rood btn-klein" style="margin-top:14px">Inplannen</button>
+            <div id="rxInplanWaarschuwing" class="melding verborgen"></div>
           </div>
           <div class="kaart">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -108,6 +114,102 @@
             </div>
             <div class="tabelwrap"><table id="rGrid"><thead></thead><tbody></tbody></table></div>
           </div>
+        
+          <!-- ── Dagweergave: één dag, alle monteurs onder elkaar ──────── -->
+          <div class="kaart">
+            <div class="rx-dagbalk">
+              <h2 style="margin:0">Dagweergave</h2>
+              <span id="rxDagLabel" class="rx-daglabel"></span>
+              <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+                <button id="rxDagVorige" class="btn btn-grijs btn-klein" aria-label="Vorige dag">&larr;</button>
+                <input id="rxDagDatum" type="date">
+                <button id="rxDagVolgende" class="btn btn-grijs btn-klein" aria-label="Volgende dag">&rarr;</button>
+                <button id="rxDagVandaag" class="btn btn-grijs btn-klein">Vandaag</button>
+              </div>
+            </div>
+            <div class="tabelwrap">
+              <table id="rxDagTabel">
+                <thead><tr><th>Monteur</th><th>Waar staat hij</th><th>Locatie</th><th>Bijzonderheden</th></tr></thead>
+                <tbody id="rxDagBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ── Open diensten ───────────────────────────────────────────── -->
+          <div class="kaart">
+            <h2>Open dienst aanmaken</h2>
+            <div class="rx-form">
+              <div><label for="rxOdProject">Werkbon</label><select id="rxOdProject"></select></div>
+              <div><label for="rxOdDatum">Datum</label><input id="rxOdDatum" type="date"></div>
+              <div><label for="rxOdDagdeel">Dagdeel</label><select id="rxOdDagdeel">
+                <option value="hele_dag">Hele dag</option>
+                <option value="ochtend">Ochtend</option>
+                <option value="middag">Middag</option>
+              </select></div>
+              <div><label for="rxOdStart">Van</label><input id="rxOdStart" type="time" value="07:00"></div>
+              <div><label for="rxOdEind">Tot</label><input id="rxOdEind" type="time" value="16:00"></div>
+              <div><label for="rxOdAantal">Monteurs nodig</label><input id="rxOdAantal" type="number" min="1" max="25" value="1"></div>
+              <div><label for="rxOdToewijzing">Toewijzen</label><select id="rxOdToewijzing">
+                <option value="kantoor">Kantoor wijst toe na aanvraag</option>
+                <option value="eerste">Wie het eerst reageert, krijgt hem</option>
+              </select></div>
+              <div class="rx-form-breed"><label for="rxOdOpmerking">Opmerking (optioneel)</label>
+                <input id="rxOdOpmerking" placeholder="Bv. gereedschap meenemen"></div>
+            </div>
+            <button id="rxOdMaak" class="btn btn-rood btn-klein" style="margin-top:14px">Open dienst aanmaken</button>
+            <div id="rxOdMeld" class="melding verborgen"></div>
+          </div>
+
+          <div class="kaart">
+            <h2>Open diensten</h2>
+            <div id="rxOdLijst"></div>
+          </div>
+
+          <!-- ── Diensten ruilen ─────────────────────────────────────────── -->
+          <div class="kaart">
+            <h2>Ruilverzoeken</h2>
+            <div id="rxRuilMeld" class="melding verborgen"></div>
+            <div id="rxRuilLijst"></div>
+          </div>
+
+          <!-- ── Beschikbaarheid ─────────────────────────────────────────── -->
+          <div class="kaart">
+            <h2>Beschikbaarheidsregels</h2>
+            <div class="rx-form">
+              <div><label for="rxBsMinDagen">Minimaal in te vullen dagen per week</label>
+                <input id="rxBsMinDagen" type="number" min="0" max="7" value="0"></div>
+              <div><label for="rxBsTermijn">Wijzigen kan tot … dagen vooraf</label>
+                <input id="rxBsTermijn" type="number" min="0" max="60" value="0"></div>
+              <div><label for="rxBsWeken">Aantal weken vooruit invullen</label>
+                <input id="rxBsWeken" type="number" min="1" max="26" value="4"></div>
+            </div>
+            <button id="rxBsRegelsOpslaan" class="btn btn-rood btn-klein" style="margin-top:14px">Regels opslaan</button>
+            <div id="rxBsRegelsMeld" class="melding verborgen"></div>
+          </div>
+
+          <div class="kaart">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <h2 style="margin:0">Beschikbaarheid per week</h2>
+              <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+                <button id="rxBsVorige" class="btn btn-grijs btn-klein" aria-label="Vorige week">&larr;</button>
+                <span id="rxBsLabel" class="mono" style="font-size:13px"></span>
+                <button id="rxBsVolgende" class="btn btn-grijs btn-klein" aria-label="Volgende week">&rarr;</button>
+              </div>
+            </div>
+            <div id="rxBsMeld" class="melding verborgen"></div>
+            <div class="tabelwrap"><table id="rxBsGrid"><thead></thead><tbody></tbody></table></div>
+            <div class="rx-legenda">
+              <span><i class="rx-bs-punt rx-bs-beschikbaar"></i> beschikbaar</span>
+              <span><i class="rx-bs-punt rx-bs-liever_niet"></i> liever niet</span>
+              <span><i class="rx-bs-punt rx-bs-niet_beschikbaar"></i> niet beschikbaar</span>
+              <span><i class="rx-bs-punt rx-bs-leeg"></i> niet ingevuld</span>
+            </div>
+            <div id="rxBsTekort"></div>
+          </div>
+
+
+############################################################################
+
         </section>
 
         <!-- Urenregistratie -->
@@ -203,6 +305,80 @@
             <div id="projWaarschuwing" class="melding verborgen"></div>
             <div class="tabelwrap"><table><thead><tr><th>Kleur</th><th>Werkbon</th><th>Naam</th><th>Locatie</th><th>Inklok-zone</th><th></th></tr></thead><tbody id="tbProjecten"></tbody></table></div>
           </div>
+        </section>
+
+        <section data-view="communicatie" class="verborgen">
+
+          <div class="kaart">
+            <h2>Nieuwsbericht plaatsen</h2>
+            <p class="verplicht-uitleg">Het bericht is voor de hele ploeg. Iedereen kan erop reageren en die reacties zijn voor iedereen zichtbaar.</p>
+            <div id="cmNieuwMelding" class="melding verborgen"></div>
+            <div class="cm-form-rij">
+              <div class="cm-form-breed">
+                <label for="cmNieuwTitel">Kop <span class="ster">*</span></label>
+                <input id="cmNieuwTitel" maxlength="120" placeholder="Bv. Nieuwe veiligheidsinstructie hoogwerker">
+              </div>
+              <div class="cm-form-breed">
+                <label for="cmNieuwTekst">Bericht <span class="ster">*</span></label>
+                <textarea id="cmNieuwTekst" rows="6" maxlength="8000" placeholder="Schrijf hier wat de ploeg moet weten…"></textarea>
+              </div>
+              <div>
+                <label for="cmNieuwGeldig">Geldig tot en met (optioneel)</label>
+                <input id="cmNieuwGeldig" type="date">
+                <p class="cm-uitleg">Leeg laten = blijft staan. Ingevuld = verdwijnt daarna vanzelf bij de monteurs; jij blijft hem hier zien.</p>
+              </div>
+              <div>
+                <label class="cm-keuze" for="cmNieuwPush">
+                  <input id="cmNieuwPush" type="checkbox"> Ook een pushmelding sturen
+                </label>
+                <p class="cm-uitleg">Alleen naar monteurs die meldingen hebben aangezet. Gaat maar één keer per bericht de deur uit.</p>
+              </div>
+            </div>
+            <button id="cmPlaatsBtn" class="btn btn-rood btn-klein" style="margin-top:14px">Bericht plaatsen</button>
+          </div>
+
+          <div class="kaart">
+            <h2>Geplaatste berichten <span class="telling" id="cmTelBerichten"></span></h2>
+            <div class="tabelwrap"><table>
+              <thead><tr><th>Datum</th><th>Bericht</th><th>Geldig tot</th><th>Geplaatst door</th><th></th></tr></thead>
+              <tbody id="cmTbBerichten"></tbody>
+            </table></div>
+          </div>
+
+          <div class="kaart">
+            <h2>Bestand delen</h2>
+            <p class="verplicht-uitleg">Kies "Hele ploeg" voor handleidingen en veiligheidsinstructies. Kies een medewerker voor een contract of certificaat &mdash; dan ziet alleen hij het, niemand anders.</p>
+            <div id="cmBestMelding" class="melding verborgen"></div>
+            <div class="cm-form-rij">
+              <div>
+                <label for="cmBestTitel">Naam <span class="ster">*</span></label>
+                <input id="cmBestTitel" maxlength="160" placeholder="Bv. Werkinstructie hoogwerker 2026">
+              </div>
+              <div>
+                <label for="cmBestVoor">Voor wie</label>
+                <select id="cmBestVoor"><option value="">Hele ploeg (algemeen bestand)</option></select>
+              </div>
+              <div class="cm-form-breed">
+                <label for="cmBestOmschrijving">Toelichting (optioneel)</label>
+                <input id="cmBestOmschrijving" placeholder="Bv. lezen vóór 1 september">
+              </div>
+              <div class="cm-form-breed">
+                <label for="cmBestInvoer">Bestand <span class="ster">*</span></label>
+                <input id="cmBestInvoer" type="file">
+                <p class="cm-uitleg">Maximaal 20 MB per bestand.</p>
+              </div>
+            </div>
+            <button id="cmBestBtn" class="btn btn-rood btn-klein" style="margin-top:14px">Bestand delen</button>
+          </div>
+
+          <div class="kaart">
+            <h2>Gedeelde bestanden <span class="telling" id="cmTelBestanden"></span></h2>
+            <div class="tabelwrap"><table>
+              <thead><tr><th>Naam</th><th>Voor wie</th><th>Bestand</th><th>Toegevoegd</th><th></th></tr></thead>
+              <tbody id="cmTbBestanden"></tbody>
+            </table></div>
+          </div>
+
         </section>
 
         <!-- Medewerkers -->
@@ -394,6 +570,85 @@
             <div class="tabelwrap"><table><thead><tr><th>Werkbon</th><th>Naam</th><th>Uren</th></tr></thead><tbody id="tbRapProject"></tbody></table></div>
           </div>
         </section>
+
+        <section data-view="periodes" class="verborgen">
+
+          <div class="kaart pd-sluitkaart">
+            <h2>Periode sluiten</h2>
+            <p class="pd-uitleg">
+              Sluiten zet de urenregistratie van deze dagen vast. Het slot zit in de database, niet in dit scherm:
+              ook een rechtstreekse wijziging buiten de app om stuit erop.
+            </p>
+            <ul class="pd-gevolgen">
+              <li>Niemand kan nog uren toevoegen, wijzigen of verwijderen met een datum in deze periode — jij ook niet.</li>
+              <li>Alles wat goedgekeurd is wordt gemarkeerd als <strong>verwerkt in de loonrun</strong>.</li>
+              <li>De uitbetaling per medewerker wordt onveranderlijk vastgelegd, zodat later te herleiden is wat er is doorgegeven.</li>
+              <li>Klokt een monteur daarna alsnog uit op zo'n dag, dan landt zijn regel op de eerstvolgende open dag met een aantekening. Hij blijft dus nooit ingeklokt staan.</li>
+            </ul>
+            <p class="pd-uitleg">
+              <strong>Volgorde:</strong> keur de uren na, exporteer de loonrun-CSV bij Urenregistratie, en sluit daarna pas.
+              Het sluiten markeert zelf alles wat goedgekeurd is als verwerkt, dus een export ná het sluiten levert een leeg bestand op.
+            </p>
+            <div class="pd-velden">
+              <div><label>Van</label><input id="pdVan" type="date"></div>
+              <div><label>Tot en met</label><input id="pdTot" type="date"></div>
+              <div class="pd-breed"><label>Reden of kenmerk (bijvoorbeeld het loonrunnummer)</label><input id="pdReden" type="text" placeholder="Loonrun juli — doorgegeven aan de administratie"></div>
+            </div>
+            <div class="pd-snelrij">
+              <button class="btn btn-grijs btn-klein pd-snel" data-pd-snel="vorige-maand">Vorige maand</button>
+              <button class="btn btn-grijs btn-klein pd-snel" data-pd-snel="deze-maand">Deze maand tot vandaag</button>
+              <button class="btn btn-grijs btn-klein pd-snel" data-pd-snel="vandaag">Alleen vandaag</button>
+            </div>
+            <div id="pdMelding" class="melding verborgen"></div>
+            <div class="pd-actierij">
+              <button id="pdSluit" class="btn btn-rood btn-klein">Periode sluiten</button>
+            </div>
+          </div>
+
+          <div class="kaart">
+            <div class="pd-kop">
+              <h2>Afgesloten periodes</h2>
+            </div>
+            <p class="pd-stand-uitleg">Heropenen kan alleen met een reden, en die wordt samen met je naam vastgelegd.</p>
+            <div class="tabelwrap"><table><thead><tr>
+              <th>Periode</th><th>Stand</th><th>Gesloten door</th><th>Gesloten op</th><th>Toelichting</th><th></th><th></th>
+            </tr></thead><tbody id="pdTbPeriodes"></tbody></table></div>
+          </div>
+
+          <div class="kaart">
+            <div class="pd-kop">
+              <h2>Gesloten urenregistratie</h2>
+              <button id="pdRapExport" class="btn btn-grijs btn-klein">Exporteren (CSV)</button>
+            </div>
+            <div class="pd-velden">
+              <div><label>Van</label><input id="pdRapVan" type="date"></div>
+              <div><label>Tot en met</label><input id="pdRapTot" type="date"></div>
+              <div><button id="pdRapToon" class="btn btn-grijs btn-klein" style="margin-top:0">Toon overzicht</button></div>
+            </div>
+            <div class="pd-legenda" style="margin-top:12px">
+              <span><i class="pd-stip pd-open"></i> open — hier kan nog gewijzigd worden</span>
+              <span><i class="pd-stip pd-op-slot"></i> gesloten — vastgezet voor de loonadministratie</span>
+            </div>
+            <!-- "nog te keuren" en "weggeschoven" komen als merkje in de kolom Regels;
+                 als losse kolommen wordt deze tabel op een telefoon onleesbaar -->
+            <div class="tabelwrap"><table><thead><tr>
+              <th>Datum</th><th>Stand</th><th>Afsluiting</th><th>Gesloten door</th><th>Gesloten op</th><th>Regels</th><th>Uren</th>
+            </tr></thead><tbody id="pdTbDagen"></tbody></table></div>
+          </div>
+
+          <div class="kaart">
+            <h2>Verschoven regels</h2>
+            <p class="pd-stand-uitleg">
+              Uren die geklokt zijn op een dag die al dicht stond. Ze staan op de eerstvolgende open dag en wachten op beoordeling;
+              hoort er iets van in de oude periode thuis, heropen die dan eerst. Gefilterd op de dag waarop echt gewerkt is,
+              niet op de dag waarop de regel geland is.
+            </p>
+            <div class="tabelwrap"><table><thead><tr>
+              <th>Gewerkt op</th><th>Geboekt op</th><th>Monteur</th><th>Werkbon</th><th>Uren</th><th>Omschrijving</th>
+            </tr></thead><tbody id="pdTbVerschoven"></tbody></table></div>
+          </div>
+
+        </section>
       </main>
     </div>
   </div>
@@ -562,6 +817,38 @@
     </div>
   </div>
 
+  <!-- ── Onderaan <body>, bij de andere modals ──────────────────────────── -->
+  <div id="cmReactiesVenster" class="modal-overlay verborgen">
+    <div class="modal cm-venster">
+      <div class="modal-kop">
+        <h2 id="cmReactiesTitel">Reacties</h2>
+        <button class="modal-x" id="cmReactiesX" aria-label="Sluiten">&times;</button>
+      </div>
+      <div id="cmReactiesMelding" class="melding verborgen"></div>
+      <div id="cmReactiesLijst"></div>
+    </div>
+  </div>
+
+  <div id="pdStandModal" class="modal-overlay verborgen">
+    <div class="modal modal-breed pd-modal-breed">
+      <div class="modal-kop">
+        <h2 id="pdStandTitel">Vastgelegde stand</h2>
+        <button id="pdStandSluit" class="modal-x" aria-label="Sluiten">&times;</button>
+      </div>
+      <p class="pd-stand-uitleg">
+        Dit is de momentopname zoals hij bij het sluiten is bewaard, met de namen, contractvormen en uurlonen van toen.
+        Hij verandert niet meer mee met latere wijzigingen — ook niet na heropenen.
+      </p>
+      <div class="tabelwrap"><table><thead><tr>
+        <th>Monteur</th><th>Contractvorm</th><th>Regels</th><th>Gewerkt</th><th>Verlof</th>
+        <th>Contract</th><th>Uit te betalen</th><th>Plus/min</th><th>Bedrag</th>
+      </tr></thead><tbody id="pdTbStand"></tbody></table></div>
+      <div class="modal-acties" style="margin-top:14px">
+        <button id="pdStandExport" class="btn btn-grijs btn-klein">Exporteren (CSV)</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Klok-plattegrond: waar heeft de monteur ingeklokt? -->
   <div id="klokModal" class="modal-overlay verborgen">
     <div class="modal" style="max-width:760px">
@@ -610,6 +897,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=45"></script>
+  <script type="module" src="beheer.js?v=46"></script>
 </body>
 </html>

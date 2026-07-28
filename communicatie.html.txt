@@ -1,0 +1,239 @@
+============================================================================
+ Spaar Electra — Urenregistratie · communicatie
+ HTML om in te plakken. Dit bestand wordt nergens geladen; het staat hier
+ omdat beheer.html en monteur.html door andere handen worden bewerkt.
+
+ Vier stukken:
+   A. beheer.html  — stijlblad
+   B. beheer.html  — knop in de zijbalk
+   C. beheer.html  — de pagina Communicatie
+   D. monteur.html — stijlblad, twee kaarten op het startscherm, en het
+                     venster waarin een bericht opengaat
+
+ Onderaan staat hoe je de module aanroept vanuit beheer.js en monteur.js.
+============================================================================
+
+
+============================================================================
+ A. beheer.html — stijlblad
+----------------------------------------------------------------------------
+ Direct ONDER de bestaande regel  <link rel="stylesheet" href="uren.css?v=42">
+ in <head>. Houd het versienummer gelijk aan dat van uren.css, anders blijft
+ een browser op de oude opmaak hangen.
+============================================================================
+
+  <link rel="stylesheet" href="communicatie.css?v=42">
+
+
+============================================================================
+ B. beheer.html — knop in de zijbalk
+----------------------------------------------------------------------------
+ In <nav class="zb-nav">, tussen de knoppen "Werkbonnen" en "Medewerkers".
+ Daar staat hij in Shiftbase ook: eerst het werk, dan de mensen.
+ beheer.js koppelt alle .nav-knoppen automatisch aan het bijbehorende
+ data-view; er hoeft niets aan dat bestand te veranderen.
+============================================================================
+
+        <button class="nav" data-tab="communicatie"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span> Communicatie</button>
+
+
+============================================================================
+ C. beheer.html — de pagina Communicatie
+----------------------------------------------------------------------------
+ In <div class="inhoud">, als broer/zus van de andere <section data-view="…">
+ blokken. Zet hem na de sectie data-view="projecten".
+ Het reactievenster (het laatste blok) hoort BUITEN .inhoud, naast de andere
+ modals onderaan <body> — anders valt hij binnen het verborgen paneel als je
+ van pagina wisselt.
+============================================================================
+
+        <!-- Communicatie: nieuws en bestanden -->
+        <section data-view="communicatie" class="verborgen">
+
+          <div class="kaart">
+            <h2>Nieuwsbericht plaatsen</h2>
+            <p class="verplicht-uitleg">Het bericht is voor de hele ploeg. Iedereen kan erop reageren en die reacties zijn voor iedereen zichtbaar.</p>
+            <div id="cmNieuwMelding" class="melding verborgen"></div>
+            <div class="cm-form-rij">
+              <div class="cm-form-breed">
+                <label for="cmNieuwTitel">Kop <span class="ster">*</span></label>
+                <input id="cmNieuwTitel" maxlength="120" placeholder="Bv. Nieuwe veiligheidsinstructie hoogwerker">
+              </div>
+              <div class="cm-form-breed">
+                <label for="cmNieuwTekst">Bericht <span class="ster">*</span></label>
+                <textarea id="cmNieuwTekst" rows="6" maxlength="8000" placeholder="Schrijf hier wat de ploeg moet weten…"></textarea>
+              </div>
+              <div>
+                <label for="cmNieuwGeldig">Geldig tot en met (optioneel)</label>
+                <input id="cmNieuwGeldig" type="date">
+                <p class="cm-uitleg">Leeg laten = blijft staan. Ingevuld = verdwijnt daarna vanzelf bij de monteurs; jij blijft hem hier zien.</p>
+              </div>
+              <div>
+                <label class="cm-keuze" for="cmNieuwPush">
+                  <input id="cmNieuwPush" type="checkbox"> Ook een pushmelding sturen
+                </label>
+                <p class="cm-uitleg">Alleen naar monteurs die meldingen hebben aangezet. Gaat maar één keer per bericht de deur uit.</p>
+              </div>
+            </div>
+            <button id="cmPlaatsBtn" class="btn btn-rood btn-klein" style="margin-top:14px">Bericht plaatsen</button>
+          </div>
+
+          <div class="kaart">
+            <h2>Geplaatste berichten <span class="telling" id="cmTelBerichten"></span></h2>
+            <div class="tabelwrap"><table>
+              <thead><tr><th>Datum</th><th>Bericht</th><th>Geldig tot</th><th>Geplaatst door</th><th></th></tr></thead>
+              <tbody id="cmTbBerichten"></tbody>
+            </table></div>
+          </div>
+
+          <div class="kaart">
+            <h2>Bestand delen</h2>
+            <p class="verplicht-uitleg">Kies "Hele ploeg" voor handleidingen en veiligheidsinstructies. Kies een medewerker voor een contract of certificaat &mdash; dan ziet alleen hij het, niemand anders.</p>
+            <div id="cmBestMelding" class="melding verborgen"></div>
+            <div class="cm-form-rij">
+              <div>
+                <label for="cmBestTitel">Naam <span class="ster">*</span></label>
+                <input id="cmBestTitel" maxlength="160" placeholder="Bv. Werkinstructie hoogwerker 2026">
+              </div>
+              <div>
+                <label for="cmBestVoor">Voor wie</label>
+                <select id="cmBestVoor"><option value="">Hele ploeg (algemeen bestand)</option></select>
+              </div>
+              <div class="cm-form-breed">
+                <label for="cmBestOmschrijving">Toelichting (optioneel)</label>
+                <input id="cmBestOmschrijving" placeholder="Bv. lezen vóór 1 september">
+              </div>
+              <div class="cm-form-breed">
+                <label for="cmBestInvoer">Bestand <span class="ster">*</span></label>
+                <input id="cmBestInvoer" type="file">
+                <p class="cm-uitleg">Maximaal 20 MB per bestand.</p>
+              </div>
+            </div>
+            <button id="cmBestBtn" class="btn btn-rood btn-klein" style="margin-top:14px">Bestand delen</button>
+          </div>
+
+          <div class="kaart">
+            <h2>Gedeelde bestanden <span class="telling" id="cmTelBestanden"></span></h2>
+            <div class="tabelwrap"><table>
+              <thead><tr><th>Naam</th><th>Voor wie</th><th>Bestand</th><th>Toegevoegd</th><th></th></tr></thead>
+              <tbody id="cmTbBestanden"></tbody>
+            </table></div>
+          </div>
+
+        </section>
+
+  <!-- ── Onderaan <body>, bij de andere modals ──────────────────────────── -->
+  <div id="cmReactiesVenster" class="modal-overlay verborgen">
+    <div class="modal cm-venster">
+      <div class="modal-kop">
+        <h2 id="cmReactiesTitel">Reacties</h2>
+        <button class="modal-x" id="cmReactiesX" aria-label="Sluiten">&times;</button>
+      </div>
+      <div id="cmReactiesMelding" class="melding verborgen"></div>
+      <div id="cmReactiesLijst"></div>
+    </div>
+  </div>
+
+
+============================================================================
+ D. monteur.html
+============================================================================
+
+ D1. stijlblad — direct onder <link rel="stylesheet" href="uren.css?v=42">
+
+  <link rel="stylesheet" href="communicatie.css?v=42">
+
+----------------------------------------------------------------------------
+ D2. twee kaarten op het startscherm
+ In <div data-mview="klok">, na de kaart met id="meldKaart" en vóór
+ id="homeRoosterKaart". Nieuws hoort boven het rooster: als kantoor iets
+ doorgeeft moet je het zien voordat je naar je werkbon scrolt.
+ Beide kaarten zijn eerst verborgen; communicatie.js haalt dat weg zodra hij
+ geladen heeft — ook als er niets in staat, want een kaart die er soms wel en
+ soms niet is, is verwarrend.
+----------------------------------------------------------------------------
+
+      <!-- Nieuws van kantoor -->
+      <section class="kaart verborgen home-kaart" id="cmNieuwsKaart">
+        <h2>Nieuws <span id="cmNieuwsTelling" class="cm-telling verborgen"></span></h2>
+        <div id="cmNieuws"></div>
+      </section>
+
+      <!-- Bestanden: algemeen + eigen documenten -->
+      <section class="kaart verborgen home-kaart" id="cmBestandenKaart">
+        <h2>Bestanden</h2>
+        <div id="cmBestandMelding" class="melding verborgen"></div>
+        <div id="cmBestanden"></div>
+      </section>
+
+----------------------------------------------------------------------------
+ D3. het venster waarin een bericht opengaat
+ Onderaan, NA </div> van <div class="wrap smal" id="appWrap"> en vóór
+ <nav id="tabbalk">. Buiten .wrap, zodat het over de tabbalk heen valt.
+----------------------------------------------------------------------------
+
+  <div id="cmDetail" class="modal-overlay verborgen">
+    <div class="modal cm-venster">
+      <div class="modal-kop">
+        <h2 id="cmDetailTitel"></h2>
+        <button class="modal-x" id="cmDetailX" aria-label="Sluiten">&times;</button>
+      </div>
+      <div id="cmDetailMeta" class="cm-detail-meta"></div>
+      <div id="cmDetailTekst" class="cm-tekst"></div>
+
+      <h3 class="cm-kop">Reacties</h3>
+      <p class="cm-uitleg">Wat je hier schrijft kan de hele ploeg lezen.</p>
+      <div id="cmDetailReacties"></div>
+
+      <div class="cm-reactie-veld">
+        <div id="cmReactieMelding" class="melding verborgen"></div>
+        <label for="cmReactieTekst">Jouw reactie</label>
+        <textarea id="cmReactieTekst" rows="3" maxlength="2000" placeholder="Typ je reactie…"></textarea>
+        <div class="cm-reactie-knoppen">
+          <button id="cmReactieBtn" class="btn btn-rood">Reactie plaatsen</button>
+          <button id="cmReactieAnnuleer" class="btn btn-grijs verborgen">Annuleren</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+============================================================================
+ E. Aanroepen vanuit de bestaande modules
+----------------------------------------------------------------------------
+ communicatie.js maakt zelf geen Supabase-client en dupliceert geen
+ hulpfuncties: allebei komen ze mee als argument. `mijnId` is een functie en
+ geen waarde, omdat het medewerker-id pas ná het inloggen bekend is.
+============================================================================
+
+--- beheer.js -------------------------------------------------------------
+
+  // bovenaan, bij de andere imports
+  import { bouwNieuwsBeheer } from "./communicatie.js?v=42";
+
+  // in naarDash(), ná het bepalen van ikBenId en ná laadBeleid()/laadVormen()
+  const communicatie = bouwNieuwsBeheer(db, {
+    esc, rijLeeg, toonMeld, datum, tijd, haalAlles, initialen,
+    mijnId: () => ikBenId,
+  });
+  await communicatie.laad();
+
+--- monteur.js ------------------------------------------------------------
+
+  // bovenaan, bij de andere imports
+  import { bouwNieuwsMonteur } from "./communicatie.js?v=42";
+
+  // in naarStatus(), ná laadHome()  —  let op: monteur.js noemt zijn
+  // meldingfunctie toonMelding; de module verwacht hem als toonMeld.
+  const communicatie = bouwNieuwsMonteur(db, {
+    esc, netfout, toonMeld: toonMelding,
+    mijnId: () => (mij ? mij.medewerker_id : null),
+  });
+  communicatie.laad();
+
+--- sw.js -----------------------------------------------------------------
+
+  // in de lijst BESTANDEN erbij, zodat het startscherm ook zonder bereik
+  // opent met de nieuwskaart erin
+  "./communicatie.js",
+  "./communicatie.css",

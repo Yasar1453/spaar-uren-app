@@ -3,8 +3,10 @@
 //  Pincode → werkbon kiezen → inklokken (met GPS-check) → uitklokken.
 //  Bouwt voort op de logica uit ../../werknemer.js, nu gekoppeld aan Supabase.
 // ============================================================================
-import { monteurClient, VAPID_PUBLIC } from "./config.js?v=45";
-import { icoon } from "./iconen.js?v=45";
+import { monteurClient, VAPID_PUBLIC } from "./config.js?v=46";
+import { icoon } from "./iconen.js?v=46";
+import { bouwNieuwsMonteur } from "./communicatie.js?v=46";
+import { bouwRoosterMonteur } from "./rooster-extra.js?v=46";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();   // eigen sessie, blijft bewaard tussen bezoeken
@@ -119,7 +121,7 @@ if ("serviceWorker" in navigator) {
 //  starten het versienummer op (langs de cache heen) en herladen we eenmalig
 //  als er iets nieuwers staat. De vlag in sessionStorage voorkomt een lus als
 //  het herladen om welke reden dan ook niet aanslaat.
-const APP_VERSIE = 45;
+const APP_VERSIE = 46;
 async function controleerVersie() {
   try {
     const r = await fetch("versie.json?t=" + Date.now(), { cache: "no-store" });
@@ -161,6 +163,14 @@ async function naarStatus() {
   laadMijnVerlof();
   laadHome();
   regelMeldingKaart();
+
+  // monteur.js noemt zijn meldingfunctie toonMelding; de module verwacht
+  // toonMeld, dus die geven we onder de juiste naam door.
+  bouwNieuwsMonteur(db, {
+    esc, netfout, toonMeld: toonMelding,
+    mijnId: () => (mij ? mij.medewerker_id : null),
+  }).laad();
+  bouwRoosterMonteur(db, { esc, netfout, toonMelding, mij: () => mij });
 }
 
 // ── Push-meldingen (herinnering in/uit te klokken) ──────────────────────────
