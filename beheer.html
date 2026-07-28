@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=36">
+  <link rel="stylesheet" href="uren.css?v=37">
 </head>
 <body>
 
@@ -276,6 +276,18 @@
             <div class="tabelwrap"><table><thead><tr><th>Monteur</th><th>Dagen gewerkt</th><th>Uren</th><th>Nog te keuren</th><th>Km</th><th>Vakantie</th><th>Ziek</th><th>Overig verlof</th></tr></thead><tbody id="tbRapMonteur"></tbody></table></div>
           </div>
           <div class="kaart">
+            <div class="kaart-kop">
+              <h2>Uit te betalen</h2>
+              <button id="uitbExport" class="btn btn-grijs btn-klein">Exporteer CSV</button>
+            </div>
+            <p class="verplicht-uitleg">Vast personeel wordt uitbetaald op contracturen, ZZP op gewerkte uren. Het verschil bij vast personeel loopt in de plus/min.</p>
+            <div id="uitbMelding" class="melding verborgen"></div>
+            <div class="tabelwrap"><table><thead><tr>
+              <th>Monteur</th><th>Contractvorm</th><th>Gewerkt</th><th>Contract</th>
+              <th>Uit te betalen</th><th>Plus/min</th><th>Overwerk</th><th>Uurloon</th><th>Bedrag</th>
+            </tr></thead><tbody id="tbUitbetaling"></tbody></table></div>
+          </div>
+          <div class="kaart">
             <h2>Uren per werkbon</h2>
             <div class="tabelwrap"><table><thead><tr><th>Werkbon</th><th>Naam</th><th>Uren</th></tr></thead><tbody id="tbRapProject"></tbody></table></div>
           </div>
@@ -352,11 +364,14 @@
           <div data-mpaneel="contract" class="verborgen">
             <div class="veldrij">
               <div><label for="medAfdeling">Contractafdeling</label><input id="medAfdeling" placeholder="Spaar Electra B.V." autocomplete="off"></div>
-              <div><label for="medContractType">Contracttype <span class="ster">*</span></label><select id="medContractType">
+              <div><label for="medContractvorm">Contractvorm <span class="ster">*</span></label>
+                <select id="medContractvorm"></select>
+                <p class="verplicht-uitleg" id="medVormUitleg" style="margin-top:4px"></p></div>
+              <div><label for="medContractType">Dienstverband <span class="ster">*</span></label><select id="medContractType">
                 <option value="">—</option>
-                <option value="vast">Vast medewerker</option>
+                <option value="vast">Vast</option>
                 <option value="tijdelijk">Tijdelijk</option>
-                <option value="oproep">ZZP</option>
+                <option value="oproep">Oproep / ZZP</option>
               </select></div>
               <div><label for="medFunctietitel">Functietitel</label><input id="medFunctietitel" placeholder="Bv. Monteur" autocomplete="off"></div>
             </div>
@@ -456,6 +471,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=36"></script>
+  <script type="module" src="beheer.js?v=37"></script>
 </body>
 </html>

@@ -6,7 +6,7 @@
 import { beheerClient } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=36";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=37";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -54,7 +54,7 @@ async function naarDash() {
   }
   // Beleid eerst: verlof, rooster en typelabels halen hun naam, kleur en
   // pictogram uit _types, dus die lijst moet er zijn voordat er getekend wordt.
-  await laadBeleid();
+  await Promise.all([laadBeleid(), laadVormen()]);
   await Promise.all([laadIngeklokt(), laadUren(), laadProjecten(), laadMedewerkers(), laadRooster(), laadVerlof(), laadPauzes()]);
   standaardPeriode();
   toonRapport();
@@ -178,13 +178,31 @@ $("uVorige").addEventListener("click", () => verschuifPeriode(-1));
 $("uVolgende").addEventListener("click", () => verschuifPeriode(1));
 $("uVandaag").addEventListener("click", () => { urenAnker = new Date(); laadUren(); });
 
+// Haalt een lijst in pagina's op tot hij op is. PostgREST geeft standaard
+// maximaal 1000 rijen per verzoek; een vaste .limit() kapt dan stil af.
+async function haalAlles(bouw, paginaGrootte = 1000) {
+  const alles = [];
+  for (let start = 0; ; start += paginaGrootte) {
+    const { data, error } = await bouw(start, start + paginaGrootte - 1);
+    if (error) return { data: null, error };
+    alles.push(...(data || []));
+    if (!data || data.length < paginaGrootte) return { data: alles, error: null };
+    if (alles.length >= 20000) return { data: alles, error: null };   // noodrem
+  }
+}
+
 async function laadUren() {
   const { van, tot } = urenPeriode();
   $("uPeriodeLabel").textContent = urenPeriodeLabel();
-  const { data, error } = await db.from("urenregels")
+  // In pagina's ophalen. Bij 23 monteurs zit een volle maand boven de 500
+  // regels; met een vaste limiet vielen de oudste dagen er stilzwijgend af en
+  // loog de balk "N regels wachten op beoordeling" over hoeveel er echt open
+  // stonden. Dit scherm voedt de loonrun, dus het moet compleet zijn.
+  const { data, error } = await haalAlles((van_, tot_) => db.from("urenregels")
     .select("id, datum, start_tijd, eind_tijd, uren, km, pauze_onbetaald_min, pauze_betaald_min, status, omschrijving, in_lat, in_lng, nagekeken_op, verwerkt_op, medewerkers!medewerker_id(naam), keurder:medewerkers!nagekeken_door(naam), projecten(id, werkbon, naam, kleur)")
     .is("verwijderd_op", null).gte("datum", van).lte("datum", tot)
-    .order("datum", { ascending: false }).order("start_tijd", { ascending: false }).limit(500);
+    .order("datum", { ascending: false }).order("start_tijd", { ascending: false })
+    .range(van_, tot_));
   if (error) {
     // Nooit stil falen: een lege lijst en een kapotte query zien er anders identiek uit.
     $("tbRecent").innerHTML = rijLeeg(6, "Kon de uren niet laden: " + error.message);
@@ -227,10 +245,23 @@ $("bulkAf").addEventListener("click", () => {
   const ids = gekozenIds();
   if (confirm(`${ids.length} ${ids.length === 1 ? "regel" : "regels"} afkeuren?`)) keurMeerdere(ids, "afgekeurd");
 });
-$("bulkAlles").addEventListener("click", () => {
-  const ids = [...document.querySelectorAll(".uren-kies")].map((c) => c.dataset.kies);
-  if (!ids.length) return;
-  if (confirm(`Alle ${ids.length} openstaande ${ids.length === 1 ? "regel" : "regels"} in ${urenPeriodeLabel()} goedkeuren?`)) keurMeerdere(ids, "goedgekeurd");
+$("bulkAlles").addEventListener("click", async () => {
+  // Niet op de geladen rijen afgaan maar op de database: anders keurt "alles"
+  // alleen goed wat toevallig in beeld staat, en blijft de rest onbeslist
+  // terwijl hij wel meetelt in de rapportage.
+  const { van, tot } = urenPeriode();
+  const { count, error } = await db.from("urenregels")
+    .select("id", { count: "exact", head: true })
+    .is("verwijderd_op", null).eq("status", "onbeslist").gte("datum", van).lte("datum", tot);
+  if (error) return alert("Tellen mislukt: " + error.message);
+  if (!count) return alert("Er staan geen openstaande regels in " + urenPeriodeLabel() + ".");
+  if (!confirm(`Alle ${count} openstaande ${count === 1 ? "regel" : "regels"} in ${urenPeriodeLabel()} goedkeuren?`)) return;
+
+  const { error: fout } = await db.from("urenregels")
+    .update({ status: "goedgekeurd", nagekeken_door: ikBenId, nagekeken_op: new Date().toISOString() })
+    .is("verwijderd_op", null).eq("status", "onbeslist").gte("datum", van).lte("datum", tot);
+  if (fout) return alert("Goedkeuren mislukt: " + fout.message);
+  await laadUren();
 });
 // Dashboard toont altijd de laatste registraties, los van de gekozen periode.
 async function laadRecenteUren() {
@@ -723,6 +754,10 @@ const MED_VELDEN = {
   medContractnotitie: "contractnotitie", medRol: "rol",
 };
 const MED_PRIVE = { medBsn: "bsn", medIdNummer: "id_nummer", medBankrekening: "bankrekening" };
+// Onthoudt of het ophalen van de identiteitsgegevens gelukt is. Faalde het, dan
+// staan de velden leeg zonder dat "leeg" betekent — en zou opslaan een bestaand
+// BSN of bankrekeningnummer met null overschrijven. Er is geen tweede bron.
+let priveGeladen = false;
 // Lege datums en getallen moeten null worden, geen lege tekst: anders klaagt Postgres.
 const MED_DATUMS = new Set(["geboortedatum", "datum_in_dienst", "contract_start", "contract_eind"]);
 
@@ -741,9 +776,14 @@ function leegMedVenster() {
   $("medVerlofDagen").value = "";
   $("medRol").value = "monteur";
   $("medAfdeling").value = "Spaar Electra B.V.";
+  $("medBeleid").value = "";
+  Object.keys(MED_PRIVE).forEach((id) => { const e = $(id); if (e) e.disabled = false; });
+  priveGeladen = true;   // niets om te overschrijven
   $("medSaldo").innerHTML = '<span class="leeg">Zichtbaar zodra de medewerker is opgeslagen.</span>';
   $("medAccountVak").classList.add("verborgen");
   vulSelect("medBeleid", [["", "— geen beleid —"], ..._beleid.map((b) => [b.id, b.naam])]);
+  $("medBeleid").value = "";
+  vulVormen("");
   bouwUrenWeek("medUrenWeek", null);
   toonVerlofBerekening();
   verberg($("medMelding"));
@@ -773,6 +813,7 @@ async function openMedewerker(id) {
   });
   $("medLoonheffing").checked = !!m.loonheffing;
   $("medUurloon").value = m.uurloon != null ? m.uurloon : "";
+  vulVormen(m.contractvorm_id);
   $("medBeleid").value = m.beleid_id || "";
   $("medStartUren").value = m.verlof_start_uren != null ? m.verlof_start_uren : 0;
   $("medVerlofDagen").value = m.verlof_dagen_per_jaar != null ? m.verlof_dagen_per_jaar : "";
@@ -791,9 +832,16 @@ async function openMedewerker(id) {
 // Haalt de privégegevens pas op als het venster openstaat: ze staan in een
 // aparte tabel die alleen beheerders mogen lezen.
 async function laadPrive(id) {
-  const { data } = await db.from("medewerker_privegegevens").select("*").eq("medewerker_id", id).maybeSingle();
+  priveGeladen = false;
+  const { data, error } = await db.from("medewerker_privegegevens").select("*").eq("medewerker_id", id).maybeSingle();
+  if (error) {
+    Object.keys(MED_PRIVE).forEach((veldId) => { const e = $(veldId); if (e) { e.value = ""; e.disabled = true; } });
+    toonMeld($("medMelding"), "fout", "De identiteitsgegevens konden niet worden opgehaald. Ze zijn nu vergrendeld, zodat opslaan ze niet leegmaakt.");
+    return;
+  }
+  priveGeladen = true;
   Object.entries(MED_PRIVE).forEach(([veldId, kolom]) => {
-    const e = $(veldId); if (e) e.value = data && data[kolom] != null ? data[kolom] : "";
+    const e = $(veldId); if (e) { e.disabled = false; e.value = data && data[kolom] != null ? data[kolom] : ""; }
   });
 }
 
@@ -810,6 +858,7 @@ function leesMedVelden() {
   rij.verlof_start_uren = parseFloat($("medStartUren").value) || 0;
   rij.verlof_dagen_per_jaar = $("medVerlofDagen").value === "" ? null : parseFloat($("medVerlofDagen").value);
   rij.contract_uren = leesUrenWeek("medUrenWeek");
+  rij.contractvorm_id = $("medContractvorm").value || null;
   return rij;
 }
 
@@ -839,7 +888,15 @@ $("medOpslaan").addEventListener("click", async () => {
   // legitimeren bij het aanmelden.
   if (!rij.voornaam || !rij.achternaam) { toonMedTab("basis"); return toonMeld($("medMelding"), "fout", "Vul voornaam en achternaam in."); }
   if (!rij.geboortedatum) { toonMedTab("details"); return toonMeld($("medMelding"), "fout", "Vul de geboortedatum in — daarmee meldt de monteur zich aan."); }
-  if (!rij.contract_type) { toonMedTab("contract"); return toonMeld($("medMelding"), "fout", "Kies een contracttype."); }
+  if (!rij.contract_type) { toonMedTab("contract"); return toonMeld($("medMelding"), "fout", "Kies een dienstverband."); }
+  // Zonder contractvorm is niet bepaald of iemand op contracturen of op
+  // gewerkte uren wordt uitbetaald — dan klopt het loonbedrag niet.
+  if (!rij.contractvorm_id) { toonMedTab("contract"); return toonMeld($("medMelding"), "fout", "Kies een contractvorm — die bepaalt of er op contracturen of op gewerkte uren wordt uitbetaald."); }
+  // Zonder contracturen bouwt de medewerker geen verlof op en klopt zijn
+  // plus/min niet. Het veld stond als verplicht gemarkeerd maar werd niet
+  // gecontroleerd; het enige signaal was een streepje in de tabel.
+  if (!rij.contract_uren) { toonMedTab("contract"); return toonMeld($("medMelding"), "fout", "Vul de contracturen per dag in — daarop worden verlofopbouw en plus/min berekend."); }
+  if (!rij.beleid_id) { toonMedTab("afwezigheid"); return toonMeld($("medMelding"), "fout", "Kies een afwezigheidsbeleid."); }
 
   $("medOpslaan").disabled = true;
   try {
@@ -856,7 +913,9 @@ $("medOpslaan").addEventListener("click", async () => {
     // Privégegevens alleen wegschrijven als er iets is ingevuld of al bestond.
     const prive = {};
     Object.entries(MED_PRIVE).forEach(([veldId, kolom]) => { prive[kolom] = $(veldId).value.trim() || null; });
-    if (Object.values(prive).some((v) => v !== null)) {
+    // Alleen wegschrijven als we weten wat er stond. Anders zetten we bij een
+    // mislukte laadactie het BSN en de bankrekening op leeg.
+    if (priveGeladen && Object.values(prive).some((v) => v !== null)) {
       const { error } = await db.from("medewerker_privegegevens")
         .upsert({ medewerker_id: id, ...prive, bijgewerkt_op: new Date().toISOString() });
       if (error) return toonMeld($("medMelding"), "fout", "Identiteitsgegevens opslaan mislukt: " + error.message);
@@ -1264,17 +1323,110 @@ document.querySelectorAll(".rap-snel").forEach((b) => b.addEventListener("click"
 }));
 $("rapToon").addEventListener("click", toonRapport);
 
+
+// ── Contractvormen en uitbetaling ───────────────────────────────────────────
+//  Het verschil dat Spaar Electra in Shiftbase hanteert: vast personeel krijgt
+//  contracturen betaald met het verschil in een plus/min-bank, ZZP krijgt wat
+//  er geklokt is. Wij behandelden iedereen als "gewerkte uren", wat voor vast
+//  personeel het verkeerde bedrag oplevert.
+let _vormen = [];
+async function laadVormen() {
+  const { data, error } = await db.from("contractvormen").select("*").order("naam");
+  if (error) return;
+  _vormen = data || [];
+}
+function vulVormen(huidig) {
+  vulSelect("medContractvorm", [["", "— kies —"], ..._vormen.map((v) => [v.id, v.naam])]);
+  $("medContractvorm").value = huidig || "";
+  toonVormUitleg();
+}
+function toonVormUitleg() {
+  const v = _vormen.find((x) => x.id === $("medContractvorm").value);
+  const vak = $("medVormUitleg");
+  if (!vak) return;
+  if (!v) { vak.textContent = ""; return; }
+  const stukken = [
+    v.uitbetalingsbasis === "contract" ? "wordt uitbetaald op contracturen" : "wordt uitbetaald op gewerkte uren",
+    v.plusmin ? "houdt plus/min bij" : "geen plus/min",
+  ];
+  if (v.overwerk_na_uren) {
+    stukken.push("overwerk na " + netGetal(v.overwerk_na_uren) + " u per dag naar "
+      + (v.overwerk_naar === "plusmin" ? "plus/min" : "uitbetaling"));
+  }
+  vak.textContent = stukken.join(" · ") + ".";
+}
+$("medContractvorm").addEventListener("change", toonVormUitleg);
+
+let _uitbetaling = [];
+async function toonUitbetaling(van, tot) {
+  const { data, error } = await db.rpc("uitbetaling", { p_van: van, p_tot: tot });
+  if (error) {
+    _uitbetaling = [];
+    $("tbUitbetaling").innerHTML = rijLeeg(9, "Kon de uitbetaling niet berekenen: " + error.message);
+    return;
+  }
+  _uitbetaling = data || [];
+  $("tbUitbetaling").innerHTML = _uitbetaling.map((r) => {
+    const pm = Number(r.plusmin_uren) || 0;
+    return `<tr>
+      <td class="sterk">${esc(r.naam)}</td>
+      <td><span class="badge grijs">${esc(r.contractvorm)}</span></td>
+      <td class="mono">${urenTekst(r.gewerkt_uren)}</td>
+      <td class="mono">${urenTekst(r.contract_uren)}</td>
+      <td class="mono sterk">${urenTekst(r.uit_te_betalen)}</td>
+      <td class="mono" style="color:${pm < 0 ? "var(--rood-donker)" : pm > 0 ? "var(--groen)" : "inherit"}">${pm ? (pm > 0 ? "+" : "") + urenTekst(Math.abs(pm)) : "—"}</td>
+      <td class="mono">${Number(r.overwerk_uren) ? urenTekst(r.overwerk_uren) : "—"}</td>
+      <td class="mono">${r.uurloon != null ? "\u20ac " + komma(r.uurloon) : "—"}</td>
+      <td class="mono sterk">${r.uurloon != null ? "\u20ac " + komma(r.bedrag) : "—"}</td>
+    </tr>`;
+  }).join("") || rijLeeg(9, "Geen uitbetaling in deze periode.");
+
+  const zonderLoon = _uitbetaling.filter((r) => r.uurloon == null).length;
+  const melding = $("uitbMelding");
+  if (zonderLoon) {
+    toonMeld(melding, "fout", zonderLoon + (zonderLoon === 1 ? " medewerker heeft" : " medewerkers hebben")
+      + " geen uurloon; voor hen staat er geen bedrag. Vul dat in bij Medewerkers \u2192 Bewerken \u2192 Contract.");
+  } else verberg(melding);
+}
+
+$("uitbExport").addEventListener("click", () => {
+  if (!_uitbetaling.length) return alert("Er is nog niets om te exporteren.");
+  csvDownload(
+    ["Monteur", "Medewerker-id", "Contractvorm", "Basis", "Gewerkte uren", "Contracturen",
+     "Uit te betalen uren", "Plus/min uren", "Overwerk uren", "Uurloon", "Bedrag"],
+    _uitbetaling.map((r) => [r.naam, r.medewerker_id, r.contractvorm, r.basis,
+      komma(r.gewerkt_uren), komma(r.contract_uren), komma(r.uit_te_betalen),
+      komma(r.plusmin_uren), komma(r.overwerk_uren),
+      r.uurloon != null ? komma(r.uurloon) : "", r.uurloon != null ? komma(r.bedrag) : ""]),
+    "uitbetaling-" + _rapPeriode);
+});
+
 async function toonRapport() {
   const van = $("rapVan").value, tot = $("rapTot").value;
   if (!van || !tot) return;
   _rapPeriode = van + "_" + tot;      // vastleggen zodat de CSV-naam bij de cijfers hoort
-  const [{ data: uren }, { data: afw }] = await Promise.all([
+  toonUitbetaling(van, tot);
+  // Dit scherm voedt de loonrun. Een mislukte query mag hier nooit als
+  // "niemand heeft gewerkt" op het scherm komen — en in pagina's ophalen,
+  // want een kwartaal loopt makkelijk over de duizend regels.
+  const [{ data: uren, error: urenFout }, { data: afw, error: afwFout }] = await Promise.all([
     // afgekeurde regels tellen niet mee in de rapportage
-    db.from("urenregels").select("datum, uren, km, status, medewerker_id, medewerkers!medewerker_id(naam), projecten(werkbon, naam)")
-      .is("verwijderd_op", null).neq("status", "afgekeurd").gte("datum", van).lte("datum", tot),
-    db.from("afwezigheid").select("van_datum, tot_datum, soort, medewerker_id, medewerkers!medewerker_id(naam)")
-      .is("verwijderd_op", null).eq("status", "goedgekeurd").lte("van_datum", tot).gte("tot_datum", van),
+    haalAlles((a, b) => db.from("urenregels").select("datum, uren, km, status, medewerker_id, medewerkers!medewerker_id(naam), projecten(werkbon, naam)")
+      .is("verwijderd_op", null).neq("status", "afgekeurd").gte("datum", van).lte("datum", tot)
+      .order("datum").range(a, b)),
+    haalAlles((a, b) => db.from("afwezigheid").select("van_datum, tot_datum, soort, medewerker_id, medewerkers!medewerker_id(naam)")
+      .is("verwijderd_op", null).eq("status", "goedgekeurd").lte("van_datum", tot).gte("tot_datum", van)
+      .order("van_datum").range(a, b)),
   ]);
+  if (urenFout || afwFout) {
+    const m = (urenFout || afwFout).message;
+    $("tbRapMonteur").innerHTML = rijLeeg(8, "De rapportage kon niet worden opgehaald: " + m);
+    if ($("rapWaarschuwing")) {
+      $("rapWaarschuwing").textContent = "Let op: deze cijfers zijn NIET compleet — het ophalen is mislukt (" + m + ").";
+      $("rapWaarschuwing").className = "melding fout";
+    }
+    return;
+  }
 
   // Per monteur — groeperen op id (niet op naam: naamgenoten mogen niet samenvallen)
   const perM = {};
