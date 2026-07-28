@@ -3,8 +3,8 @@
 //  Pincode → werkbon kiezen → inklokken (met GPS-check) → uitklokken.
 //  Bouwt voort op de logica uit ../../werknemer.js, nu gekoppeld aan Supabase.
 // ============================================================================
-import { monteurClient, VAPID_PUBLIC } from "./config.js?v=40";
-import { icoon } from "./iconen.js?v=40";
+import { monteurClient, VAPID_PUBLIC } from "./config.js?v=41";
+import { icoon } from "./iconen.js?v=41";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();   // eigen sessie, blijft bewaard tussen bezoeken
@@ -119,7 +119,7 @@ if ("serviceWorker" in navigator) {
 //  starten het versienummer op (langs de cache heen) en herladen we eenmalig
 //  als er iets nieuwers staat. De vlag in sessionStorage voorkomt een lus als
 //  het herladen om welke reden dan ook niet aanslaat.
-const APP_VERSIE = 40;
+const APP_VERSIE = 41;
 async function controleerVersie() {
   try {
     const r = await fetch("versie.json?t=" + Date.now(), { cache: "no-store" });
@@ -222,11 +222,12 @@ async function laadHome() {
   // Mijn rooster (eerstvolgende 3)
   try {
     const tot = new Date(); tot.setDate(tot.getDate() + 13);
-    const { data } = await db.from("planning")
+    const { data, error } = await db.from("planning")
       .select("datum, dagdeel, projecten(werkbon, naam)")
       .eq("medewerker_id", mij.medewerker_id)
       .gte("datum", iso(vandaag)).lte("datum", iso(tot))
       .is("verwijderd_op", null).order("datum").limit(3);
+    if (error) { $("homeRooster").innerHTML = `<div class="leeg">Kon je rooster niet laden. Probeer het zo nog eens.</div>`; $("homeRoosterKaart").classList.remove("verborgen"); return; }
     const DD = { hele_dag: "hele dag", ochtend: "ochtend", middag: "middag" };
     $("homeRooster").innerHTML = (data && data.length)
       ? data.map((p) => {
@@ -243,9 +244,10 @@ async function laadHome() {
 
   // Mijn gewerkte uren (laatste 3)
   try {
-    const { data } = await db.from("urenregels")
+    const { data, error } = await db.from("urenregels")
       .select("datum, start_tijd, eind_tijd, uren, projecten(werkbon, naam)")
       .eq("medewerker_id", mij.medewerker_id).is("verwijderd_op", null).order("datum", { ascending: false }).limit(3);
+    if (error) { $("homeUren").innerHTML = `<div class="leeg">Kon je uren niet laden. Probeer het zo nog eens.</div>`; $("homeUrenKaart").classList.remove("verborgen"); return; }
     $("homeUren").innerHTML = (data && data.length)
       ? data.map((u) => {
           const d = new Date(u.datum + "T12:00:00");
@@ -264,9 +266,10 @@ async function laadHome() {
   try {
     const jaar = vandaag.getFullYear();
     $("homeAfwTitel").textContent = "Mijn afwezigheid " + jaar;
-    const { data } = await db.from("afwezigheid")
+    const { data, error } = await db.from("afwezigheid")
       .select("soort, van_datum, tot_datum, status")
       .eq("medewerker_id", mij.medewerker_id).is("verwijderd_op", null);
+    if (error) { $("homeAfw").innerHTML = `<div class="leeg">Kon je afwezigheid niet laden.</div>`; $("homeAfwKaart").classList.remove("verborgen"); return; }
     const perSoort = {};
     (data || []).filter((r) => r.status === "goedgekeurd" && r.tot_datum >= jaar + "-01-01" && r.van_datum <= jaar + "-12-31").forEach((r) => {
       const dagen = werkdagenTussen(r.van_datum, r.tot_datum);
@@ -575,7 +578,7 @@ function renderWerkbonOpties(filter) {
     return ((p.werkbon || "") + " " + (p.naam || "")).toLowerCase().includes(q);
   });
   $("werkbonOpties").innerHTML = lijst.length
-    ? lijst.map((p) => `<button type="button" class="kies-optie${p.id === gekozen ? " gekozen" : ""}" data-id="${p.id}" style="border-left:4px solid ${kleurVan(p)}">
+    ? lijst.map((p) => `<button type="button" class="kies-optie${p.id === gekozen ? " gekozen" : ""}" data-id="${p.id}" style="border-left:4px solid ${esc(kleurVan(p))}">
         ${p.werkbon ? `<span class="nr">${esc(p.werkbon)}</span>` : ""}<span class="nm">${esc(p.naam)}</span></button>`).join("")
     : `<div class="kies-leeg">Geen werkbon gevonden</div>`;
 }
@@ -787,7 +790,7 @@ function typeVanCode(code) {
 // Naam met pictogram ervoor, in de kleur van het type.
 function typeLabel(code) {
   const t = typeVanCode(code);
-  return `<span class="afw-label">${icoon(t, { kleur: t.kleur })}${t.naam}</span>`;
+  return `<span class="afw-label">${icoon(t, { kleur: t.kleur })}${esc(t.naam)}</span>`;
 }
 
 $("vaVerstuur").addEventListener("click", async () => {

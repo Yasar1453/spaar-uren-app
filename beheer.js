@@ -3,10 +3,10 @@
 //  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
 //  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
-import { beheerClient } from "./config.js?v=40";
+import { beheerClient } from "./config.js?v=41";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=40";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=41";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -105,15 +105,35 @@ async function laadIngeklokt() {
     const duurUur = (Date.now() - new Date(s.ingeklokt_op).getTime()) / 3600000;
     if (!confirm(`${s.medewerkers?.naam} uitklokken?\n\nIngeklokt sinds ${tijd(s.ingeklokt_op)} (${duurUur.toFixed(1)} uur geleden). Er wordt een urenregel aangemaakt met status "onbeslist" die je daarna kunt aanpassen of afkeuren.`)) return;
     const start = new Date(s.ingeklokt_op);
-    const uren = urenUitMinuten(Math.round(duurUur * 60));
+    let eind = new Date();
+    // Vergeet iemand vrijdag uit te klokken, dan is het maandag 65 uur. De
+    // database weigert meer dan 24 uur, waarna de kloksessie open bleef — en
+    // omdat er maar één open sessie mag zijn kon de monteur die dag helemaal
+    // niet meer klokken. Dus vragen wat de echte eindtijd was.
+    if (duurUur > 16) {
+      const opgegeven = prompt(
+        (s.medewerkers?.naam || "Deze monteur") + " staat sinds "
+        + start.toLocaleString("nl-NL", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+        + " ingeklokt.\n\nHoe laat is hij die dag gestopt? (bijvoorbeeld 16:00)", "16:00");
+      if (opgegeven === null) return;
+      const m = /^(\d{1,2})[:.](\d{2})$/.exec(opgegeven.trim());
+      if (!m) return alert("Vul de eindtijd in als uu:mm, bijvoorbeeld 16:00.");
+      eind = new Date(start);
+      eind.setHours(Number(m[1]), Number(m[2]), 0, 0);
+      if (eind <= start) eind.setDate(eind.getDate() + 1);   // dienst over middernacht
+      if ((eind - start) / 3600000 > 24) return alert("Dat is meer dan 24 uur na de inkloktijd.");
+    }
+    const uren = urenUitMinuten(Math.round((eind - start) / 60000));
     const datumLokaal = start.getFullYear() + "-" + String(start.getMonth() + 1).padStart(2, "0") + "-" + String(start.getDate()).padStart(2, "0");
     const { error: e1 } = await db.from("urenregels").insert({
       medewerker_id: s.medewerker_id, project_id: s.project_id,
-      datum: datumLokaal, start_tijd: s.ingeklokt_op, eind_tijd: new Date().toISOString(),
+      datum: datumLokaal, start_tijd: s.ingeklokt_op, eind_tijd: eind.toISOString(),
       uren, omschrijving: "Door beheerder uitgeklokt (vergeten uit te klokken)",
       bron: "handmatig", in_lat: s.in_lat, in_lng: s.in_lng,
     });
-    if (e1) return alert("Uitklokken mislukt: " + e1.message);
+    // Bestaat de regel al (23505), dan is dat geen reden om de sessie open te
+    // laten staan; dat zou de monteur alsnog blokkeren.
+    if (e1 && e1.code !== "23505") return alert("Uitklokken mislukt: " + e1.message);
     const { error: e2 } = await db.from("kloksessies").delete().eq("id", s.id);
     if (e2) return alert("Urenregel aangemaakt, maar sessie sluiten mislukte: " + e2.message);
     await Promise.all([laadIngeklokt(), laadUren()]);
@@ -421,14 +441,18 @@ async function laadVerlof() {
   }).join("") : rijLeeg(8, "Nog geen verlof of afwezigheid.");
 
   document.querySelectorAll("[data-vkeur]").forEach((b) => b.addEventListener("click", async () => {
-    await db.from("afwezigheid").update({ status: b.dataset.vkeur }).eq("id", b.dataset.id);
+    const { error } = await db.from("afwezigheid")
+      .update({ status: b.dataset.vkeur, nagekeken_door: ikBenId, nagekeken_op: new Date().toISOString() })
+      .eq("id", b.dataset.id);
+    if (error) return alert("Beoordelen mislukt: " + error.message);
     laadVerlof();
   }));
   document.querySelectorAll("[data-vdel]").forEach((b) => b.addEventListener("click", async () => {
     // Deze knop staat op de plek waar bij openstaande aanvragen "Goedkeuren"
     // stond; na het beoordelen van een rij verspringt hij onder de muis.
     if (!confirm("Deze afwezigheid verwijderen? Hij verdwijnt uit het rooster en uit het verlofsaldo.")) return;
-    await db.from("afwezigheid").update({ verwijderd_op: new Date().toISOString() }).eq("id", b.dataset.vdel);
+    const { error } = await db.from("afwezigheid").update({ verwijderd_op: new Date().toISOString() }).eq("id", b.dataset.vdel);
+    if (error) return alert("Verwijderen mislukt: " + error.message);
     laadVerlof();
   }));
 }
@@ -477,7 +501,11 @@ function vrijeKleur() {
   return KLEUREN.find((k) => !inGebruik.has(k)) || KLEUREN[inGebruik.size % KLEUREN.length];
 }
 async function laadProjecten() {
-  const { data } = await db.from("projecten").select("*").is("verwijderd_op", null).order("naam");
+  const { data, error: projFout } = await db.from("projecten").select("*").is("verwijderd_op", null).order("naam");
+  if (projFout) {
+    $("tbProjecten").innerHTML = rijLeeg(6, "Kon de werkbonnen niet laden: " + projFout.message);
+    return;
+  }
   window._projecten = data || [];
   $("telProjecten").textContent = (data || []).length ? "(" + data.length + ")" : "";
   // Waarschuwen als er werkbonnen zonder locatie zijn: daar kan een monteur

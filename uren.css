@@ -384,3 +384,6 @@ input[type=date],input[type=time]{
 /* Regels in de uitbetaling die aandacht vragen */
 .rij-let-op{background:#fdf6f6}
 .rij-uitleg{font-weight:400;font-size:12px;color:var(--rood-donker);margin-top:2px;max-width:280px}
+
+/* Waarschuwing die geen storing is, maar wel aandacht vraagt */
+.melding.amber{background:#fdf6e3;border-color:#e8d5a0;color:var(--amber)}

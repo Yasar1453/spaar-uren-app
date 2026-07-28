@@ -6,7 +6,7 @@
 //  koppeling via koppel_account() — die controleert de code uit de link én de
 //  geboortedatum. Het account blijft inactief tot kantoor het vrijgeeft.
 // ============================================================================
-import { monteurClient } from "./config.js?v=40";
+import { monteurClient } from "./config.js?v=41";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();
@@ -33,8 +33,10 @@ function verberg(el) { el.classList.add("verborgen"); }
     $("formulier").classList.add("verborgen");
     return toon($("fout"), "Deze link is verlopen, of iedereen heeft zich al aangemeld. Neem contact op met kantoor.");
   }
+  const esc = (t) => String(t == null ? "" : t).replace(/[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   sel.innerHTML = "<option value=''>Kies je naam…</option>"
-    + data.map((m) => `<option value="${m.id}">${m.naam}</option>`).join("");
+    + data.map((m) => `<option value="${esc(m.id)}">${esc(m.naam)}</option>`).join("");
 })();
 
 // ── Aanmelden ───────────────────────────────────────────────────────────────
