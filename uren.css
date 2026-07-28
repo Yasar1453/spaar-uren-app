@@ -512,3 +512,7 @@ input[type=date],input[type=time]{
 
 /* Vooruitblik onder het saldo: wat het wordt, los van wat het nu is */
 .saldo-vooruit{margin-top:10px;padding-top:9px;border-top:1px dashed var(--lijn);opacity:.85}
+
+/* Rijen die je kunt openen */
+tr.klikbaar{cursor:pointer}
+tr.klikbaar:hover{background:var(--zacht)}

@@ -9,10 +9,10 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=51">
-  <link rel="stylesheet" href="communicatie.css?v=51">
-  <link rel="stylesheet" href="periode.css?v=51">
-  <link rel="stylesheet" href="rooster-extra.css?v=51">
+  <link rel="stylesheet" href="uren.css?v=52">
+  <link rel="stylesheet" href="communicatie.css?v=52">
+  <link rel="stylesheet" href="periode.css?v=52">
+  <link rel="stylesheet" href="rooster-extra.css?v=52">
 </head>
 <body>
 
@@ -477,7 +477,10 @@
             </div>
 
             <div class="kaart">
-              <h2>Afwezigheid <span id="mdAfwJaar" class="rap-periode"></span></h2>
+              <div class="kaart-kop">
+                <h2>Afwezigheid <span id="mdAfwJaar" class="rap-periode"></span></h2>
+                <button id="mdAfwToevoegen" class="btn btn-rood btn-klein">Afwezigheid toevoegen</button>
+              </div>
               <div id="mdAfwVerdeling" class="chips" style="margin-bottom:12px"></div>
               <div class="tabelwrap"><table><thead><tr>
                 <th>Soort</th><th>Van</th><th>Tot en met</th><th>Dagen</th><th>Status</th><th>Reden</th>
@@ -948,6 +951,55 @@
     </div>
   </div>
 
+  <!-- Afwezigheid vastleggen voor een medewerker -->
+  <div id="afwModal" class="modal-overlay verborgen">
+    <div class="modal">
+      <div class="modal-kop">
+        <h2 id="afwTitel">Afwezigheid toevoegen</h2>
+        <button id="afwSluit" class="modal-x" aria-label="Sluiten">&times;</button>
+      </div>
+      <div id="afwMelding" class="melding verborgen"></div>
+
+      <label for="afwSoort">Soort <span class="ster">*</span></label>
+      <div class="soort-rij"><span id="afwIcoon" class="soort-ico"></span><select id="afwSoort"></select></div>
+
+      <div class="veldrij" style="margin-top:16px">
+        <div><label for="afwVan">Van <span class="ster">*</span></label><input id="afwVan" type="date"></div>
+        <div><label for="afwTot">Tot en met <span class="ster">*</span></label><input id="afwTot" type="date"></div>
+      </div>
+      <label class="vinkregel verborgen" id="afwZonderEindVak">
+        <input type="checkbox" id="afwZonderEind"> Einddatum nog niet bekend
+      </label>
+
+      <div class="veldrij verborgen" id="afwWachtVak">
+        <div><label for="afwWachturen">Wachturen</label><input id="afwWachturen" type="number" step="0.5" min="0" placeholder="0">
+          <p class="veld-hint" id="afwWachtUitleg" style="margin-top:6px"></p></div>
+      </div>
+
+      <label for="afwReden">Reden of notitie</label>
+      <input id="afwReden" placeholder="Bv. bruiloft, tandarts">
+
+      <label for="afwStatus" style="margin-top:16px">Status</label>
+      <select id="afwStatus">
+        <option value="goedgekeurd">Goedgekeurd</option>
+        <option value="onbeslist">Nog beoordelen</option>
+      </select>
+
+      <div class="saldo-vak" style="margin-top:16px">
+        <div class="saldo-kop">Wat dit betekent</div>
+        <div id="afwGevolg"></div>
+      </div>
+
+      <div class="modal-acties" style="margin-top:18px">
+        <button id="afwVerwijder" class="btn btn-grijs btn-klein verborgen">Verwijderen</button>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button id="afwAnnuleer" class="btn btn-grijs btn-klein">Annuleren</button>
+          <button id="afwOpslaan" class="btn btn-rood btn-klein">Opslaan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Klok-plattegrond: waar heeft de monteur ingeklokt? -->
   <div id="klokModal" class="modal-overlay verborgen">
     <div class="modal" style="max-width:760px">
@@ -996,6 +1048,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=51"></script>
+  <script type="module" src="beheer.js?v=52"></script>
 </body>
 </html>

@@ -3,13 +3,13 @@
 //  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
 //  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
-import { beheerClient } from "./config.js?v=51";
+import { beheerClient } from "./config.js?v=52";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=51";
-import { bouwNieuwsBeheer } from "./communicatie.js?v=51";
-import { bouwPeriodes } from "./periode.js?v=51";
-import { bouwRoosterExtra } from "./rooster-extra.js?v=51";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=52";
+import { bouwNieuwsBeheer } from "./communicatie.js?v=52";
+import { bouwPeriodes } from "./periode.js?v=52";
+import { bouwRoosterExtra } from "./rooster-extra.js?v=52";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -2002,6 +2002,7 @@ function splitsNaam(volledig) {
 //  en het contract. Voorheen zag je alleen een rij in een tabel en moest je in
 //  vier schermen zoeken om één monteur te beoordelen.
 let mdId = null;
+let _mdAfw = [];
 let mdMaand = new Date();
 
 function toonMdTab(naam) {
@@ -2158,6 +2159,7 @@ async function mdAfwezigheid() {
     .eq("medewerker_id", mdId).is("verwijderd_op", null).order("van_datum", { ascending: false });
   if (error) { $("mdAfw").innerHTML = rijLeeg(6, "Kon de afwezigheid niet laden: " + error.message); return; }
   const rijen = data || [];
+  _mdAfw = rijen;
   const perSoort = {};
   rijen.filter((r) => r.status === "goedgekeurd" && r.tot_datum >= jaar + "-01-01" && r.van_datum <= jaar + "-12-31")
     .forEach((r) => {
@@ -2168,7 +2170,7 @@ async function mdAfwezigheid() {
   $("mdAfwVerdeling").innerHTML = Object.keys(perSoort).length
     ? Object.entries(perSoort).map(([s, n]) => `<span class="chip">${typeLabel(s)}: <b style="margin-left:4px">${n} ${n === 1 ? "dag" : "dagen"}</b></span>`).join("")
     : `<span class="leeg">Nog geen goedgekeurde afwezigheid in ${jaar}.</span>`;
-  $("mdAfw").innerHTML = rijen.map((r) => `<tr>
+  $("mdAfw").innerHTML = rijen.map((r) => `<tr class="klikbaar" data-afw-bewerk="${r.id}">
     <td>${typeLabel(r.soort)}</td>
     <td class="mono">${datum(r.van_datum)}</td>
     <td class="mono">${datum(r.tot_datum)}</td>
@@ -2622,4 +2624,132 @@ $("vSoort").addEventListener("change", () => {
   const t = _types.find((x) => x.code === $("vSoort").value);
   $("vWachtVak").classList.toggle("verborgen", !(t && t.ondersteunt_wachturen));
   if (!(t && t.ondersteunt_wachturen)) $("vWachturen").value = "";
+});
+
+// ── Afwezigheid vastleggen vanuit het dossier ───────────────────────────────
+//  Voorheen moest je naar het aparte scherm Verlof en de monteur daar uit een
+//  lijst zoeken, terwijl je net zijn dossier openhad. Nu leg je het vast waar je
+//  al bent, en zie je vooraf wat het kost.
+let afwBewerkId = null;
+
+function openAfwVenster(id) {
+  afwBewerkId = id || null;
+  const m = mdMedewerker();
+  if (!m) return;
+  $("afwTitel").textContent = (id ? "Afwezigheid aanpassen" : "Afwezigheid toevoegen") + " — " + m.naam;
+  vulSelect("afwSoort", _types.filter((t) => t.actief).map((t) => [t.code, t.naam]));
+  $("afwVerwijder").classList.toggle("verborgen", !id);
+  verberg($("afwMelding"));
+
+  if (id) {
+    const r = (_mdAfw || []).find((a) => a.id === id);
+    if (!r) return;
+    $("afwSoort").value = r.soort;
+    $("afwVan").value = r.van_datum;
+    $("afwTot").value = r.tot_datum;
+    $("afwWachturen").value = r.wachturen || "";
+    $("afwReden").value = r.reden || "";
+    $("afwStatus").value = r.status === "afgekeurd" ? "onbeslist" : r.status;
+  } else {
+    const vandaag = isoDatum(new Date());
+    $("afwVan").value = vandaag;
+    $("afwTot").value = vandaag;
+    $("afwWachturen").value = "";
+    $("afwReden").value = "";
+    $("afwStatus").value = "goedgekeurd";
+  }
+  $("afwZonderEind").checked = false;
+  afwSoortGewijzigd();
+  $("afwModal").classList.remove("verborgen");
+}
+
+function afwSoortGewijzigd() {
+  const t = _types.find((x) => x.code === $("afwSoort").value);
+  $("afwIcoon").innerHTML = t ? icoon(t, { maat: 18, kleur: t.kleur }) : "";
+  $("afwWachtVak").classList.toggle("verborgen", !(t && t.ondersteunt_wachturen));
+  $("afwZonderEindVak").classList.toggle("verborgen", !(t && t.zonder_einddatum));
+  if (t && t.ondersteunt_wachturen) {
+    const dag = urenWeekTotaal(mdMedewerker()?.contract_uren);
+    $("afwWachtUitleg").textContent = "De eerste uren van een ziekteperiode waarover geen loon wordt betaald."
+      + " Maximaal twee dagen, en niet nogmaals bij een hervatting binnen vier weken."
+      + (dag ? "" : " Vul de contracturen in om de bovengrens te kunnen berekenen.");
+  }
+  toonAfwGevolg();
+}
+["afwSoort", "afwVan", "afwTot", "afwStatus"].forEach((id) => $(id).addEventListener("change", afwSoortGewijzigd));
+$("afwZonderEind").addEventListener("change", () => {
+  $("afwTot").disabled = $("afwZonderEind").checked;
+  // Zonder einddatum: voorlopig tot het eind van het jaar, zodat de berekening
+  // ergens op slaat. Bij het afmelden wordt de echte datum ingevuld.
+  if ($("afwZonderEind").checked) $("afwTot").value = new Date().getFullYear() + "-12-31";
+  toonAfwGevolg();
+});
+
+// Vooraf laten zien wat dit doet met zijn saldo en zijn plus/min. Achteraf
+// ontdekken dat een soort niet meetelt is precies waar discussie uit ontstaat.
+function toonAfwGevolg() {
+  const t = _types.find((x) => x.code === $("afwSoort").value);
+  const van = $("afwVan").value, tot = $("afwTot").value;
+  const vak = $("afwGevolg");
+  if (!t || !van || !tot || tot < van) { vak.innerHTML = '<span class="leeg">Kies een soort en een periode.</span>'; return; }
+  const dagen = werkdagenTussen(van, tot);
+  const m = mdMedewerker();
+  const perWeek = urenWeekTotaal(m && m.contract_uren);
+  const perDag = perWeek ? perWeek / DAG_KEYS.filter((d) => Number((m.contract_uren || {})[d]) > 0).length : 8;
+  const uren = dagen * perDag;
+  vak.innerHTML = `
+    <div class="saldo-rij"><span>Werkdagen in deze periode</span><b>${dagen}</b></div>
+    <div class="saldo-rij"><span>Komt neer op</span><b>${urenTekst(uren)}</b></div>
+    <div class="saldo-rij"><span>Van het verlofsaldo</span><b>${t.gaat_van_saldo ? "&minus; " + urenTekst(uren) : "niets"}</b></div>
+    <div class="saldo-rij"><span>Telt als gewerkte tijd</span><b>${t.telt_als_gewerkt ? "ja, geen min-uren" : "nee, levert min-uren op"}</b></div>
+    <div class="saldo-rij"><span>Valt onder</span><b>${t.wordt_gerekend_als === "verzuim" ? "verzuim" : "verlof"}</b></div>`;
+}
+
+function sluitAfw() { $("afwModal").classList.add("verborgen"); }
+$("afwSluit").addEventListener("click", sluitAfw);
+$("afwAnnuleer").addEventListener("click", sluitAfw);
+$("afwModal").addEventListener("click", (e) => { if (e.target === $("afwModal")) sluitAfw(); });
+$("mdAfwToevoegen").addEventListener("click", () => openAfwVenster(null));
+
+$("afwOpslaan").addEventListener("click", async () => {
+  const soort = $("afwSoort").value, van = $("afwVan").value, tot = $("afwTot").value;
+  if (!soort || !van || !tot) return toonMeld($("afwMelding"), "fout", "Vul soort, van en tot en met in.");
+  if (tot < van) return toonMeld($("afwMelding"), "fout", "De einddatum ligt voor de begindatum.");
+
+  const rij = {
+    medewerker_id: mdId, soort, van_datum: van, tot_datum: tot,
+    reden: $("afwReden").value.trim() || null,
+    status: $("afwStatus").value,
+    wachturen: parseFloat($("afwWachturen").value) || 0,
+  };
+  if (rij.status === "goedgekeurd") {
+    rij.nagekeken_door = ikBenId;
+    rij.nagekeken_op = new Date().toISOString();
+  }
+
+  $("afwOpslaan").disabled = true;
+  try {
+    const { error } = afwBewerkId
+      ? await db.from("afwezigheid").update(rij).eq("id", afwBewerkId)
+      : await db.from("afwezigheid").insert(rij);
+    if (error) {
+      // De database bewaakt de wachturenregels; die meldingen zijn al in gewone
+      // taal geschreven, dus die geven we ongewijzigd door.
+      return toonMeld($("afwMelding"), "fout", error.message);
+    }
+    sluitAfw();
+    await Promise.all([mdAfwezigheid(), laadVerlof(), tekenWeek()]);
+  } finally {
+    $("afwOpslaan").disabled = false;
+  }
+});
+
+$("afwVerwijder").addEventListener("click", async () => {
+  if (!afwBewerkId) return;
+  if (!confirm("Deze afwezigheid verwijderen?\n\nHij verdwijnt uit het rooster en uit het verlofsaldo.")) return;
+  const { error } = await db.from("afwezigheid")
+    .update({ verwijderd_op: new Date().toISOString() }).eq("id", afwBewerkId);
+  if (error) return toonMeld($("afwMelding"), "fout", "Verwijderen mislukt: " + error.message);
+  sluitAfw();
+  await Promise.all([mdAfwezigheid(), laadVerlof(), tekenWeek()]);
 });
