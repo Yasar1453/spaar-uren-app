@@ -3,13 +3,13 @@
 //  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
 //  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
-import { beheerClient } from "./config.js?v=52";
+import { beheerClient } from "./config.js?v=53";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=52";
-import { bouwNieuwsBeheer } from "./communicatie.js?v=52";
-import { bouwPeriodes } from "./periode.js?v=52";
-import { bouwRoosterExtra } from "./rooster-extra.js?v=52";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=53";
+import { bouwNieuwsBeheer } from "./communicatie.js?v=53";
+import { bouwPeriodes } from "./periode.js?v=53";
+import { bouwRoosterExtra } from "./rooster-extra.js?v=53";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -511,7 +511,9 @@ async function laadVerlof() {
       <td>${typeLabel(r.soort)}</td>
       <td class="mono">${datum(r.van_datum)}</td><td class="mono">${datum(r.tot_datum)}</td>
       <td class="mono">${dagenTussen(r.van_datum, r.tot_datum)}</td>
-      <td>${esc(r.reden || "")}</td><td>${statusBadge(r.status)}</td>
+      <td>${esc(r.reden || "")}</td>
+      <td>${statusBadge(r.status)}${r.status !== "onbeslist" && (r.keurder?.naam || r.nagekeken_op)
+        ? `<div class="mini-grijs">${esc(r.keurder?.naam || "")}${r.nagekeken_op ? " · " + datum(r.nagekeken_op) : ""}</div>` : ""}</td>
       <td style="white-space:nowrap">${actie}</td></tr>`;
   }).join("") : rijLeeg(8, "Nog geen verlof of afwezigheid.");
 
@@ -2155,7 +2157,7 @@ async function mdAfwezigheid() {
   const jaar = new Date().getFullYear();
   $("mdAfwJaar").textContent = String(jaar);
   const { data, error } = await db.from("afwezigheid")
-    .select("soort, van_datum, tot_datum, status, reden")
+    .select("id, soort, van_datum, tot_datum, status, reden, wachturen, nagekeken_op, keurder:medewerkers!nagekeken_door(naam)")
     .eq("medewerker_id", mdId).is("verwijderd_op", null).order("van_datum", { ascending: false });
   if (error) { $("mdAfw").innerHTML = rijLeeg(6, "Kon de afwezigheid niet laden: " + error.message); return; }
   const rijen = data || [];
@@ -2175,8 +2177,8 @@ async function mdAfwezigheid() {
     <td class="mono">${datum(r.van_datum)}</td>
     <td class="mono">${datum(r.tot_datum)}</td>
     <td class="mono">${werkdagenTussen(r.van_datum, r.tot_datum)}</td>
-    <td>${statusBadge(r.status)}</td>
-    <td>${esc(r.reden || "")}</td></tr>`).join("") || rijLeeg(6, "Nog geen afwezigheid.");
+    <td>${statusBadge(r.status)}${r.keurder?.naam ? `<div class="mini-grijs">${esc(r.keurder.naam)}</div>` : ""}</td>
+    <td>${esc(r.reden || "")}${Number(r.wachturen) ? ` <span class="badge amber">${urenTekst(r.wachturen)} wachttijd</span>` : ""}</td></tr>`).join("") || rijLeeg(6, "Nog geen afwezigheid.");
 
   const { data: saldo } = await db.rpc("verlofsaldo", { p_medewerker: mdId });
   // Niet alleen de uitkomst maar ook waar hij vandaan komt: bij een discussie
