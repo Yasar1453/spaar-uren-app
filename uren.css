@@ -380,3 +380,7 @@ tbody tr:last-child td{border-bottom:none}
 .veldrij > *{min-width:0}
 input[type=date],input[type=time]{
   -webkit-appearance:none;appearance:none;min-width:0;max-width:100%;text-align:left}
+
+/* Regels in de uitbetaling die aandacht vragen */
+.rij-let-op{background:#fdf6f6}
+.rij-uitleg{font-weight:400;font-size:12px;color:var(--rood-donker);margin-top:2px;max-width:280px}

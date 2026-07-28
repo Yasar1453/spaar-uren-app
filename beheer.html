@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=38">
+  <link rel="stylesheet" href="uren.css?v=39">
 </head>
 <body>
 
@@ -283,8 +283,8 @@
             <p class="verplicht-uitleg">Vast personeel wordt uitbetaald op contracturen, ZZP op gewerkte uren. Het verschil bij vast personeel loopt in de plus/min.</p>
             <div id="uitbMelding" class="melding verborgen"></div>
             <div class="tabelwrap"><table><thead><tr>
-              <th>Monteur</th><th>Contractvorm</th><th>Gewerkt</th><th>Contract</th>
-              <th>Uit te betalen</th><th>Plus/min</th><th>Overwerk</th><th>Uurloon</th><th>Bedrag</th>
+              <th>Monteur</th><th>Contractvorm</th><th>Gewerkt</th><th>Verlof</th><th>Contract</th>
+              <th>Uit te betalen</th><th>Plus/min</th><th>Overwerk</th><th>Nog te keuren</th><th>Uurloon</th><th>Bedrag</th>
             </tr></thead><tbody id="tbUitbetaling"></tbody></table></div>
           </div>
           <div class="kaart">
@@ -397,7 +397,11 @@
               <div class="saldo-kop">Berekend uit de contracturen</div>
               <div id="medVerlofUitleg"></div>
             </div>
-            <p class="verplicht-uitleg">Het aantal vakantiedagen wordt hierboven berekend en automatisch ingevuld. Zet je er zelf een getal neer, dan blijft dat staan.</p>
+            <div class="veldrij" style="align-items:end">
+              <p class="verplicht-uitleg" style="margin:0">Het aantal vakantiedagen wordt hierboven berekend en automatisch ingevuld. Zet je er zelf een getal neer, dan blijft dat staan.</p>
+              <div><button type="button" id="medVerlofHerbereken" class="btn btn-grijs btn-klein">Herberekenen</button></div>
+            </div>
+            <div id="medVerlofAfwijking" class="melding fout verborgen" style="margin-top:10px"></div>
             <div class="saldo-vak"><div class="saldo-kop">Verlofsaldo</div><div id="medSaldo"></div></div>
           </div>
 
@@ -471,6 +475,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=38"></script>
+  <script type="module" src="beheer.js?v=39"></script>
 </body>
 </html>

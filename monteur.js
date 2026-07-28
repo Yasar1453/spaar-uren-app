@@ -3,8 +3,8 @@
 //  Pincode → werkbon kiezen → inklokken (met GPS-check) → uitklokken.
 //  Bouwt voort op de logica uit ../../werknemer.js, nu gekoppeld aan Supabase.
 // ============================================================================
-import { monteurClient, VAPID_PUBLIC } from "./config.js";
-import { icoon } from "./iconen.js?v=38";
+import { monteurClient, VAPID_PUBLIC } from "./config.js?v=39";
+import { icoon } from "./iconen.js?v=39";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();   // eigen sessie, blijft bewaard tussen bezoeken
@@ -108,15 +108,18 @@ if (window.ResizeObserver && $("tabbalk")) new ResizeObserver(stelRuimteOnderIn)
 //  starten het versienummer op (langs de cache heen) en herladen we eenmalig
 //  als er iets nieuwers staat. De vlag in sessionStorage voorkomt een lus als
 //  het herladen om welke reden dan ook niet aanslaat.
-const APP_VERSIE = 38;
+const APP_VERSIE = 39;
 async function controleerVersie() {
   try {
     const r = await fetch("versie.json?t=" + Date.now(), { cache: "no-store" });
     if (!r.ok) return;
     const { versie } = await r.json();
     if (!(versie > APP_VERSIE)) { sessionStorage.removeItem("spaar-herladen"); return; }
-    if (sessionStorage.getItem("spaar-herladen")) return;   // al geprobeerd
-    sessionStorage.setItem("spaar-herladen", "1");
+    // De vlag bevat het versienummer, niet een kale "1". Anders bleef hij na
+    // een mislukte controle staan en werd élke volgende versie overgeslagen —
+    // op een telefoon met de app op het beginscherm dagen tot weken lang.
+    if (sessionStorage.getItem("spaar-herladen") === String(versie)) return;
+    sessionStorage.setItem("spaar-herladen", String(versie));
     location.replace(location.pathname + "?v=" + versie);
   } catch (_) { /* geen bereik: gewoon doorwerken op wat er staat */ }
 }
@@ -254,7 +257,7 @@ async function laadHome() {
       .select("soort, van_datum, tot_datum, status")
       .eq("medewerker_id", mij.medewerker_id).is("verwijderd_op", null);
     const perSoort = {};
-    (data || []).filter((r) => r.status === "goedgekeurd" && r.van_datum.startsWith(String(jaar))).forEach((r) => {
+    (data || []).filter((r) => r.status === "goedgekeurd" && r.tot_datum >= jaar + "-01-01" && r.van_datum <= jaar + "-12-31").forEach((r) => {
       const dagen = werkdagenTussen(r.van_datum, r.tot_datum);
       perSoort[r.soort] = (perSoort[r.soort] || 0) + dagen;
     });
@@ -289,9 +292,13 @@ async function laadHome() {
     else if (data && data.length) {
       const nu = new Date(); nu.setHours(0, 0, 0, 0);
       const komend = data.map((p) => {
-        const ditJaar = new Date(nu.getFullYear(), p.maand - 1, p.dag);
-        if (ditJaar < nu) ditJaar.setFullYear(ditJaar.getFullYear() + 1);
-        return { naam: p.naam, dag: ditJaar };
+        // 29 februari bestaat niet elk jaar; new Date(2026,1,29) wordt 1 maart.
+        const schrikkel = p.maand === 2 && p.dag === 29;
+        const dagInJaar = (j) => new Date(j, p.maand - 1,
+          schrikkel && !(j % 4 === 0 && (j % 100 !== 0 || j % 400 === 0)) ? 28 : p.dag);
+        const ditJaar = dagInJaar(nu.getFullYear());
+        const dag = ditJaar < nu ? dagInJaar(nu.getFullYear() + 1) : ditJaar;
+        return { naam: p.naam, dag };
       }).filter((p) => (p.dag - nu) / 86400000 <= 60).sort((a, b) => a.dag - b.dag);
       if (komend.length) {
         $("homeJarig").innerHTML = komend.slice(0, 5).map((p) => `<div class="lijst-rij">
@@ -353,7 +360,10 @@ async function haalMijnProfiel() {
     const { data, error } = await db.from("medewerkers")
       .select("contract_uren, verlof_dagen_per_jaar")
       .eq("id", mij.medewerker_id).single();
-    _profiel = error ? null : data;
+    // Een storing niet cachen als "geen gegevens": dan verdwijnt de plus/min-
+    // kaart de rest van de sessie zonder dat iemand weet waarom.
+    if (error) return null;
+    _profiel = data;
   } catch (_) { _profiel = null; }
   return _profiel;
 }
@@ -443,7 +453,11 @@ async function verversStatus() {
 let _pauzes = null;
 async function haalPauzes() {
   if (_pauzes) return _pauzes;
-  const { data } = await db.from("pauze_instellingen").select("van_tijd, tot_tijd, betaald").eq("actief", true);
+  const { data, error } = await db.from("pauze_instellingen").select("van_tijd, tot_tijd, betaald").eq("actief", true);
+  // Bij een fout NIET cachen: [] is truthy, dus een eenmalige bereikdip zou
+  // de pauzeaftrek voor de rest van de dag uit het voorbeeld halen — terwijl
+  // de database hem wel toepast.
+  if (error) return [];
   _pauzes = data || [];
   return _pauzes;
 }
@@ -610,11 +624,24 @@ $("inklokBtn").addEventListener("click", async () => {
     verberg(gm);
     await verversStatus();
   } catch (e) {
+    // Bij een dubbele poging (23505) is hij in werkelijkheid wél ingeklokt:
+    // het antwoord op de eerste poging kwam alleen niet terug. Meteen de echte
+    // stand ophalen in plaats van "mislukt" tonen.
+    if (e && e.code === "23505") { await verversStatus(); return; }
     toonMelding(gm, "fout", netfout(e, "Inklokken mislukt."));
   } finally {
     $("inklokBtn").disabled = false;
   }
 });
+
+// Het invoerveld staat op type="text" met een decimaal toetsenbord: bij
+// type="number" levert de browser voor "24,5" een lege string, waardoor een rit
+// zonder waarschuwing als 0 km werd geboekt.
+function kmWaarde() {
+  const ruw = String($("km").value).trim().replace(",", ".");
+  const n = parseFloat(ruw);
+  return isNaN(n) || n < 0 ? 0 : Math.round(n * 10) / 10;
+}
 
 // ── Uitklokken ──────────────────────────────────────────────────────────────
 $("uitklokBtn").addEventListener("click", async () => {
@@ -638,7 +665,13 @@ $("uitklokBtn").addEventListener("click", async () => {
       if (!m) return toon($("statusFout"), "Vul de eindtijd in als uu:mm, bijvoorbeeld 16:00.");
       eind = new Date(start);
       eind.setHours(Number(m[1]), Number(m[2]), 0, 0);
-      if (eind <= start) return toon($("statusFout"), "De eindtijd moet na je inkloktijd liggen.");
+      // Een storingsdienst die om 22:00 begint en om 02:00 eindigt, eindigt de
+      // volgende dag. Zonder deze correctie werd elke juiste invoer geweigerd
+      // en bleef de kloksessie open — waarna hij ook niet meer kon inklokken.
+      if (eind <= start) eind.setDate(eind.getDate() + 1);
+      if ((eind - start) / 3600000 > 24) {
+        return toon($("statusFout"), "Dat is meer dan 24 uur na je inkloktijd. Neem contact op met kantoor.");
+      }
     }
     // Exacte tijd op de minuut — geen kwartierafronding, geen minimum.
     const uren = urenUitMinuten(Math.round((eind.getTime() - start.getTime()) / 60000));
@@ -656,16 +689,34 @@ $("uitklokBtn").addEventListener("click", async () => {
         eind_tijd: eind.toISOString(),
         uren,
         omschrijving: $("omschrijving").value.trim() || null,
-        km: Math.max(0, Math.round((parseFloat(String($("km").value).replace(",", ".")) || 0) * 10) / 10),
+        km: kmWaarde(),
         bron: "klok",
         in_lat: openSessie.in_lat,
         in_lng: openSessie.in_lng,
         aangemaakt_door: mij.medewerker_id,
       });
-      // Een dubbele boeking wordt door de unieke index tegengehouden. Dat is
-      // geen fout maar precies de bedoeling: de regel staat er al, dus door
-      // naar het sluiten van de sessie. Anders bleef de monteur hangen.
-      if (e1 && e1.code !== "23505") throw e1;
+      // De unieke index gaat over (medewerker, starttijd). Een 23505 betekent
+      // dus alleen dat er al een regel met deze starttijd staat — niet dat die
+      // dezelfde eindtijd, kilometers en omschrijving heeft. Bij een tweede
+      // poging met een gecorrigeerde eindtijd zou stil de oude blijven staan.
+      if (e1 && e1.code === "23505") {
+        const { data: bestaand } = await db.from("urenregels")
+          .select("id, eind_tijd, uren, status")
+          .eq("medewerker_id", mij.medewerker_id).eq("start_tijd", openSessie.ingeklokt_op)
+          .is("verwijderd_op", null).maybeSingle();
+        if (bestaand && bestaand.status === "onbeslist") {
+          // Nog niet beoordeeld: bijwerken mag, dus de correctie telt alsnog.
+          const { error: e3 } = await db.from("urenregels").update({
+            eind_tijd: eind.toISOString(),
+            omschrijving: $("omschrijving").value.trim() || null,
+            km: kmWaarde(),
+          }).eq("id", bestaand.id);
+          if (e3) throw e3;
+        } else if (bestaand) {
+          toon($("statusFout"), "Deze dienst was al geboekt en is inmiddels beoordeeld door kantoor. "
+            + "Er staat " + urenTekst(bestaand.uren) + " geregistreerd. Neem contact op als dat niet klopt.");
+        }
+      } else if (e1) throw e1;
       sessionStorage.setItem("uitklok-" + openSessie.id, "1");
     }
     const { error: e2 } = await db.from("kloksessies").delete().eq("id", openSessie.id);
@@ -773,8 +824,14 @@ async function laadMijnVerlof() {
   // Jaaroverzicht: goedgekeurde dagen per soort in het huidige jaar
   const jaar = new Date().getFullYear();
   const perSoort = {};
-  (data || []).filter((r) => r.status === "goedgekeurd" && r.van_datum.startsWith(String(jaar))).forEach((r) => {
-    const dagen = Math.max(1, Math.round((new Date(r.tot_datum) - new Date(r.van_datum)) / 86400000) + 1);
+  (data || []).filter((r) => r.status === "goedgekeurd" && r.tot_datum >= jaar + "-01-01" && r.van_datum <= jaar + "-12-31").forEach((r) => {
+    // Zelfde telling als op het startscherm: werkdagen, geen kalenderdagen.
+    // Anders stond een week vakantie hier op 7 en daar op 5 dagen.
+    // Een vakantie van 28 dec t/m 5 jan hoort in beide jaren voor zijn eigen
+    // deel te tellen, niet volledig in het beginjaar.
+    const van = r.van_datum > jaar + "-01-01" ? r.van_datum : jaar + "-01-01";
+    const tot = r.tot_datum < jaar + "-12-31" ? r.tot_datum : jaar + "-12-31";
+    const dagen = werkdagenTussen(van, tot);
     perSoort[r.soort] = (perSoort[r.soort] || 0) + dagen;
   });
   const ov = $("verlofOverzicht");
