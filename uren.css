@@ -492,3 +492,17 @@ input[type=date],input[type=time]{
   padding:12px 8px 2px;border-top:1px solid var(--lijn);margin-top:8px;font-size:14px}
 .dag-totaal span{color:var(--grijs)}
 .dag-totaal b{font-size:16px}
+
+/* Onderbouwing onder het verlofsaldo */
+.saldo-bron{margin-top:10px;padding-top:9px;border-top:1px solid var(--lijn);
+  font-size:12px;color:var(--grijs)}
+
+/* ── Dashboard: wie is er vandaag ────────────────────────────────────────── */
+.vandaag-groepen{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px}
+.vandaag-groep{border:1px solid var(--lijn);border-radius:10px;padding:11px 12px;border-top-width:3px}
+.vandaag-groep.school{border-top-color:#4f46e5}
+.vandaag-groep.verlof{border-top-color:#f5c518}
+.vandaag-groep.niet{border-top-color:var(--rood)}
+.vg-kop{font-weight:700;font-size:13px;margin-bottom:8px}
+.vandaag-groep .chips{gap:6px}
+.vandaag-groep .chip em{font-style:normal;color:var(--grijs);margin-left:4px}

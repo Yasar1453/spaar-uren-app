@@ -20,23 +20,33 @@ Drie plakjes. Niets hiervan raakt bestaande id's aan: alles begint met "rp".
           <!-- Meer rapportages (app/rapporten.js) -->
           <div class="kaart">
             <h2>Meer rapportages</h2>
-            <p class="verplicht-uitleg">De overzichten die in Shiftbase onder Rapportages stonden. Kies een rapport, kies de periode en exporteer.</p>
+            <p class="verplicht-uitleg">De overzichten die in Shiftbase onder Rapportages stonden. Kies een rapport, kies de grondslag en de periode, en stel met Kolommen in wat je wilt zien.</p>
             <div id="rpKeuze" class="rp-keuze"></div>
           </div>
 
           <div class="kaart">
+            <div id="rpGrondslagVak" class="rp-grondslag verborgen">
+              <label>Rapport op basis van</label>
+              <div id="rpGrondslag" class="modus-kies"></div>
+            </div>
+
             <div class="rp-periode-balk">
               <div id="rpVanVak"><label for="rpVan">Van</label><input id="rpVan" type="date"></div>
               <div id="rpTotVak"><label for="rpTot">Tot en met</label><input id="rpTot" type="date"></div>
               <div id="rpDatumVak" class="verborgen"><label for="rpDatum">Datum</label><input id="rpDatum" type="date"></div>
+              <div id="rpFilterMedewerkerVak"><label for="rpFilterMedewerker">Medewerker</label><select id="rpFilterMedewerker"><option value="">Alle monteurs</option></select></div>
+              <div id="rpFilterWerkbonVak"><label for="rpFilterWerkbon">Werkbon</label><select id="rpFilterWerkbon"><option value="">Alle werkbonnen</option></select></div>
+              <div id="rpFilterVormVak"><label for="rpFilterVorm">Contractvorm</label><select id="rpFilterVorm"><option value="">Alle contractvormen</option></select></div>
               <div><button id="rpToon" class="btn btn-rood btn-klein">Toon rapport</button></div>
             </div>
+
             <div id="rpSnelBalk" class="knoprij" style="margin-top:10px">
               <button class="btn btn-grijs btn-klein rp-snel" data-rpsnel="week">Deze week</button>
               <button class="btn btn-grijs btn-klein rp-snel" data-rpsnel="vorige-week">Vorige week</button>
               <button class="btn btn-grijs btn-klein rp-snel" data-rpsnel="maand">Deze maand</button>
               <button class="btn btn-grijs btn-klein rp-snel" data-rpsnel="vorige-maand">Vorige maand</button>
               <button class="btn btn-grijs btn-klein rp-snel" data-rpsnel="jaar">Dit jaar</button>
+              <button id="rpFilterWissen" class="btn btn-grijs btn-klein">Filters wissen</button>
             </div>
             <p id="rpGeenPeriode" class="rp-hint verborgen">Dit rapport geldt op dit moment; er valt geen periode te kiezen.</p>
           </div>
@@ -70,10 +80,11 @@ Onderaan het bestand, ná de definities van de hulpfuncties (dus onder het blok
     DAG_KEYS, isoDatum, maandagVan, toonMeld, verberg,
   });
 
-`bouwRapporten` zet het scherm zelf klaar maar haalt nog niets op — dat gebeurt
-zodra de beheerder een rapport aanklikt. Wil je dat het gekozen rapport meteen
-ververst als de tab wordt geopend, zet er dan in de bestaande navigatie-handler
-achter `if (tab === "rapporten") toonRapport();` deze regel bij:
+`bouwRapporten` zet het scherm klaar en haalt de filterlijsten op, maar draait
+nog geen rapport — dat gebeurt zodra de beheerder er een aanklikt. Wil je dat
+het gekozen rapport meteen ververst als de tab wordt geopend, zet dan in de
+bestaande navigatie-handler achter `if (tab === "rapporten") toonRapport();`
+deze regel bij:
 
       if (tab === "rapporten") rapporten.toon();
 
@@ -93,3 +104,18 @@ Allemaal uit beheer.js, ongewijzigd:
 
 Ontbreekt er één, dan stopt `bouwRapporten` meteen met een duidelijke fout in
 plaats van een half werkend scherm op te leveren.
+
+
+--------------------------------------------------------------------------------
+ Wat de beheerder ziet
+--------------------------------------------------------------------------------
+
+· Grondslag — alleen bij "Detail per regel" en "Totalen": rooster of
+  urenregistratie. De andere rapporten hebben er maar één, dus daar staat de
+  knop niet.
+· Filters — medewerker, werkbon en contractvorm. Per rapport staan alleen de
+  filters die er iets doen; een werkbonfilter op een verlofsaldo heeft geen
+  betekenis en wordt daarom verborgen én leeggemaakt.
+· Kolommen — per tabel een eigen knop. De keuze blijft bewaard in localStorage
+  onder `rp-kolommen:<tabel>` en geldt dus ook na het herladen van de pagina.
+  "Standaardkolommen" gooit de bewaarde keuze weg.

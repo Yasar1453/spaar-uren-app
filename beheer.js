@@ -3,13 +3,13 @@
 //  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
 //  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
-import { beheerClient } from "./config.js?v=46";
+import { beheerClient } from "./config.js?v=47";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=46";
-import { bouwNieuwsBeheer } from "./communicatie.js?v=46";
-import { bouwPeriodes } from "./periode.js?v=46";
-import { bouwRoosterExtra } from "./rooster-extra.js?v=46";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=47";
+import { bouwNieuwsBeheer } from "./communicatie.js?v=47";
+import { bouwPeriodes } from "./periode.js?v=47";
+import { bouwRoosterExtra } from "./rooster-extra.js?v=47";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -108,11 +108,17 @@ $("app").addEventListener("click", (e) => { if (e.target === $("app")) $("app").
 
 // ── Nu ingeklokt + wie niet ─────────────────────────────────────────────────
 async function laadIngeklokt() {
-  const [{ data, error }, { data: monteurs }] = await Promise.all([
+  const [{ data, error }, { data: monteurs, error: mf }, { data: afw, error: af }] = await Promise.all([
     db.from("kloksessies")
       .select("id, medewerker_id, project_id, ingeklokt_op, in_lat, in_lng, medewerkers!medewerker_id(naam), projecten(werkbon, naam)")
       .order("ingeklokt_op"),
-    db.from("medewerkers").select("id, naam").eq("rol", "monteur").is("verwijderd_op", null).order("naam"),
+    // Alleen wie in dienst is: een uit dienst gemelde monteur hoort vandaag
+    // nergens bij te staan.
+    db.from("medewerkers").select("id, naam").eq("rol", "monteur")
+      .eq("actief", true).is("verwijderd_op", null).order("naam"),
+    db.from("afwezigheid").select("medewerker_id, soort, status")
+      .lte("van_datum", isoDatum(new Date())).gte("tot_datum", isoDatum(new Date()))
+      .is("verwijderd_op", null).neq("status", "afgekeurd"),
   ]);
   const tb = $("tbIngeklokt");
   if (error) { tb.innerHTML = rijLeeg(5, "Kon niet laden."); return; }
@@ -169,12 +175,46 @@ async function laadIngeklokt() {
     await Promise.all([laadIngeklokt(), laadUren()]);
   }));
 
+  // Wie er vandaag is, in vier groepen. Voorheen viel iedereen die niet
+  // geklokt had in één bak "niet ingeklokt" — ook wie op vakantie was. Op een
+  // dag met vier man verlof las dat als vier vergeten klokken.
+  if (mf || af) {
+    $("chipsNiet").innerHTML = `<span class="leeg">Kon niet laden: ${esc((mf || af).message)}</span>`;
+    return;
+  }
   const bezet = new Set((data || []).map((k) => k.medewerker_id));
-  const vrij = (monteurs || []).filter((m) => !bezet.has(m.id));
-  $("telNietIngeklokt").textContent = vrij.length ? "(" + vrij.length + ")" : "";
-  $("chipsNiet").innerHTML = vrij.length
-    ? vrij.map((m) => `<span class="chip">${esc(m.naam)}</span>`).join("")
-    : `<span class="leeg">Iedereen is ingeklokt.</span>`;
+  const perMw = {};
+  (afw || []).forEach((a) => (perMw[a.medewerker_id] = perMw[a.medewerker_id] || []).push(a));
+
+  const school = [], afwezig = [], niet = [];
+  (monteurs || []).forEach((m) => {
+    if (bezet.has(m.id)) return;                       // staat al bij "nu ingeklokt"
+    const eigen = perMw[m.id] || [];
+    if (!eigen.length) return niet.push({ m });
+    // School apart, want dat is geen verlof en telt nergens in mee — het is
+    // alleen de verklaring waarom hij er niet is.
+    const s = eigen.find((a) => a.soort === "school");
+    (s ? school : afwezig).push({ m, a: s || eigen[0] });
+  });
+
+  const chips = (lijst, metType) => lijst.length
+    ? lijst.map(({ m, a }) => {
+        const t = a ? typeVanCode(a.soort) : null;
+        const wacht = a && a.status === "onbeslist";
+        return `<span class="chip"${t ? ` style="border-color:${t.kleur}"` : ""}>${esc(m.naam)}${
+          metType && t ? ` <em>${esc(t.naam)}</em>` : ""}${wacht ? ' <b class="mini-grijs">nog te keuren</b>' : ""}</span>`;
+      }).join("")
+    : `<span class="leeg">—</span>`;
+
+  $("telVandaag").textContent = "(" + (monteurs || []).length + ")";
+  $("telSchool").textContent = school.length ? "(" + school.length + ")" : "";
+  $("telAfwezig").textContent = afwezig.length ? "(" + afwezig.length + ")" : "";
+  $("telNietIngeklokt").textContent = niet.length ? "(" + niet.length + ")" : "";
+  $("chipsSchool").innerHTML = chips(school, false);
+  $("chipsAfwezig").innerHTML = chips(afwezig, true);
+  $("chipsNiet").innerHTML = niet.length
+    ? chips(niet, false)
+    : `<span class="leeg">Iedereen is ingeklokt of heeft een reden.</span>`;
 }
 
 // ── Urenregistratie ──────────────────────────────────────────────────────────
@@ -2067,12 +2107,21 @@ async function mdAfwezigheid() {
     <td>${esc(r.reden || "")}</td></tr>`).join("") || rijLeeg(6, "Nog geen afwezigheid.");
 
   const { data: saldo } = await db.rpc("verlofsaldo", { p_medewerker: mdId });
+  // Niet alleen de uitkomst maar ook waar hij vandaan komt: bij een discussie
+  // over verlof is de onderbouwing het enige dat telt.
   $("mdSaldo").innerHTML = saldo ? `
     <div class="saldo-rij"><span>Beginsaldo</span><b>${urenTekst(saldo.startsaldo)}</b></div>
+    <div class="saldo-rij"><span>${saldo.basis === "contracturen"
+        ? `Contracturen ${datum(saldo.opbouw_van)} t/m ${datum(saldo.opbouw_tot)}`
+        : "Goedgekeurde uren"} &times; ${Number(saldo.factor).toFixed(6)}</span>
+      <b>${urenTekst(saldo.opgebouwd - saldo.startsaldo)}</b></div>
     <div class="saldo-rij"><span>Opgebouwd</span><b>${urenTekst(saldo.opgebouwd)}</b></div>
     <div class="saldo-rij"><span>Opgenomen</span><b>&minus; ${urenTekst(saldo.opgenomen)}</b></div>
-    ${Number(saldo.aangevraagd) > 0 ? `<div class="saldo-rij"><span>Aangevraagd</span><b>${urenTekst(saldo.aangevraagd)}</b></div>` : ""}
-    <div class="saldo-rij totaal"><span>Resterend</span><b>${urenTekst(saldo.saldo)}</b></div>`
+    ${Number(saldo.aangevraagd) > 0 ? `<div class="saldo-rij"><span>Aangevraagd (nog te beoordelen)</span><b>${urenTekst(saldo.aangevraagd)}</b></div>` : ""}
+    <div class="saldo-rij totaal"><span>Resterend</span><b>${urenTekst(saldo.saldo)}</b></div>
+    <div class="saldo-bron">Opbouw gerekend vanaf de ${esc(saldo.opbouw_bron)}${
+      saldo.beleid ? " · beleid " + esc(saldo.beleid) : ""}.</div>
+    ${saldo.waarschuwing ? `<div class="melding fout" style="margin-top:10px">${esc(saldo.waarschuwing)}</div>` : ""}`
     : `<span class="leeg">Geen verlofsaldo beschikbaar; controleer of er een afwezigheidsbeleid is gekoppeld.</span>`;
 }
 

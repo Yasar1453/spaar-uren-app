@@ -9,10 +9,10 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=46">
-  <link rel="stylesheet" href="communicatie.css?v=46">
-  <link rel="stylesheet" href="periode.css?v=46">
-  <link rel="stylesheet" href="rooster-extra.css?v=46">
+  <link rel="stylesheet" href="uren.css?v=47">
+  <link rel="stylesheet" href="communicatie.css?v=47">
+  <link rel="stylesheet" href="periode.css?v=47">
+  <link rel="stylesheet" href="rooster-extra.css?v=47">
 </head>
 <body>
 
@@ -72,8 +72,22 @@
             <div class="tabelwrap"><table><thead><tr><th>Monteur</th><th>Werkbon</th><th>Sinds</th><th>Duur</th><th></th></tr></thead><tbody id="tbIngeklokt"></tbody></table></div>
           </div>
           <div class="kaart">
-            <h2>Niet ingeklokt <span class="telling" id="telNietIngeklokt"></span></h2>
-            <div id="chipsNiet" class="chips"></div>
+            <h2>Wie is er vandaag <span class="telling" id="telVandaag"></span></h2>
+            <p class="verplicht-uitleg">Wie op school zit of verlof heeft stond hier eerder bij "niet ingeklokt". Nu is alleen die laatste groep de groep die aandacht vraagt.</p>
+            <div class="vandaag-groepen">
+              <div class="vandaag-groep school">
+                <div class="vg-kop">Op school <span class="telling" id="telSchool"></span></div>
+                <div class="chips" id="chipsSchool"></div>
+              </div>
+              <div class="vandaag-groep verlof">
+                <div class="vg-kop">Afwezig <span class="telling" id="telAfwezig"></span></div>
+                <div class="chips" id="chipsAfwezig"></div>
+              </div>
+              <div class="vandaag-groep niet">
+                <div class="vg-kop">Niet ingeklokt <span class="telling" id="telNietIngeklokt"></span></div>
+                <div class="chips" id="chipsNiet"></div>
+              </div>
+            </div>
           </div>
           <div class="kaart">
             <h2>Recent geregistreerde uren</h2>
@@ -897,6 +911,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=46"></script>
+  <script type="module" src="beheer.js?v=47"></script>
 </body>
 </html>

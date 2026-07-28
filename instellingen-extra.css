@@ -1,0 +1,123 @@
+/* Spaar Electra — Urenregistratie · instellingen (zes onderdelen)
+   Aanvulling op uren.css. Alle klassen beginnen met ix- zodat ze nooit met de
+   bestaande stijl kunnen botsen; kleuren komen uit de variabelen van uren.css,
+   dus een huisstijlwijziging daar werkt hier vanzelf door. */
+
+/* ── Subtabbladen binnen de instellingenpagina ───────────────────────────── */
+.ix-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--lijn);margin:0 0 16px}
+.ix-tab{background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;
+  font-family:inherit;font-size:14px;font-weight:600;color:var(--grijs);
+  padding:9px 12px;cursor:pointer;border-radius:6px 6px 0 0;transition:color .12s,border-color .12s}
+.ix-tab:hover{color:var(--inkt);background:var(--zacht)}
+.ix-tab.actief{color:var(--rood-donker);border-bottom-color:var(--rood)}
+
+/* Uitleg boven een instelling. Bewust smal: instellingen worden gelezen met
+   een halve blik, en een regel van 140 tekens wordt overgeslagen. */
+.ix-uitleg{margin:-4px 0 14px;font-size:13px;color:var(--grijs);max-width:72ch}
+.ix-uitleg strong{color:var(--inkt)}
+
+.ix-velden{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;align-items:end}
+.ix-velden .ix-breed{grid-column:1/-1}
+.ix-actierij{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center}
+
+/* ── Bezettingsstrook bij de afwezigheidsbeperkingen ─────────────────────── */
+/* Een tabel per dag leest niemand. Een strook waarin de volle dagen rood
+   oplichten wel — dat is de enige vraag die kantoor hier heeft. */
+.ix-strook{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
+.ix-dag{min-width:52px;border:1px solid var(--lijn);border-radius:7px;padding:5px 6px;
+  background:var(--vlak);text-align:center;font-size:11px;line-height:1.3}
+.ix-dag b{display:block;font-size:13px;font-family:var(--mono)}
+.ix-dag.ix-vol{border-color:var(--rood);background:#fdecec;color:var(--rood-donker)}
+.ix-dag.ix-bijna{border-color:var(--amber);background:#fdf4e6;color:var(--amber)}
+.ix-dag.ix-rust{opacity:.45}
+
+/* Waarschuwing bij het aanvragen en bij het goedkeuren. Geel, niet rood: het
+   is een grens die gepasseerd mag worden, geen fout. */
+.ix-waarschuwing{border:1px solid var(--amber);background:#fdf4e6;color:var(--amber);
+  border-radius:9px;padding:10px 12px;font-size:13px;margin-top:10px}
+.ix-waarschuwing b{color:var(--amber)}
+.ix-waarschuwing ul{margin:6px 0 0;padding-left:18px}
+
+/* ── Vaardigheden ───────────────────────────────────────────────────────── */
+.ix-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.ix-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--lijn);
+  background:var(--vlak);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600}
+.ix-chip .ix-stip{width:8px;height:8px;border-radius:50%;flex:none}
+.ix-chip.ix-verlopen{border-color:var(--rood);color:var(--rood-donker);background:#fdecec}
+.ix-chip.ix-bijna-verlopen{border-color:var(--amber);color:var(--amber);background:#fdf4e6}
+.ix-chip button{background:none;border:none;color:inherit;cursor:pointer;font-size:15px;line-height:1;padding:0 0 0 2px;opacity:.6}
+.ix-chip button:hover{opacity:1}
+
+/* Vinkjesraster voor "welke vaardigheid vraagt deze werkbon" en voor de
+   rechten per groep. Twee kolommen op smal, meer als het past. */
+.ix-raster{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px 14px;margin-top:8px}
+.ix-raster label{display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:500;
+  margin:0;padding:5px 7px;border-radius:7px;cursor:pointer}
+.ix-raster label:hover{background:var(--zacht)}
+.ix-raster input{margin-top:2px;flex:none}
+.ix-raster .ix-bij{display:block;font-size:11px;color:var(--grijs);font-weight:400}
+
+/* ── Vrije velden ───────────────────────────────────────────────────────── */
+/* De velden zoals ze in het bewerkvenster verschijnen. Eén kader eromheen,
+   zodat te zien is dat dit het eigen deel van kantoor is en niet iets wat de
+   app zelf bijhoudt. */
+.ix-vrijvak{border:1px solid var(--lijn);border-radius:10px;padding:12px 14px;margin-top:14px;background:var(--zacht)}
+.ix-vrijvak-kop{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--grijs);margin-bottom:10px}
+.ix-vrijvak .ix-veld{margin-bottom:10px}
+.ix-vrijvak .ix-veld:last-child{margin-bottom:0}
+.ix-vrijvak label{font-size:13px;font-weight:600;display:block;margin-bottom:3px}
+.ix-vrijvak .ix-hint{font-size:12px;color:var(--grijs);margin:3px 0 0}
+.ix-vrijvak input[type=text],.ix-vrijvak input[type=number],
+.ix-vrijvak input[type=date],.ix-vrijvak select{width:100%}
+.ix-vrijvak .ix-janee{display:flex;align-items:center;gap:8px;font-weight:500}
+.ix-leeg-vak{font-size:13px;color:var(--grijs);font-style:italic}
+
+/* Merkje achter het label van een veld dat de monteur niet te zien krijgt. */
+.ix-alleen-kantoor{display:inline-block;margin-left:6px;font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.04em;color:var(--rood-donker);
+  background:#fdecec;border-radius:4px;padding:1px 5px;vertical-align:middle}
+
+/* ── Rechtgroepen ───────────────────────────────────────────────────────── */
+.ix-groep{border:1px solid var(--lijn);border-radius:10px;background:var(--vlak);
+  padding:12px 14px;margin-bottom:10px}
+.ix-groep-kop{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ix-groep-kop h3{margin:0;font-size:15px}
+.ix-groep-kop .ix-tel{font-size:12px;color:var(--grijs)}
+.ix-groep-kop .ix-knoppen{margin-left:auto;display:flex;gap:6px}
+
+/* Een groep zonder rechten is een lege huls; dat hoort op te vallen voordat
+   iemand er mensen in zet en zich afvraagt waarom er niets werkt. */
+.ix-groep.ix-leeg{border-style:dashed}
+.ix-groep.ix-leeg .ix-groep-kop h3{color:var(--grijs)}
+
+/* ── Contracthistorie ───────────────────────────────────────────────────── */
+/* Een tijdbalk leest sneller dan een tabel wanneer de vraag "wat gold er in
+   maart" is. De regel die vandaag geldt springt eruit. */
+.ix-tijdlijn{list-style:none;margin:14px 0 0;padding:0;border-left:2px solid var(--lijn);padding-left:16px}
+.ix-tijdlijn li{position:relative;padding:0 0 16px}
+.ix-tijdlijn li:last-child{padding-bottom:0}
+.ix-tijdlijn li::before{content:"";position:absolute;left:-22px;top:5px;width:10px;height:10px;
+  border-radius:50%;background:var(--lijn);border:2px solid var(--vlak)}
+.ix-tijdlijn li.ix-nu::before{background:var(--rood)}
+.ix-tijdlijn .ix-periode{font-family:var(--mono);font-size:13px;font-weight:700}
+.ix-tijdlijn li.ix-nu .ix-periode{color:var(--rood-donker)}
+.ix-tijdlijn .ix-regel{font-size:13px;color:var(--grijs)}
+.ix-tijdlijn .ix-regel b{color:var(--inkt);font-family:var(--mono)}
+.ix-tijdlijn .ix-knoppen{margin-top:5px;display:flex;gap:6px}
+
+/* Loon staat er alleen als het mag. Wie het niet mag zien krijgt deze regel
+   in plaats van een leeg vakje, zodat duidelijk is dat er niets stuk is. */
+.ix-loon-verborgen{font-size:12px;color:var(--grijs);font-style:italic}
+
+/* ── Kleine gedeelde onderdelen ─────────────────────────────────────────── */
+.ix-mini{font-size:12px;color:var(--grijs)}
+.ix-rij-uit{opacity:.5}
+.ix-nowrap{white-space:nowrap}
+.ix-getal{font-family:var(--mono);text-align:right}
+
+@media (max-width:720px){
+  .ix-tabs{overflow-x:auto;flex-wrap:nowrap}
+  .ix-tab{white-space:nowrap}
+  .ix-groep-kop .ix-knoppen{margin-left:0;width:100%}
+}
