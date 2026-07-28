@@ -6,7 +6,7 @@
 import { beheerClient } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=37";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=38";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -1374,7 +1374,7 @@ async function toonUitbetaling(van, tot) {
       <td class="mono">${urenTekst(r.gewerkt_uren)}</td>
       <td class="mono">${urenTekst(r.contract_uren)}</td>
       <td class="mono sterk">${urenTekst(r.uit_te_betalen)}</td>
-      <td class="mono" style="color:${pm < 0 ? "var(--rood-donker)" : pm > 0 ? "var(--groen)" : "inherit"}">${pm ? (pm > 0 ? "+" : "") + urenTekst(Math.abs(pm)) : "—"}</td>
+      <td class="mono" style="color:${pm < 0 ? "var(--rood-donker)" : pm > 0 ? "var(--groen)" : "inherit"}">${pm ? (pm > 0 ? "+" : "\u2212") + urenTekst(Math.abs(pm)) : "—"}</td>
       <td class="mono">${Number(r.overwerk_uren) ? urenTekst(r.overwerk_uren) : "—"}</td>
       <td class="mono">${r.uurloon != null ? "\u20ac " + komma(r.uurloon) : "—"}</td>
       <td class="mono sterk">${r.uurloon != null ? "\u20ac " + komma(r.bedrag) : "—"}</td>

@@ -4,7 +4,7 @@
 //  Bouwt voort op de logica uit ../../werknemer.js, nu gekoppeld aan Supabase.
 // ============================================================================
 import { monteurClient, VAPID_PUBLIC } from "./config.js";
-import { icoon } from "./iconen.js?v=37";
+import { icoon } from "./iconen.js?v=38";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();   // eigen sessie, blijft bewaard tussen bezoeken
@@ -108,7 +108,7 @@ if (window.ResizeObserver && $("tabbalk")) new ResizeObserver(stelRuimteOnderIn)
 //  starten het versienummer op (langs de cache heen) en herladen we eenmalig
 //  als er iets nieuwers staat. De vlag in sessionStorage voorkomt een lus als
 //  het herladen om welke reden dan ook niet aanslaat.
-const APP_VERSIE = 37;
+const APP_VERSIE = 38;
 async function controleerVersie() {
   try {
     const r = await fetch("versie.json?t=" + Date.now(), { cache: "no-store" });
