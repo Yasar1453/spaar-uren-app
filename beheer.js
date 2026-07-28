@@ -3,13 +3,13 @@
 //  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
 //  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
-import { beheerClient } from "./config.js?v=50";
+import { beheerClient } from "./config.js?v=51";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=50";
-import { bouwNieuwsBeheer } from "./communicatie.js?v=50";
-import { bouwPeriodes } from "./periode.js?v=50";
-import { bouwRoosterExtra } from "./rooster-extra.js?v=50";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=51";
+import { bouwNieuwsBeheer } from "./communicatie.js?v=51";
+import { bouwPeriodes } from "./periode.js?v=51";
+import { bouwRoosterExtra } from "./rooster-extra.js?v=51";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -2185,10 +2185,16 @@ async function mdAfwezigheid() {
         ? `Contracturen ${datum(saldo.opbouw_van)} t/m ${datum(saldo.opbouw_tot)}`
         : "Goedgekeurde uren"} &times; ${Number(saldo.factor).toFixed(6)}</span>
       <b>${urenTekst(saldo.opgebouwd - saldo.startsaldo)}</b></div>
-    <div class="saldo-rij"><span>Opgebouwd</span><b>${urenTekst(saldo.opgebouwd)}</b></div>
+    <div class="saldo-rij"><span>Opgebouwd tot vandaag</span><b>${urenTekst(saldo.opgebouwd)}</b></div>
     <div class="saldo-rij"><span>Opgenomen</span><b>&minus; ${urenTekst(saldo.opgenomen)}</b></div>
     ${Number(saldo.aangevraagd) > 0 ? `<div class="saldo-rij"><span>Aangevraagd (nog te beoordelen)</span><b>${urenTekst(saldo.aangevraagd)}</b></div>` : ""}
-    <div class="saldo-rij totaal"><span>Resterend</span><b>${urenTekst(saldo.saldo)}</b></div>
+    <div class="saldo-rij totaal"><span>Beschikbaar nu</span><b>${urenTekst(saldo.saldo)}</b></div>
+    ${saldo.basis === "contracturen" ? `
+      <div class="saldo-vooruit">
+        <div class="saldo-rij"><span>Verwacht t/m ${datum(saldo.verwacht_tot)}${
+          saldo.heeft_einddatum ? " (einde contract)" : ""}</span><b>${urenTekst(saldo.verwacht)}</b></div>
+        <div class="saldo-rij totaal"><span>Beschikbaar aan het eind</span><b>${urenTekst(saldo.saldo_verwacht)}</b></div>
+      </div>` : ""}
     <div class="saldo-bron">Opbouw gerekend vanaf de ${esc(saldo.opbouw_bron)}${
       saldo.beleid ? " · beleid " + esc(saldo.beleid) : ""}.</div>
     ${saldo.waarschuwing ? `<div class="melding fout" style="margin-top:10px">${esc(saldo.waarschuwing)}</div>` : ""}`

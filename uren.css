@@ -509,3 +509,6 @@ input[type=date],input[type=time]{
 
 /* Rood badge voor verzuim */
 .badge.rood{background:#fdeaea;color:var(--rood-donker)}
+
+/* Vooruitblik onder het saldo: wat het wordt, los van wat het nu is */
+.saldo-vooruit{margin-top:10px;padding-top:9px;border-top:1px dashed var(--lijn);opacity:.85}
