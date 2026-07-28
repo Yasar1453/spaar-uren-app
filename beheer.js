@@ -3,13 +3,13 @@
 //  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
 //  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
-import { beheerClient } from "./config.js?v=48";
+import { beheerClient } from "./config.js?v=49";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=48";
-import { bouwNieuwsBeheer } from "./communicatie.js?v=48";
-import { bouwPeriodes } from "./periode.js?v=48";
-import { bouwRoosterExtra } from "./rooster-extra.js?v=48";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=49";
+import { bouwNieuwsBeheer } from "./communicatie.js?v=49";
+import { bouwPeriodes } from "./periode.js?v=49";
+import { bouwRoosterExtra } from "./rooster-extra.js?v=49";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -21,7 +21,6 @@ const PAGINA_TITEL = {
   verlof: "Verlof", projecten: "Werkbonnen", medewerkers: "Medewerkers", beleid: "Verlofbeleid", pauzes: "Pauzes",
   rapporten: "Rapportages",
 };
-const SOORT_LABEL = { vakantie: "Vakantie", ziek: "Ziek", onbetaald: "Onbetaald verlof", bijzonder: "Bijzonder verlof" };
 
 // ── Login ───────────────────────────────────────────────────────────────────
 $("loginBtn").addEventListener("click", inloggen);
@@ -544,7 +543,7 @@ $("vToevoegen").addEventListener("click", async () => {
     .lte("van_datum", tot).gte("tot_datum", van).limit(1);
   if (overlap && overlap.length) {
     const o = overlap[0];
-    return alert(`Deze monteur heeft al ${SOORT_LABEL[o.soort]?.toLowerCase() || "afwezigheid"} van ${datum(o.van_datum)} t/m ${datum(o.tot_datum)}. Verwijder die eerst of kies een andere periode.`);
+    return alert(`Deze monteur heeft al ${typeVanCode(o.soort).naam.toLowerCase()} van ${datum(o.van_datum)} t/m ${datum(o.tot_datum)}. Verwijder die eerst of kies een andere periode.`);
   }
   const { error } = await db.from("afwezigheid").insert({
     medewerker_id, soort, van_datum: van, tot_datum: tot,
@@ -1149,7 +1148,7 @@ $("medUitDienst").addEventListener("click", async () => {
 // ── Verlofbeleid en afwezigheidstypes ───────────────────────────────────────
 // Zoekt het type bij een code, zodat pictogram en kleur overal gelijk zijn.
 function typeVanCode(code) {
-  return _types.find((t) => t.code === code) || { code, naam: SOORT_LABEL[code] || code, kleur: "#6d635f" };
+  return _types.find((t) => t.code === code) || { code, naam: code, kleur: "#6d635f" };
 }
 // Naam met pictogram ervoor, in de kleur van het type.
 function typeLabel(code) {
@@ -1183,6 +1182,11 @@ async function laadBeleid() {
   }).join("") || rijLeeg(6, "Nog geen beleid.");
 
   // Kolomkoppen van de typetabel = de beleidsnamen
+  // De beheerder kon maar vier van de dertien types kiezen — school en ziek
+  // stonden er niet eens bij. De lijst komt nu uit de database, net als in de
+  // monteur-app.
+  vulSelect("vSoort", _types.filter((t) => t.actief).map((t) => [t.code, t.naam]));
+
   $("kopBeleid1").textContent = _beleid[0]?.naam || "";
   $("kopBeleid2").textContent = _beleid[1]?.naam || "";
 
@@ -1198,11 +1202,13 @@ async function laadBeleid() {
         ICOON_KEUZE.map(([k, n]) => `<option value="${k}"${(ty.icoon || "kalender") === k ? " selected" : ""}>${n}</option>`).join("")
       }</select></td>
       <td>${ty.gaat_van_saldo ? '<span class="badge amber">van saldo</span>' : '<span class="badge grijs">nee</span>'}</td>
+      <td><input type="checkbox" data-type-gewerkt="${ty.id}" ${ty.telt_als_gewerkt ? "checked" : ""}
+           title="Telt deze afwezigheid mee alsof er gewerkt is?"></td>
       <td><input type="checkbox" data-type-actief="${ty.id}" ${ty.actief ? "checked" : ""}></td>
       <td class="kies-cel">${vink(_beleid[0]?.id)}</td>
       <td class="kies-cel">${vink(_beleid[1]?.id)}</td>
     </tr>`;
-  }).join("") || rijLeeg(7, "Nog geen types.");
+  }).join("") || rijLeeg(8, "Nog geen types.");
 
   // Opbouwfactor aanpassen
   document.querySelectorAll("[data-factor]").forEach((i) => i.addEventListener("change", async () => {
@@ -1225,6 +1231,13 @@ async function laadBeleid() {
   document.querySelectorAll("[data-type-icoon]").forEach((sel) => sel.addEventListener("change", async () => {
     const { error } = await db.from("afwezigheid_types").update({ icoon: sel.value }).eq("id", sel.dataset.typeIcoon);
     if (error) return toonMeld($("beleidMelding"), "fout", "Pictogram opslaan mislukt: " + error.message);
+    laadBeleid();
+  }));
+  document.querySelectorAll("[data-type-gewerkt]").forEach((c) => c.addEventListener("change", async () => {
+    const { error } = await db.from("afwezigheid_types")
+      .update({ telt_als_gewerkt: c.checked }).eq("id", c.dataset.typeGewerkt);
+    if (error) { c.checked = !c.checked; return toonMeld($("beleidMelding"), "fout", "Mislukt: " + error.message); }
+    toonMeld($("beleidMelding"), "ok", "Aangepast. Dit werkt door in plus/min en in de uitbetaling.");
     laadBeleid();
   }));
   document.querySelectorAll("[data-type-actief]").forEach((c) => c.addEventListener("change", async () => {
@@ -1990,7 +2003,7 @@ document.querySelectorAll(".md-tab").forEach((t) => t.addEventListener("click", 
   toonMdTab(t.dataset.mdtab);
   if (t.dataset.mdtab === "rooster") mdRooster();
   if (t.dataset.mdtab === "uren") mdUren();
-  if (t.dataset.mdtab === "afwezigheid") mdAfwezigheid();
+  if (t.dataset.mdtab === "afwezigheid") { mdAfwezigheid(); mdVasteAfwezigheid(); }
   if (t.dataset.mdtab === "plusmin") mdPlusmin();
 }));
 
@@ -2414,3 +2427,99 @@ $("uurVerwijder").addEventListener("click", async () => {
 });
 
 $("uurNieuw").addEventListener("click", () => openUurVenster({ datum: urenPeriode().van }));
+
+// ── Vaste afwezigheid: de wekelijkse schooldag ──────────────────────────────
+//  Een leerling heeft elke week dezelfde schooldag. Veertig losse dagen per
+//  leerling invoeren doet niemand vol, dus je legt het patroon eenmalig vast en
+//  het systeem zet de dagen klaar.
+const WEEKDAGEN = { 1: "maandag", 2: "dinsdag", 3: "woensdag", 4: "donderdag", 5: "vrijdag", 6: "zaterdag", 7: "zondag" };
+
+async function mdVasteAfwezigheid() {
+  const vak = $("mdVast");
+  const { data, error } = await db.from("vaste_afwezigheid")
+    .select("*").eq("medewerker_id", mdId).order("van_datum", { ascending: false });
+  if (error) { vak.innerHTML = rijLeeg(6, "Kon niet laden: " + esc(error.message)); return; }
+  vak.innerHTML = (data || []).map((v) => `<tr${v.actief ? "" : ' class="rij-verwerkt"'}>
+    <td>${typeLabel(v.soort)}</td>
+    <td>elke ${esc(WEEKDAGEN[v.weekdag] || v.weekdag)}</td>
+    <td class="mono">${datum(v.van_datum)}</td>
+    <td class="mono">${datum(v.tot_datum)}</td>
+    <td>${v.actief ? '<span class="badge groen">actief</span>' : '<span class="badge grijs">uit</span>'}</td>
+    <td class="knoprij">
+      <button class="btn btn-grijs btn-klein" data-vast-klaar="${v.id}">Dagen klaarzetten</button>
+      <button class="btn btn-grijs btn-klein" data-vast-weg="${v.id}">Stoppen</button>
+    </td></tr>`).join("") || rijLeeg(6, "Geen vaste afwezigheid ingesteld.");
+
+  document.querySelectorAll("[data-vast-klaar]").forEach((b) => b.addEventListener("click", () => zetVastKlaar(b.dataset.vastKlaar)));
+  document.querySelectorAll("[data-vast-weg]").forEach((b) => b.addEventListener("click", () => stopVast(b.dataset.vastWeg)));
+}
+
+async function zetVastKlaar(id) {
+  const { data, error } = await db.rpc("zet_vaste_afwezigheid_klaar", { p_id: id });
+  if (error) return toonMeld($("mdVastMelding"), "fout", "Klaarzetten mislukt: " + error.message);
+  const r = Array.isArray(data) ? data[0] : data;
+  toonMeld($("mdVastMelding"), "ok", `${r.aangemaakt} ${r.aangemaakt === 1 ? "dag" : "dagen"} klaargezet`
+    + (r.overgeslagen ? `, ${r.overgeslagen} overgeslagen omdat er die dag al iets stond` : "") + ".");
+  await Promise.all([mdVasteAfwezigheid(), mdAfwezigheid()]);
+}
+
+async function stopVast(id) {
+  if (!confirm("Dit patroon stoppen?\n\nDe al klaargezette dagen vanaf vandaag worden weggehaald; het verleden blijft staan.")) return;
+  const { data, error } = await db.rpc("verwijder_vaste_afwezigheid", { p_id: id });
+  if (error) return toonMeld($("mdVastMelding"), "fout", "Stoppen mislukt: " + error.message);
+  await db.from("vaste_afwezigheid").update({ actief: false }).eq("id", id);
+  toonMeld($("mdVastMelding"), "ok", (data || 0) + " toekomstige dagen weggehaald.");
+  await Promise.all([mdVasteAfwezigheid(), mdAfwezigheid()]);
+}
+
+$("mdVastToevoegen").addEventListener("click", () => {
+  vulSelect("vastSoort", _types.filter((t) => t.actief).map((t) => [t.code, t.naam]));
+  $("vastSoort").value = _types.some((t) => t.code === "school") ? "school" : "";
+  $("vastDag").value = "2";
+  const nu = new Date();
+  $("vastVan").value = isoDatum(nu);
+  $("vastTot").value = isoDatum(new Date(nu.getFullYear() + 1, 6, 31));
+  verberg($("vastMelding"));
+  toonVastGevolg();
+  $("vastModal").classList.remove("verborgen");
+});
+$("vastSoort").addEventListener("change", toonVastGevolg);
+
+// Wat dit betekent voor zijn uren, vóórdat er iets wordt vastgelegd. School
+// telt nergens in mee, dus dat levert structureel min-uren op; dat hoort geen
+// verrassing te zijn aan het eind van de maand.
+function toonVastGevolg() {
+  const t = _types.find((x) => x.code === $("vastSoort").value);
+  const vak = $("vastGevolg");
+  if (!t) { vak.textContent = ""; return; }
+  vak.textContent = t.telt_als_gewerkt
+    ? `${t.naam} telt mee alsof er gewerkt is, dus dit levert geen min-uren op.`
+    : `${t.naam} telt niet mee als gewerkte tijd. Deze dagen leveren dus min-uren op ten opzichte van de contracturen. Dat is in te stellen bij Verlofbeleid.`;
+}
+
+function sluitVast() { $("vastModal").classList.add("verborgen"); }
+$("vastSluit").addEventListener("click", sluitVast);
+$("vastAnnuleer").addEventListener("click", sluitVast);
+$("vastModal").addEventListener("click", (e) => { if (e.target === $("vastModal")) sluitVast(); });
+
+$("vastOpslaan").addEventListener("click", async () => {
+  const soort = $("vastSoort").value, van = $("vastVan").value, tot = $("vastTot").value;
+  if (!soort || !van || !tot) return toonMeld($("vastMelding"), "fout", "Vul soort, van en tot en met in.");
+  if (tot < van) return toonMeld($("vastMelding"), "fout", "De einddatum ligt voor de begindatum.");
+  $("vastOpslaan").disabled = true;
+  try {
+    const { data, error } = await db.from("vaste_afwezigheid").insert({
+      medewerker_id: mdId, soort, weekdag: Number($("vastDag").value),
+      van_datum: van, tot_datum: tot,
+    }).select("id").single();
+    if (error) {
+      return toonMeld($("vastMelding"), "fout", error.code === "23505"
+        ? "Dit patroon bestaat al voor deze medewerker."
+        : "Opslaan mislukt: " + error.message);
+    }
+    sluitVast();
+    await zetVastKlaar(data.id);
+  } finally {
+    $("vastOpslaan").disabled = false;
+  }
+});

@@ -9,10 +9,10 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=48">
-  <link rel="stylesheet" href="communicatie.css?v=48">
-  <link rel="stylesheet" href="periode.css?v=48">
-  <link rel="stylesheet" href="rooster-extra.css?v=48">
+  <link rel="stylesheet" href="uren.css?v=49">
+  <link rel="stylesheet" href="communicatie.css?v=49">
+  <link rel="stylesheet" href="periode.css?v=49">
+  <link rel="stylesheet" href="rooster-extra.css?v=49">
 </head>
 <body>
 
@@ -279,12 +279,7 @@
             <h2>Verlof / afwezigheid toevoegen</h2>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
               <div><label>Monteur</label><select id="vMedewerker"></select></div>
-              <div><label>Soort</label><select id="vSoort">
-                <option value="vakantie">Vakantie</option>
-                <option value="ziek">Ziek</option>
-                <option value="onbetaald">Onbetaald verlof</option>
-                <option value="bijzonder">Bijzonder verlof</option>
-              </select></div>
+              <div><label for="vSoort">Soort</label><select id="vSoort"></select></div>
               <div><label>Van</label><input id="vVan" type="date"></div>
               <div><label>Tot en met</label><input id="vTot" type="date"></div>
             </div>
@@ -468,6 +463,18 @@
               <div id="mdSaldo" class="saldo-vak" style="margin-top:0"></div>
             </div>
             <div class="kaart">
+              <div class="kaart-kop">
+                <h2>Vaste afwezigheid</h2>
+                <button id="mdVastToevoegen" class="btn btn-rood btn-klein">Toevoegen</button>
+              </div>
+              <p class="verplicht-uitleg">Voor een leerling met een vaste schooldag. Je legt de dag en de periode eenmalig vast; het systeem zet de losse dagen klaar. Staat er die dag al iets, dan gaat dat voor.</p>
+              <div id="mdVastMelding" class="melding verborgen"></div>
+              <div class="tabelwrap"><table><thead><tr>
+                <th>Soort</th><th>Dag</th><th>Van</th><th>Tot en met</th><th>Status</th><th></th>
+              </tr></thead><tbody id="mdVast"></tbody></table></div>
+            </div>
+
+            <div class="kaart">
               <h2>Afwezigheid <span id="mdAfwJaar" class="rap-periode"></span></h2>
               <div id="mdAfwVerdeling" class="chips" style="margin-bottom:12px"></div>
               <div class="tabelwrap"><table><thead><tr>
@@ -518,7 +525,7 @@
           <div class="kaart">
             <h2>Afwezigheidstypes</h2>
             <p class="verplicht-uitleg">Vink per beleid aan welke types aangevraagd mogen worden. Types met "van saldo" schrijven af van het verlofsaldo.</p>
-            <div class="tabelwrap"><table><thead><tr><th>Icoon</th><th>Type</th><th>Pictogram</th><th>Van saldo</th><th>Actief</th><th id="kopBeleid1"></th><th id="kopBeleid2"></th></tr></thead><tbody id="tbTypes"></tbody></table></div>
+            <div class="tabelwrap"><table><thead><tr><th>Icoon</th><th>Type</th><th>Pictogram</th><th>Van saldo</th><th>Telt als gewerkt</th><th>Actief</th><th id="kopBeleid1"></th><th id="kopBeleid2"></th></tr></thead><tbody id="tbTypes"></tbody></table></div>
           </div>
         </section>
 
@@ -864,6 +871,36 @@
     </div>
   </div>
 
+  <!-- Vaste afwezigheid instellen -->
+  <div id="vastModal" class="modal-overlay verborgen">
+    <div class="modal">
+      <div class="modal-kop">
+        <h2>Vaste afwezigheid</h2>
+        <button id="vastSluit" class="modal-x" aria-label="Sluiten">&times;</button>
+      </div>
+      <div id="vastMelding" class="melding verborgen"></div>
+      <div class="veldrij">
+        <div><label for="vastSoort">Soort <span class="ster">*</span></label><select id="vastSoort"></select></div>
+        <div><label for="vastDag">Dag van de week <span class="ster">*</span></label><select id="vastDag">
+          <option value="1">Maandag</option><option value="2">Dinsdag</option><option value="3">Woensdag</option>
+          <option value="4">Donderdag</option><option value="5">Vrijdag</option>
+          <option value="6">Zaterdag</option><option value="7">Zondag</option>
+        </select></div>
+      </div>
+      <div class="veldrij">
+        <div><label for="vastVan">Van <span class="ster">*</span></label><input id="vastVan" type="date"></div>
+        <div><label for="vastTot">Tot en met <span class="ster">*</span></label><input id="vastTot" type="date"></div>
+      </div>
+      <p class="veld-hint" id="vastGevolg"></p>
+      <div class="modal-acties" style="margin-top:18px">
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button id="vastAnnuleer" class="btn btn-grijs btn-klein">Annuleren</button>
+          <button id="vastOpslaan" class="btn btn-rood btn-klein">Opslaan en dagen klaarzetten</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Klok-plattegrond: waar heeft de monteur ingeklokt? -->
   <div id="klokModal" class="modal-overlay verborgen">
     <div class="modal" style="max-width:760px">
@@ -912,6 +949,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=48"></script>
+  <script type="module" src="beheer.js?v=49"></script>
 </body>
 </html>
