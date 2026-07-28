@@ -9,10 +9,10 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=47">
-  <link rel="stylesheet" href="communicatie.css?v=47">
-  <link rel="stylesheet" href="periode.css?v=47">
-  <link rel="stylesheet" href="rooster-extra.css?v=47">
+  <link rel="stylesheet" href="uren.css?v=48">
+  <link rel="stylesheet" href="communicatie.css?v=48">
+  <link rel="stylesheet" href="periode.css?v=48">
+  <link rel="stylesheet" href="rooster-extra.css?v=48">
 </head>
 <body>
 
@@ -112,7 +112,8 @@
               <div><label for="rStart">Van</label><input id="rStart" type="time" value="07:00"></div>
               <div><label for="rEind">Tot</label><input id="rEind" type="time" value="16:00"></div>
             </div>
-            <label class="vinkregel"><input type="checkbox" id="rAlleenWerkdagen" checked> Alleen werkdagen (weekend en feestdagen overslaan)</label>
+            <p class="veld-hint" id="rWerkdagen" style="margin-top:10px"></p>
+            <label class="vinkregel"><input type="checkbox" id="rAlleenWerkdagen" checked> Alleen de dagen dat hij werkt (rustdagen, feestdagen en afwezigheid overslaan)</label>
             <div id="rPlanMelding" class="melding verborgen" style="margin-top:10px"></div>
             <button id="rInplannen" class="btn btn-rood btn-klein" style="margin-top:14px">Inplannen</button>
             <div id="rxInplanWaarschuwing" class="melding verborgen"></div>
@@ -911,6 +912,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=47"></script>
+  <script type="module" src="beheer.js?v=48"></script>
 </body>
 </html>

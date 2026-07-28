@@ -3,13 +3,13 @@
 //  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
 //  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
-import { beheerClient } from "./config.js?v=47";
+import { beheerClient } from "./config.js?v=48";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=47";
-import { bouwNieuwsBeheer } from "./communicatie.js?v=47";
-import { bouwPeriodes } from "./periode.js?v=47";
-import { bouwRoosterExtra } from "./rooster-extra.js?v=47";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=48";
+import { bouwNieuwsBeheer } from "./communicatie.js?v=48";
+import { bouwPeriodes } from "./periode.js?v=48";
+import { bouwRoosterExtra } from "./rooster-extra.js?v=48";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -1321,6 +1321,7 @@ async function laadRooster() {
   vulSelect("rMedewerker", (mws || []).map((m) => [m.id, m.naam]));
   vulSelect("rProject", (prj || []).map((p) => [p.id, (p.werkbon ? p.werkbon + " · " : "") + p.naam]));
   if (!$("rDatum").value) $("rDatum").value = isoDatum(new Date());
+  toonWerkdagen();
   await tekenWeek(mws || []);
 }
 
@@ -1434,15 +1435,30 @@ $("rInplannen").addEventListener("click", async () => {
   if (!medewerker_id || !project_id || !van) return toonMeld(melding, "fout", "Kies monteur, datum en werkbon.");
   if (tot < van) return toonMeld(melding, "fout", "De einddatum ligt voor de begindatum.");
 
-  const alleenWerkdagen = $("rAlleenWerkdagen").checked;
-  const dagen = [];
+  const slaOver = $("rAlleenWerkdagen").checked;
+  const mw = _medewerkers.find((m) => m.id === medewerker_id);
+  const uren = mw && mw.contract_uren;
+  // Iemand die vier dagen werkt hoef je niet elke woensdag met de hand weg te
+  // halen: uit zijn contracturen volgt op welke dagen hij er is. Staan die niet
+  // ingevuld, dan is maandag t/m vrijdag de enige redelijke aanname.
+  const werktOp = (d) => {
+    const key = DAG_KEYS[(d.getDay() + 6) % 7];
+    if (!uren) return d.getDay() >= 1 && d.getDay() <= 5;
+    return Number(uren[key]) > 0;
+  };
+
+  const dagen = [], overgeslagen = { rustdag: 0, feestdag: 0 };
   for (const d = new Date(van + "T12:00:00"); isoDatum(d) <= tot; d.setDate(d.getDate() + 1)) {
     const iso = isoDatum(d);
-    if (alleenWerkdagen && (d.getDay() === 0 || d.getDay() === 6)) continue;
-    if (alleenWerkdagen && feestdagen(d.getFullYear()).has(iso)) continue;
+    if (slaOver && feestdagen(d.getFullYear()).has(iso)) { overgeslagen.feestdag++; continue; }
+    if (slaOver && !werktOp(d)) { overgeslagen.rustdag++; continue; }
     dagen.push(iso);
   }
-  if (!dagen.length) return toonMeld(melding, "fout", "Er zitten geen werkdagen in deze periode.");
+  if (!dagen.length) {
+    return toonMeld(melding, "fout", uren
+      ? "In deze periode zitten geen dagen waarop deze monteur volgens zijn contract werkt."
+      : "Er zitten geen werkdagen in deze periode.");
+  }
   if (dagen.length > 200) return toonMeld(melding, "fout", "Dat zijn meer dan 200 dagen; kies een kortere periode.");
 
   const naam = $("rMedewerker").selectedOptions[0]?.textContent || "Deze monteur";
@@ -1461,13 +1477,22 @@ $("rInplannen").addEventListener("click", async () => {
   if (bf || vf) return toonMeld(melding, "fout", "Controleren mislukt: " + (bf || vf).message);
 
   const alGepland = new Set((bestaand || []).map((p) => p.datum));
-  const vrijeDagen = dagen.filter((d) => (vrij || []).some((a) => d >= a.van_datum && d <= a.tot_datum));
-  const teDoen = dagen.filter((d) => !alGepland.has(d));
+  const isVrij = (d) => (vrij || []).some((a) => d >= a.van_datum && d <= a.tot_datum);
+  // Verlof en school ook overslaan: iemand op vakantie inplannen en het daarna
+  // weer weghalen is precies het handwerk dat deze knop moet besparen.
+  const vrijeDagen = slaOver ? dagen.filter(isVrij) : [];
+  const teDoen = dagen.filter((d) => !alGepland.has(d) && !(slaOver && isVrij(d)));
+  overgeslagen.dubbel = dagen.filter((d) => alGepland.has(d)).length;
+  overgeslagen.afwezig = vrijeDagen.length;
 
-  if (!teDoen.length) return toonMeld(melding, "fout", naam + " staat op al deze dagen al op deze werkbon.");
-  if (vrijeDagen.length) {
+  if (!teDoen.length) {
+    return toonMeld(melding, "fout", overgeslagen.afwezig
+      ? naam + " is deze hele periode afwezig of stond al ingepland."
+      : naam + " staat op al deze dagen al op deze werkbon.");
+  }
+  if (!slaOver && dagen.some(isVrij)) {
     const soort = typeVanCode((vrij[0] || {}).soort).naam.toLowerCase();
-    if (!confirm(`${naam} heeft ${vrijeDagen.length} ${vrijeDagen.length === 1 ? "dag" : "dagen"} in deze periode ${soort}.\n\nToch de hele periode inplannen?`)) return;
+    if (!confirm(`${naam} heeft dagen in deze periode ${soort}.\n\nToch inplannen?`)) return;
   }
 
   knop.disabled = true;
@@ -1478,9 +1503,13 @@ $("rInplannen").addEventListener("click", async () => {
     })));
     if (error) return toonMeld(melding, "fout", "Inplannen mislukt: " + error.message);
 
-    const overgeslagen = dagen.length - teDoen.length;
+    const redenen = [];
+    if (overgeslagen.rustdag) redenen.push(overgeslagen.rustdag + " × niet zijn werkdag");
+    if (overgeslagen.feestdag) redenen.push(overgeslagen.feestdag + " × feestdag");
+    if (overgeslagen.afwezig) redenen.push(overgeslagen.afwezig + " × afwezig");
+    if (overgeslagen.dubbel) redenen.push(overgeslagen.dubbel + " × stond al gepland");
     toonMeld(melding, "ok", teDoen.length + (teDoen.length === 1 ? " dag ingepland" : " dagen ingepland")
-      + (overgeslagen ? ", " + overgeslagen + " overgeslagen omdat die al gepland stonden" : "") + ".");
+      + (redenen.length ? ". Overgeslagen: " + redenen.join(", ") : "") + ".");
     weekStart = maandagVan(new Date(van + "T12:00:00"));
     await Promise.all([tekenWeek(), laadVerlof()]);
   } finally {
@@ -1488,6 +1517,25 @@ $("rInplannen").addEventListener("click", async () => {
   }
 });
 // Einddatum meelopen met de begindatum, zodat één dag inplannen niets extra's vraagt.
+// Vooraf laten zien op welke dagen deze monteur werkt, zodat de uitkomst geen
+// verrassing is.
+$("rMedewerker").addEventListener("change", toonWerkdagen);
+function toonWerkdagen() {
+  const vak = $("rWerkdagen");
+  if (!vak) return;
+  const mw = _medewerkers.find((m) => m.id === $("rMedewerker").value);
+  const uren = mw && mw.contract_uren;
+  if (!mw) { vak.textContent = ""; return; }
+  if (!uren) {
+    vak.textContent = "Geen contracturen ingevuld; er wordt uitgegaan van maandag t/m vrijdag.";
+    return;
+  }
+  const dagen = DAG_KEYS.filter((d) => Number(uren[d]) > 0);
+  vak.textContent = dagen.length
+    ? "Werkt op " + dagen.join(", ") + " (" + urenTekst(urenWeekTotaal(uren)) + " per week)."
+    : "Voor deze monteur staan geen contracturen per dag ingevuld.";
+}
+
 $("rDatum").addEventListener("change", () => {
   if (!$("rTotDatum").value || $("rTotDatum").value < $("rDatum").value) $("rTotDatum").value = $("rDatum").value;
 });
