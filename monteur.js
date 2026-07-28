@@ -3,8 +3,8 @@
 //  Pincode → werkbon kiezen → inklokken (met GPS-check) → uitklokken.
 //  Bouwt voort op de logica uit ../../werknemer.js, nu gekoppeld aan Supabase.
 // ============================================================================
-import { monteurClient, VAPID_PUBLIC } from "./config.js?v=39";
-import { icoon } from "./iconen.js?v=39";
+import { monteurClient, VAPID_PUBLIC } from "./config.js?v=40";
+import { icoon } from "./iconen.js?v=40";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();   // eigen sessie, blijft bewaard tussen bezoeken
@@ -101,6 +101,17 @@ addEventListener("resize", stelRuimteOnderIn);
 addEventListener("orientationchange", stelRuimteOnderIn);
 if (window.ResizeObserver && $("tabbalk")) new ResizeObserver(stelRuimteOnderIn).observe($("tabbalk"));
 
+// ── Zonder bereik kunnen starten ────────────────────────────────────────────
+//  De service worker werd tot nu toe pas geregistreerd als de monteur meldingen
+//  aanzette, dus de meesten hadden er geen. Daardoor haalde de app haar code bij
+//  elke start van het net en bleef het scherm leeg op een bouwplaats zonder
+//  signaal. Nu meteen registreren; de meldingen komen er los bij.
+if ("serviceWorker" in navigator) {
+  addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => { /* niet fataal */ });
+  });
+}
+
 // ── Zelf bijwerken ──────────────────────────────────────────────────────────
 //  GitHub Pages geeft de HTML tien minuten cache mee en de pagina kan zichzelf
 //  niet cache-bustend laden. Een monteur die de app op zijn beginscherm heeft
@@ -108,7 +119,7 @@ if (window.ResizeObserver && $("tabbalk")) new ResizeObserver(stelRuimteOnderIn)
 //  starten het versienummer op (langs de cache heen) en herladen we eenmalig
 //  als er iets nieuwers staat. De vlag in sessionStorage voorkomt een lus als
 //  het herladen om welke reden dan ook niet aanslaat.
-const APP_VERSIE = 39;
+const APP_VERSIE = 40;
 async function controleerVersie() {
   try {
     const r = await fetch("versie.json?t=" + Date.now(), { cache: "no-store" });

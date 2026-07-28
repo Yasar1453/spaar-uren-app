@@ -6,7 +6,11 @@
 //  De geheime service_role-sleutel hoort HIER NIET — die leeft alleen in de
 //  Edge Function als secret.
 // ============================================================================
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Lokaal meegeleverd in plaats van bij esm.sh opgehaald. Twee redenen: zonder
+// bereik faalde die import en startte de app helemaal niet — precies op de
+// bouwplaats waar geklokt moet worden — en "@2" haalde elke nieuwe minor
+// ongezien binnen. Nu een vaste versie die met de app meegaat.
+import { createClient } from "./vendor/supabase-js.js";
 
 export const SUPABASE_URL = "https://otesjqpjocauonvqngff.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_7rL7nMLExoh_XuRqRj342g_yILqb6CX";
