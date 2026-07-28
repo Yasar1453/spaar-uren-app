@@ -456,3 +456,39 @@ input[type=date],input[type=time]{
 #wisselKies{position:relative}
 #wisselBtn{width:100%}
 #wisselKies .kies-paneel{top:calc(100% + 6px)}
+
+/* ── Urenregistratie: dagweergave ────────────────────────────────────────── */
+.dag-tabel{min-width:1040px}
+.dag-tabel td{vertical-align:middle;padding:6px 8px}
+.dag-tabel tbody tr{border-left:3px solid transparent}
+.dag-rij.goedgekeurd{border-left-color:var(--groen)}
+.dag-rij.onbeslist{border-left-color:#e8b93f}
+.dag-rij.afgekeurd{border-left-color:var(--rood);opacity:.65}
+.dag-afwezig{border-left-color:#f5c518}
+.dag-leeg{border-left-color:var(--lijn);background:#fcfbfa}
+
+.dag-naam{display:flex;align-items:center;gap:8px;min-width:200px}
+.dag-naam.vervolg{min-height:1px}
+.dag-naam-tekst{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.dag-naam-tekst b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dag-contract{font-size:11px;color:var(--grijs);font-family:var(--mono)}
+.dag-contract em{font-style:normal;font-weight:700}
+.dag-contract em.min{color:var(--rood-donker)}
+.dag-contract em.plus{color:var(--groen)}
+
+.dag-veld{margin:0;padding:5px 7px;font-size:13px;width:auto;min-width:0}
+.dag-tabel td:has(> .dag-veld){width:1%}
+.dag-bon{min-width:150px;max-width:190px}
+.dag-km{width:74px;text-align:right}
+.dag-veld.bezig{opacity:.5}
+.dag-veld.mist{border-color:var(--rood);background:#fdf5f5}
+.dag-veld:disabled{background:var(--zacht);color:var(--grijs)}
+
+.dag-uitleg{font-size:13px;color:var(--grijs)}
+.dag-vrij{display:inline-block;border:1px solid transparent;border-radius:5px;
+  padding:3px 8px;font-size:12px;font-weight:700}
+.dag-gat{color:var(--rood-donker);font-weight:700;font-size:13px}
+.dag-totaal{display:flex;align-items:center;gap:18px;justify-content:flex-end;
+  padding:12px 8px 2px;border-top:1px solid var(--lijn);margin-top:8px;font-size:14px}
+.dag-totaal span{color:var(--grijs)}
+.dag-totaal b{font-size:16px}

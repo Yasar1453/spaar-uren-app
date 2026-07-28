@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=43">
+  <link rel="stylesheet" href="uren.css?v=44">
 </head>
 <body>
 
@@ -139,7 +139,19 @@
               <button id="bulkAf" class="btn btn-grijs btn-klein">Selectie afkeuren</button>
               <button id="bulkAlles" class="btn btn-grijs btn-klein">Hele periode goedkeuren</button>
             </div>
-            <div class="tabelwrap"><table><thead><tr><th class="kies-cel"><input type="checkbox" id="kiesAlles" aria-label="Alles selecteren"></th><th>Datum</th><th>Monteur</th><th>Werkbon</th><th>Loc</th><th>Start</th><th>Eind</th><th>Pauze</th><th>Km</th><th>Uren</th><th>Status</th><th>Omschrijving</th><th></th></tr></thead><tbody id="tbUren"></tbody></table></div>
+            <!-- Dagweergave: iedereen op een regel, ook wie niet gewerkt heeft.
+                 Zo zie je in een oogopslag wie er mist, in plaats van alleen wie
+                 er wel geklokt heeft. -->
+            <div id="dagWeergave" class="verborgen">
+              <div class="tabelwrap"><table class="dag-tabel"><thead><tr>
+                <th>Monteur</th><th>Start</th><th>Eind</th><th>Werkbon</th><th>Km</th>
+                <th>Details</th><th>Uren</th><th>Bedrag</th><th></th>
+              </tr></thead><tbody id="tbDag"></tbody></table></div>
+              <div class="dag-totaal" id="dagTotaal"></div>
+            </div>
+            <div id="lijstWeergave">
+              <div class="tabelwrap"><table><thead><tr><th class="kies-cel"><input type="checkbox" id="kiesAlles" aria-label="Alles selecteren"></th><th>Datum</th><th>Monteur</th><th>Werkbon</th><th>Loc</th><th>Start</th><th>Eind</th><th>Pauze</th><th>Km</th><th>Uren</th><th>Status</th><th>Omschrijving</th><th></th></tr></thead><tbody id="tbUren"></tbody></table></div>
+            </div>
           </div>
         </section>
 
@@ -564,6 +576,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=43"></script>
+  <script type="module" src="beheer.js?v=44"></script>
 </body>
 </html>

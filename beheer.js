@@ -3,10 +3,10 @@
 //  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
 //  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
-import { beheerClient } from "./config.js?v=43";
+import { beheerClient } from "./config.js?v=44";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=43";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=44";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -245,6 +245,12 @@ async function laadUren() {
     return;
   }
   _uren = data || [];
+  // De dagweergave zet iedereen op een regel; de lijstweergave toont alleen
+  // wat er geklokt is en is handiger over een week of maand.
+  const isDag = urenModus === "dag";
+  $("dagWeergave").classList.toggle("verborgen", !isDag);
+  $("lijstWeergave").classList.toggle("verborgen", isDag);
+  if (isDag) { await tekenDagOverzicht(); }
   $("tbUren").innerHTML = _uren.map(urenRij).join("") || rijLeeg(13, "Geen uren in deze periode.");
   laadRecenteUren();
   document.querySelectorAll("[data-keur]").forEach((b) => b.addEventListener("click", () => keur(b.dataset.id, b.dataset.keur)));
@@ -2069,4 +2075,133 @@ async function mdPlusmin() {
     <div class="saldo-rij totaal"><span>Plus/min</span><b style="color:${pm < 0 ? "var(--rood-donker)" : pm > 0 ? "var(--groen)" : "inherit"}">${
       pm ? (pm > 0 ? "+" : "−") + urenTekst(Math.abs(pm)) : "0 min"}</b></div>
     ${r.waarschuwing ? `<div class="melding fout" style="margin-top:10px">${esc(r.waarschuwing)}</div>` : ""}`;
+}
+
+// ── Urenregistratie: dagweergave ────────────────────────────────────────────
+//  In de lijstweergave zie je alleen wie er geklokt heeft. Op een dag waarop de
+//  helft van de ploeg vrij is, of iemand vergeten is te klokken, valt dat niet
+//  op — je ziet een korte lijst en gaat verder. Deze weergave zet iedereen op
+//  een regel, met wat hij die dag deed of waarom hij er niet was, en wat het
+//  kost. Zo is een gat meteen zichtbaar.
+async function tekenDagOverzicht() {
+  const { van } = urenPeriode();
+  const [{ data: regels, error: rf }, { data: vrij, error: vf }] = await Promise.all([
+    db.from("urenregels")
+      .select("id, medewerker_id, project_id, start_tijd, eind_tijd, uren, km, status, omschrijving, verwerkt_op, projecten(werkbon, naam, kleur)")
+      .eq("datum", van).is("verwijderd_op", null).order("start_tijd"),
+    db.from("afwezigheid").select("medewerker_id, soort, status")
+      .lte("van_datum", van).gte("tot_datum", van).is("verwijderd_op", null).neq("status", "afgekeurd"),
+  ]);
+  if (rf || vf) {
+    $("tbDag").innerHTML = rijLeeg(9, "Kon de dag niet laden: " + (rf || vf).message);
+    return;
+  }
+
+  const perMw = {};
+  (regels || []).forEach((r) => (perMw[r.medewerker_id] = perMw[r.medewerker_id] || []).push(r));
+  const vrijPerMw = {};
+  (vrij || []).forEach((a) => (vrijPerMw[a.medewerker_id] = vrijPerMw[a.medewerker_id] || []).push(a));
+
+  const dagKey = DAG_KEYS[(new Date(van + "T12:00:00").getDay() + 6) % 7];
+  const monteurs = _medewerkers.filter((m) => m.actief);
+  const bonOpties = (gekozen) => (window._projecten || [])
+    .map((p) => `<option value="${esc(p.id)}"${p.id === gekozen ? " selected" : ""}>${esc(werkbonTekst(p))}</option>`).join("");
+
+  let totUren = 0, totBedrag = 0;
+  const rijen = monteurs.map((m) => {
+    const eigen = perMw[m.id] || [];
+    const afwezig = vrijPerMw[m.id] || [];
+    const contract = Number((m.contract_uren || {})[dagKey]) || 0;
+    const gewerkt = eigen.filter((r) => r.status !== "afgekeurd").reduce((s, r) => s + (Number(r.uren) || 0), 0);
+    const verschil = gewerkt - contract;
+    const bedrag = m.uurloon != null ? gewerkt * Number(m.uurloon) : null;
+    totUren += gewerkt;
+    if (bedrag != null) totBedrag += bedrag;
+
+    const naamCel = `<td class="dag-naam">
+      <span class="r-avatar">${esc(initialen(m.naam))}</span>
+      <span class="dag-naam-tekst">
+        <b>${esc(m.naam)}</b>
+        <span class="dag-contract">${contract ? urenTekst(contract) : "geen contracturen"}${
+          contract ? ` <em class="${verschil < 0 ? "min" : verschil > 0 ? "plus" : ""}">${
+            verschil ? (verschil > 0 ? "+" : "−") + urenTekst(Math.abs(verschil)) : ""}</em>` : ""}</span>
+      </span></td>`;
+
+    // Niets geklokt: dan is de vraag waaróm niet. Verlof tonen, of een gat.
+    if (!eigen.length) {
+      const uitleg = afwezig.length
+        ? afwezig.map((a) => {
+            const t = typeVanCode(a.soort);
+            return `<span class="dag-vrij" style="background:${t.kleur}1f;border-color:${t.kleur};color:${t.kleur}">${esc(t.naam)}</span>`
+              + (a.status === "onbeslist" ? ' <span class="badge amber">nog niet goedgekeurd</span>' : "");
+          }).join(" ")
+        : `<span class="dag-gat">Niet geklokt</span>`;
+      return `<tr class="${afwezig.length ? "dag-afwezig" : "dag-leeg"}">
+        ${naamCel}<td colspan="4" class="dag-uitleg">${uitleg}</td>
+        <td class="dag-uitleg"></td>
+        <td class="mono">${contract && afwezig.length ? urenTekst(contract) : "—"}</td>
+        <td class="mono">—</td>
+        <td><button class="btn btn-grijs btn-klein" data-dag-toevoegen="${m.id}">Uren toevoegen</button></td></tr>`;
+    }
+
+    return eigen.map((r, i) => {
+      const vast = !!r.verwerkt_op;
+      const bedragRij = m.uurloon != null ? Number(r.uren) * Number(m.uurloon) : null;
+      return `<tr class="dag-rij ${r.status}">
+        ${i === 0 ? naamCel : '<td class="dag-naam vervolg"></td>'}
+        <td><input type="time" class="dag-veld" data-veld="start_tijd" data-id="${r.id}"
+             value="${r.start_tijd ? tijd(r.start_tijd) : ""}"${vast ? " disabled" : ""}></td>
+        <td><input type="time" class="dag-veld" data-veld="eind_tijd" data-id="${r.id}"
+             value="${r.eind_tijd ? tijd(r.eind_tijd) : ""}"${vast ? " disabled" : ""}></td>
+        <td><select class="dag-veld dag-bon" data-veld="project_id" data-id="${r.id}"${vast ? " disabled" : ""}>${bonOpties(r.project_id)}</select></td>
+        <td><input type="text" inputmode="decimal" class="dag-veld dag-km" data-veld="km" data-id="${r.id}"
+             value="${r.km != null ? komma(r.km) : ""}"${vast ? " disabled" : ""}></td>
+        <td class="dag-uitleg">${esc(r.omschrijving || "")}${vast ? ' <span class="mini-grijs">in loonrun</span>' : ""}</td>
+        <td class="mono sterk">${urenTekst(r.uren)}</td>
+        <td class="mono">${bedragRij != null ? "€ " + komma(bedragRij) : "—"}</td>
+        <td class="knoprij">${
+          r.status === "onbeslist"
+            ? `<button class="btn btn-groen btn-klein" data-keur="goedgekeurd" data-id="${r.id}" title="Goedkeuren">&check;</button>
+               <button class="btn btn-grijs btn-klein" data-keur="afgekeurd" data-id="${r.id}" title="Afkeuren">&times;</button>`
+            : statusBadge(r.status)}</td></tr>`;
+    }).join("");
+  }).join("");
+
+  $("tbDag").innerHTML = rijen || rijLeeg(9, "Nog geen monteurs.");
+  $("dagTotaal").innerHTML = `<span>Totaal deze dag</span>
+    <b class="mono">${urenTekst(totUren)}</b>
+    <b class="mono">${totBedrag ? "€ " + komma(totBedrag) : ""}</b>`;
+
+  document.querySelectorAll("[data-keur]").forEach((b) => b.addEventListener("click", () => keur(b.dataset.id, b.dataset.keur)));
+  document.querySelectorAll(".dag-veld").forEach((e) => e.addEventListener("change", () => slaDagVeldOp(e)));
+  document.querySelectorAll("[data-dag-toevoegen]").forEach((b) => b.addEventListener("click", () => {
+    // Rechtstreeks naar het verlofscherm zou verwarrend zijn; hier hoort een
+    // urenregel bij, dus stuur de beheerder naar de handmatige invoer.
+    alert("Uren handmatig toevoegen kan nog niet vanaf dit scherm. Gebruik voorlopig het klokoverzicht op het dashboard.");
+  }));
+}
+
+// Direct opslaan bij het verlaten van het veld. De database rekent uren en
+// pauze zelf opnieuw uit de tijden, dus die sturen we bewust niet mee.
+async function slaDagVeldOp(el) {
+  const id = el.dataset.id, veld = el.dataset.veld;
+  const { van } = urenPeriode();
+  let waarde = el.value;
+  if (veld === "km") {
+    const n = parseFloat(String(waarde).replace(",", "."));
+    waarde = isNaN(n) || n < 0 ? 0 : Math.round(n * 10) / 10;
+  } else if (veld === "start_tijd" || veld === "eind_tijd") {
+    if (!waarde) return;
+    // De tijd hoort bij de dag die in beeld staat, niet bij vandaag.
+    waarde = new Date(van + "T" + waarde + ":00").toISOString();
+  }
+  el.classList.add("bezig");
+  const { error } = await db.from("urenregels").update({ [veld]: waarde }).eq("id", id);
+  el.classList.remove("bezig");
+  if (error) {
+    el.classList.add("mist");
+    return alert("Opslaan mislukt: " + error.message);
+  }
+  el.classList.remove("mist");
+  await laadUren();
 }
