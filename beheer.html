@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=41">
+  <link rel="stylesheet" href="uren.css?v=42">
 </head>
 <body>
 
@@ -202,7 +202,93 @@
             <p class="verplicht-uitleg">Jij legt de medewerker aan; hij stelt zelf zijn wachtwoord in via de uitnodigingslink en kan daarna meteen inklokken. Met <strong>Blokkeren</strong> sluit je iemand alsnog buiten.</p>
             <div id="medGeenGeboorte" class="melding fout verborgen"></div>
             <div id="uitnodigVak" class="uitnodig-vak verborgen"></div>
-            <div class="tabelwrap"><table><thead><tr><th>Naam</th><th>Rol</th><th>Contract</th><th>Uren/week</th><th>Vakantie</th><th>Geboren</th><th>Account</th><th></th></tr></thead><tbody id="tbMedewerkers"></tbody></table></div>
+            <div class="tabelwrap"><table><thead><tr><th>Naam</th><th>E-mail</th><th>Telefoon</th><th>Rol</th><th>Contract</th><th>Uren/week</th><th>Vakantie</th><th>Geboren</th><th>Account</th><th></th></tr></thead><tbody id="tbMedewerkers"></tbody></table></div>
+          </div>
+        </section>
+
+        <!-- Medewerker: volledig dossier met tabbladen -->
+        <section data-view="medewerker" class="verborgen">
+          <div class="kaart">
+            <div class="md-kop">
+              <button id="mdTerug" class="btn btn-grijs btn-klein">&larr; Alle medewerkers</button>
+              <span class="md-avatar" id="mdAvatar"></span>
+              <div class="md-titel">
+                <h2 id="mdNaam" style="margin:0"></h2>
+                <div class="md-sub" id="mdSub"></div>
+              </div>
+              <button id="mdBewerk" class="btn btn-rood btn-klein" style="margin-left:auto">Bewerken</button>
+            </div>
+            <nav class="md-tabs" role="tablist">
+              <button type="button" class="md-tab actief" data-mdtab="overzicht">Overzicht</button>
+              <button type="button" class="md-tab" data-mdtab="rooster">Rooster</button>
+              <button type="button" class="md-tab" data-mdtab="uren">Urenregistratie</button>
+              <button type="button" class="md-tab" data-mdtab="afwezigheid">Afwezigheid</button>
+              <button type="button" class="md-tab" data-mdtab="plusmin">Plus/min</button>
+              <button type="button" class="md-tab" data-mdtab="contract">Contract</button>
+            </nav>
+          </div>
+
+          <div data-mdpaneel="overzicht">
+            <div class="kaart"><h2>Gegevens</h2><div id="mdGegevens" class="md-raster"></div></div>
+          </div>
+
+          <div data-mdpaneel="rooster" class="verborgen">
+            <div class="kaart">
+              <div class="kaart-kop">
+                <h2>Rooster <span id="mdRoosterPeriode" class="rap-periode"></span></h2>
+                <div class="knoprij">
+                  <button id="mdRoosterVorige" class="btn btn-grijs btn-klein">&larr;</button>
+                  <button id="mdRoosterVolgende" class="btn btn-grijs btn-klein">&rarr;</button>
+                </div>
+              </div>
+              <div id="mdRooster" class="md-maand"></div>
+            </div>
+          </div>
+
+          <div data-mdpaneel="uren" class="verborgen">
+            <div class="kaart">
+              <div class="kaart-kop"><h2>Gewerkte uren <span id="mdUrenPeriode" class="rap-periode"></span></h2></div>
+              <div class="md-cijfers" id="mdUrenCijfers"></div>
+              <div class="tabelwrap"><table><thead><tr>
+                <th>Datum</th><th>Start</th><th>Eind</th><th>Werkbon</th><th>Km</th><th>Uren</th><th>Status</th><th>Omschrijving</th>
+              </tr></thead><tbody id="mdUren"></tbody></table></div>
+            </div>
+          </div>
+
+          <div data-mdpaneel="afwezigheid" class="verborgen">
+            <div class="kaart">
+              <h2>Verlofsaldo</h2>
+              <div id="mdSaldo" class="saldo-vak" style="margin-top:0"></div>
+            </div>
+            <div class="kaart">
+              <h2>Afwezigheid <span id="mdAfwJaar" class="rap-periode"></span></h2>
+              <div id="mdAfwVerdeling" class="chips" style="margin-bottom:12px"></div>
+              <div class="tabelwrap"><table><thead><tr>
+                <th>Soort</th><th>Van</th><th>Tot en met</th><th>Dagen</th><th>Status</th><th>Reden</th>
+              </tr></thead><tbody id="mdAfw"></tbody></table></div>
+            </div>
+          </div>
+
+          <div data-mdpaneel="plusmin" class="verborgen">
+            <div class="kaart">
+              <h2>Plus/min <span id="mdPmPeriode" class="rap-periode"></span></h2>
+              <p class="verplicht-uitleg">Het verschil tussen wat er geklokt is en de contracturen. Goedgekeurd verlof telt mee als voldaan.</p>
+              <div id="mdPlusmin" class="saldo-vak" style="margin-top:0"></div>
+            </div>
+          </div>
+
+          <div data-mdpaneel="contract" class="verborgen">
+            <div class="kaart">
+              <h2>Contract</h2>
+              <div class="tabelwrap"><table><thead><tr>
+                <th>Contractvorm</th><th>Dienstverband</th><th>Functie</th><th>Plus/min</th>
+                <th>Uitbetaling</th><th>Uren/week</th><th>Uurloon</th><th>Start</th><th>Eind</th>
+              </tr></thead><tbody id="mdContract"></tbody></table></div>
+            </div>
+            <div class="kaart">
+              <h2>Contracturen per dag</h2>
+              <div id="mdContractUren" class="md-raster"></div>
+            </div>
           </div>
         </section>
 
@@ -475,6 +561,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=41"></script>
+  <script type="module" src="beheer.js?v=42"></script>
 </body>
 </html>

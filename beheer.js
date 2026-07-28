@@ -3,10 +3,10 @@
 //  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
 //  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
-import { beheerClient } from "./config.js?v=41";
+import { beheerClient } from "./config.js?v=42";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=41";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=42";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -60,6 +60,17 @@ async function naarDash() {
   toonRapport();
   if (tikker) clearInterval(tikker);
   tikker = setInterval(laadIngeklokt, 30000);
+}
+
+// Wisselt van weergave. Het medewerkerdossier heeft geen eigen knop in de
+// zijbalk: je komt er via een rij in de medewerkerslijst.
+function toonView(naam) {
+  document.querySelectorAll("[data-view]").forEach((v) => v.classList.toggle("verborgen", v.dataset.view !== naam));
+  const nav = document.querySelector(`.nav[data-tab="${naam === "medewerker" ? "medewerkers" : naam}"]`);
+  document.querySelectorAll(".nav").forEach((x) => x.classList.remove("actief"));
+  if (nav) nav.classList.add("actief");
+  $("paginaTitel").textContent = naam === "medewerker" ? "Medewerker" : (PAGINA_TITEL[naam] || "");
+  $("app").classList.remove("open");
 }
 
 // ── Navigatie (zijbalk) ──────────────────────────────────────────────────────
@@ -790,16 +801,19 @@ async function laadMedewerkers() {
       ? `<span class="badge grijs">${CONTRACT_LABEL[m.contract_type] || m.contract_type}</span>` +
         (m.contract_eind ? ` <span class="mono" style="font-size:12px;color:var(--grijs)">t/m ${datum(m.contract_eind)}</span>` : "")
       : "—";
-    return `<tr><td class="sterk">${esc(m.naam)}</td>
+    return `<tr><td class="sterk"><button class="naam-knop" data-dossier="${m.id}">${esc(m.naam)}</button></td>
+     <td>${m.email ? `<a href="mailto:${esc(m.email)}">${esc(m.email)}</a>` : "—"}</td>
+     <td class="mono">${esc(m.mobiel || m.telefoon || "—")}</td>
      <td><span class="badge grijs">${m.rol}</span></td>
      <td>${contract}</td>
      <td class="mono">${tot != null ? urenTekst(tot) : "—"}</td>
      <td class="mono">${m.verlof_dagen_per_jaar != null ? m.verlof_dagen_per_jaar + " dgn" : "—"}</td>
      <td class="mono">${m.geboortedatum ? datum(m.geboortedatum) : "—"}</td>
      <td>${accountBadge(m)}</td>
-     <td class="knoprij">${vrijgeefKnop(m)}<button class="btn btn-grijs btn-klein" data-bewerk="${m.id}">Bewerken</button></td></tr>`;
-  }).join("") || rijLeeg(8, "Nog geen medewerkers.");
+     <td class="knoprij"><button class="btn btn-klein" data-dossier="${m.id}">Openen</button>${vrijgeefKnop(m)}<button class="btn btn-grijs btn-klein" data-bewerk="${m.id}">Bewerken</button></td></tr>`;
+  }).join("") || rijLeeg(10, "Nog geen medewerkers.");
   document.querySelectorAll("[data-bewerk]").forEach((b) => b.addEventListener("click", () => openMedewerker(b.dataset.bewerk)));
+  document.querySelectorAll("[data-dossier]").forEach((b) => b.addEventListener("click", () => openDossier(b.dataset.dossier)));
   document.querySelectorAll("[data-vrijgeef]").forEach((b) => b.addEventListener("click", () => zetActief(b.dataset.vrijgeef, b.dataset.nu !== "true")));
 }
 // ── Medewerkervenster (toevoegen én bewerken) ───────────────────────────────
@@ -1003,6 +1017,7 @@ $("medOpslaan").addEventListener("click", async () => {
     }
     sluitMedModal();
     await laadMedewerkers();
+    if (mdId && !document.querySelector('[data-view="medewerker"]').classList.contains("verborgen")) openDossier(mdId);
   } finally {
     $("medOpslaan").disabled = false;
   }
@@ -1783,3 +1798,213 @@ function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({
 function rijLeeg(cols, msg) { return `<tr><td colspan="${cols}" class="leeg">${msg}</td></tr>`; }
 function toon(el, m) { el.textContent = m; el.classList.remove("verborgen"); }
 function verberg(el) { el.classList.add("verborgen"); }
+
+// ── Medewerkerdossier ───────────────────────────────────────────────────────
+//  Eén pagina per medewerker met tabbladen, zoals Shiftbase die heeft: wat er
+//  gepland staat, wat er geklokt is, welk verlof er loopt, het plus/min-saldo
+//  en het contract. Voorheen zag je alleen een rij in een tabel en moest je in
+//  vier schermen zoeken om één monteur te beoordelen.
+let mdId = null;
+let mdMaand = new Date();
+
+function toonMdTab(naam) {
+  document.querySelectorAll(".md-tab").forEach((t) => t.classList.toggle("actief", t.dataset.mdtab === naam));
+  document.querySelectorAll("[data-mdpaneel]").forEach((p) => p.classList.toggle("verborgen", p.dataset.mdpaneel !== naam));
+}
+document.querySelectorAll(".md-tab").forEach((t) => t.addEventListener("click", () => {
+  toonMdTab(t.dataset.mdtab);
+  if (t.dataset.mdtab === "rooster") mdRooster();
+  if (t.dataset.mdtab === "uren") mdUren();
+  if (t.dataset.mdtab === "afwezigheid") mdAfwezigheid();
+  if (t.dataset.mdtab === "plusmin") mdPlusmin();
+}));
+
+$("mdTerug").addEventListener("click", () => toonView("medewerkers"));
+$("mdBewerk").addEventListener("click", () => { if (mdId) openMedewerker(mdId); });
+$("mdRoosterVorige").addEventListener("click", () => { mdMaand.setMonth(mdMaand.getMonth() - 1); mdRooster(); });
+$("mdRoosterVolgende").addEventListener("click", () => { mdMaand.setMonth(mdMaand.getMonth() + 1); mdRooster(); });
+
+function mdMedewerker() { return _medewerkers.find((m) => m.id === mdId); }
+function mdMaandGrenzen() {
+  const van = new Date(mdMaand.getFullYear(), mdMaand.getMonth(), 1);
+  const tot = new Date(mdMaand.getFullYear(), mdMaand.getMonth() + 1, 0);
+  return { van: isoDatum(van), tot: isoDatum(tot),
+           label: van.toLocaleDateString("nl-NL", { month: "long", year: "numeric" }) };
+}
+
+async function openDossier(id) {
+  mdId = id;
+  mdMaand = new Date();
+  const m = mdMedewerker();
+  if (!m) return;
+  toonView("medewerker");
+  $("mdAvatar").textContent = initialen(m.naam);
+  $("mdNaam").textContent = m.naam;
+  $("mdSub").textContent = [m.functietitel, CONTRACT_LABEL[m.contract_type] || m.contract_type,
+                            m.email].filter(Boolean).join(" · ");
+  toonMdTab("overzicht");
+
+  const regel = (kop, waarde) =>
+    `<div class="md-veld"><span class="md-label">${kop}</span><span class="md-waarde">${waarde || "—"}</span></div>`;
+  $("mdGegevens").innerHTML = [
+    regel("E-mail", m.email ? `<a href="mailto:${esc(m.email)}">${esc(m.email)}</a>` : ""),
+    regel("Mobiel", esc(m.mobiel || "")),
+    regel("Telefoon", esc(m.telefoon || "")),
+    regel("Noodnummer", esc(m.noodnummer || "")),
+    regel("Adres", esc([m.adres, [m.postcode, m.plaats].filter(Boolean).join(" ")].filter(Boolean).join(", "))),
+    regel("Geboortedatum", m.geboortedatum ? datum(m.geboortedatum) : ""),
+    regel("Geboorteplaats", esc(m.geboorteplaats || "")),
+    regel("Nationaliteit", esc(m.nationaliteit || "")),
+    regel("In dienst", m.datum_in_dienst ? datum(m.datum_in_dienst) : ""),
+    regel("Personeelsnummer", esc(m.personeelsnummer || "")),
+    regel("Rol", `<span class="badge grijs">${esc(m.rol)}</span>`),
+    regel("Account", accountBadge(m)),
+    regel("Roosternotitie", esc(m.roosternotitie || "")),
+  ].join("");
+
+  mdContract(m);
+}
+
+function mdContract(m) {
+  const cv = _vormen.find((v) => v.id === m.contractvorm_id);
+  const week = urenWeekTotaal(m.contract_uren);
+  $("mdContract").innerHTML = `<tr>
+    <td class="sterk">${esc(cv ? cv.naam : "—")}</td>
+    <td>${m.contract_type ? `<span class="badge grijs">${CONTRACT_LABEL[m.contract_type] || m.contract_type}</span>` : "—"}</td>
+    <td>${esc(m.functietitel || "—")}</td>
+    <td>${cv ? (cv.plusmin ? "ja" : "nee") : "—"}</td>
+    <td>${cv ? (cv.uitbetalingsbasis === "contract" ? "contracturen" : "gewerkte uren") : "—"}</td>
+    <td class="mono">${week != null ? urenTekst(week) : "—"}</td>
+    <td class="mono">${m.uurloon != null ? "€ " + komma(m.uurloon) : "—"}</td>
+    <td class="mono">${m.contract_start ? datum(m.contract_start) : "—"}</td>
+    <td class="mono">${m.contract_eind ? datum(m.contract_eind) : "—"}</td>
+  </tr>`;
+  const u = m.contract_uren || {};
+  $("mdContractUren").innerHTML = DAG_KEYS.map((d) =>
+    `<div class="md-veld"><span class="md-label">${d}</span><span class="md-waarde mono">${u[d] ? urenTekst(u[d]) : "—"}</span></div>`
+  ).join("") + `<div class="md-veld"><span class="md-label">totaal</span><span class="md-waarde mono sterk">${
+    urenWeekTotaal(m.contract_uren) != null ? urenTekst(urenWeekTotaal(m.contract_uren)) : "—"}</span></div>`;
+}
+
+async function mdRooster() {
+  const { van, tot, label } = mdMaandGrenzen();
+  $("mdRoosterPeriode").textContent = label;
+  const [{ data: plan, error: pf }, { data: afw }] = await Promise.all([
+    db.from("planning").select("datum, dagdeel, start_tijd, eind_tijd, projecten(werkbon, naam, kleur)")
+      .eq("medewerker_id", mdId).gte("datum", van).lte("datum", tot).is("verwijderd_op", null).order("datum"),
+    db.from("afwezigheid").select("soort, van_datum, tot_datum, status")
+      .eq("medewerker_id", mdId).lte("van_datum", tot).gte("tot_datum", van).is("verwijderd_op", null),
+  ]);
+  if (pf) { $("mdRooster").innerHTML = `<div class="leeg">Kon het rooster niet laden: ${esc(pf.message)}</div>`; return; }
+
+  const perDag = {};
+  (plan || []).forEach((p) => (perDag[p.datum] = perDag[p.datum] || []).push(p));
+  const eerste = new Date(van + "T12:00:00");
+  const start = new Date(eerste); start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  const laatste = new Date(tot + "T12:00:00");
+  const vandaag = isoDatum(new Date());
+
+  let html = `<div class="md-maand-kop">${["ma","di","wo","do","vr","za","zo"].map((d) => `<span>${d}</span>`).join("")}</div><div class="md-maand-raster">`;
+  for (let d = new Date(start); d <= laatste || d.getDay() !== 1; d.setDate(d.getDate() + 1)) {
+    const iso = isoDatum(d);
+    const buiten = d.getMonth() !== eerste.getMonth();
+    const vrij = (afw || []).filter((a) => iso >= a.van_datum && iso <= a.tot_datum);
+    const blokken = (perDag[iso] || []).map((p) => {
+      const t = p.start_tijd ? `${kortTijd(p.start_tijd)} – ${kortTijd(p.eind_tijd)}` : (p.dagdeel || "");
+      return `<span class="md-blok" style="border-left-color:${esc(kleurVan(p.projecten))}">
+        <b>${esc(werkbonTekst(p.projecten))}</b><span>${esc(t)}</span></span>`;
+    }).join("");
+    const vrijBlok = vrij.map((a) => {
+      const ty = typeVanCode(a.soort);
+      return `<span class="md-vrij" style="background:${ty.kleur}1f;border-color:${ty.kleur};color:${ty.kleur}">${esc(ty.naam)}</span>`;
+    }).join("");
+    html += `<div class="md-dag${buiten ? " buiten" : ""}${iso === vandaag ? " vandaag" : ""}">
+      <span class="md-dagnr">${d.getDate()}</span>${vrijBlok}${blokken}</div>`;
+    if (d > laatste && d.getDay() === 0) break;
+  }
+  $("mdRooster").innerHTML = html + "</div>";
+}
+
+async function mdUren() {
+  const { van, tot, label } = mdMaandGrenzen();
+  $("mdUrenPeriode").textContent = label;
+  const { data, error } = await db.from("urenregels")
+    .select("datum, start_tijd, eind_tijd, uren, km, status, omschrijving, projecten(werkbon, naam)")
+    .eq("medewerker_id", mdId).gte("datum", van).lte("datum", tot).is("verwijderd_op", null)
+    .order("datum").order("start_tijd");
+  if (error) { $("mdUren").innerHTML = rijLeeg(8, "Kon de uren niet laden: " + error.message); return; }
+  const rijen = data || [];
+  const totaal = rijen.filter((u) => u.status !== "afgekeurd").reduce((s, u) => s + (Number(u.uren) || 0), 0);
+  const km = rijen.reduce((s, u) => s + (Number(u.km) || 0), 0);
+  const m = mdMedewerker();
+  const bedrag = m && m.uurloon != null ? totaal * Number(m.uurloon) : null;
+  $("mdUrenCijfers").innerHTML = [
+    ["Diensten", rijen.length], ["Uren", urenTekst(totaal)], ["Kilometers", komma(km)],
+    ["Loon (indicatie)", bedrag != null ? "€ " + komma(bedrag) : "—"],
+  ].map(([k, v]) => `<div class="md-cijfer"><span>${k}</span><b>${v}</b></div>`).join("");
+  $("mdUren").innerHTML = rijen.map((u) => `<tr>
+    <td class="mono">${datum(u.datum)}</td>
+    <td class="mono">${u.start_tijd ? tijd(u.start_tijd) : "—"}</td>
+    <td class="mono">${u.eind_tijd ? tijd(u.eind_tijd) : "—"}</td>
+    <td>${werkbonMetKleur(u.projecten)}</td>
+    <td class="mono">${u.km != null ? komma(u.km) : "—"}</td>
+    <td class="mono sterk">${urenTekst(u.uren)}</td>
+    <td>${statusBadge(u.status)}</td>
+    <td>${esc(u.omschrijving || "")}</td></tr>`).join("") || rijLeeg(8, "Geen uren in deze maand.");
+}
+
+async function mdAfwezigheid() {
+  const jaar = new Date().getFullYear();
+  $("mdAfwJaar").textContent = String(jaar);
+  const { data, error } = await db.from("afwezigheid")
+    .select("soort, van_datum, tot_datum, status, reden")
+    .eq("medewerker_id", mdId).is("verwijderd_op", null).order("van_datum", { ascending: false });
+  if (error) { $("mdAfw").innerHTML = rijLeeg(6, "Kon de afwezigheid niet laden: " + error.message); return; }
+  const rijen = data || [];
+  const perSoort = {};
+  rijen.filter((r) => r.status === "goedgekeurd" && r.tot_datum >= jaar + "-01-01" && r.van_datum <= jaar + "-12-31")
+    .forEach((r) => {
+      const v = r.van_datum > jaar + "-01-01" ? r.van_datum : jaar + "-01-01";
+      const t = r.tot_datum < jaar + "-12-31" ? r.tot_datum : jaar + "-12-31";
+      perSoort[r.soort] = (perSoort[r.soort] || 0) + werkdagenTussen(v, t);
+    });
+  $("mdAfwVerdeling").innerHTML = Object.keys(perSoort).length
+    ? Object.entries(perSoort).map(([s, n]) => `<span class="chip">${typeLabel(s)}: <b style="margin-left:4px">${n} ${n === 1 ? "dag" : "dagen"}</b></span>`).join("")
+    : `<span class="leeg">Nog geen goedgekeurde afwezigheid in ${jaar}.</span>`;
+  $("mdAfw").innerHTML = rijen.map((r) => `<tr>
+    <td>${typeLabel(r.soort)}</td>
+    <td class="mono">${datum(r.van_datum)}</td>
+    <td class="mono">${datum(r.tot_datum)}</td>
+    <td class="mono">${werkdagenTussen(r.van_datum, r.tot_datum)}</td>
+    <td>${statusBadge(r.status)}</td>
+    <td>${esc(r.reden || "")}</td></tr>`).join("") || rijLeeg(6, "Nog geen afwezigheid.");
+
+  const { data: saldo } = await db.rpc("verlofsaldo", { p_medewerker: mdId });
+  $("mdSaldo").innerHTML = saldo ? `
+    <div class="saldo-rij"><span>Beginsaldo</span><b>${urenTekst(saldo.startsaldo)}</b></div>
+    <div class="saldo-rij"><span>Opgebouwd</span><b>${urenTekst(saldo.opgebouwd)}</b></div>
+    <div class="saldo-rij"><span>Opgenomen</span><b>&minus; ${urenTekst(saldo.opgenomen)}</b></div>
+    ${Number(saldo.aangevraagd) > 0 ? `<div class="saldo-rij"><span>Aangevraagd</span><b>${urenTekst(saldo.aangevraagd)}</b></div>` : ""}
+    <div class="saldo-rij totaal"><span>Resterend</span><b>${urenTekst(saldo.saldo)}</b></div>`
+    : `<span class="leeg">Geen verlofsaldo beschikbaar; controleer of er een afwezigheidsbeleid is gekoppeld.</span>`;
+}
+
+async function mdPlusmin() {
+  const { van, tot, label } = mdMaandGrenzen();
+  $("mdPmPeriode").textContent = label;
+  $("mdPlusmin").innerHTML = '<span class="leeg">Berekenen…</span>';
+  const { data, error } = await db.rpc("uitbetaling", { p_van: van, p_tot: tot });
+  if (error) { $("mdPlusmin").innerHTML = `<span class="leeg">Kon het saldo niet berekenen: ${esc(error.message)}</span>`; return; }
+  const r = (data || []).find((x) => x.medewerker_id === mdId);
+  if (!r) { $("mdPlusmin").innerHTML = '<span class="leeg">Geen gegevens in deze maand.</span>'; return; }
+  const pm = Number(r.plusmin_uren) || 0;
+  $("mdPlusmin").innerHTML = `
+    <div class="saldo-rij"><span>Geklokt</span><b>${urenTekst(r.gewerkt_uren)}</b></div>
+    <div class="saldo-rij"><span>Goedgekeurd verlof</span><b>${urenTekst(r.verlof_uren)}</b></div>
+    <div class="saldo-rij"><span>Contracturen</span><b>${urenTekst(r.contract_uren)}</b></div>
+    ${Number(r.overwerk_uren) ? `<div class="saldo-rij"><span>Waarvan overwerk</span><b>${urenTekst(r.overwerk_uren)}</b></div>` : ""}
+    ${Number(r.open_uren) ? `<div class="saldo-rij"><span>Nog te beoordelen</span><b>${urenTekst(r.open_uren)}</b></div>` : ""}
+    <div class="saldo-rij totaal"><span>Plus/min</span><b style="color:${pm < 0 ? "var(--rood-donker)" : pm > 0 ? "var(--groen)" : "inherit"}">${
+      pm ? (pm > 0 ? "+" : "−") + urenTekst(Math.abs(pm)) : "0 min"}</b></div>
+    ${r.waarschuwing ? `<div class="melding fout" style="margin-top:10px">${esc(r.waarschuwing)}</div>` : ""}`;
+}
