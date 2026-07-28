@@ -3,8 +3,8 @@
 //  Pincode → werkbon kiezen → inklokken (met GPS-check) → uitklokken.
 //  Bouwt voort op de logica uit ../../werknemer.js, nu gekoppeld aan Supabase.
 // ============================================================================
-import { monteurClient, VAPID_PUBLIC } from "./config.js?v=42";
-import { icoon } from "./iconen.js?v=42";
+import { monteurClient, VAPID_PUBLIC } from "./config.js?v=43";
+import { icoon } from "./iconen.js?v=43";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();   // eigen sessie, blijft bewaard tussen bezoeken
@@ -119,7 +119,7 @@ if ("serviceWorker" in navigator) {
 //  starten het versienummer op (langs de cache heen) en herladen we eenmalig
 //  als er iets nieuwers staat. De vlag in sessionStorage voorkomt een lus als
 //  het herladen om welke reden dan ook niet aanslaat.
-const APP_VERSIE = 42;
+const APP_VERSIE = 43;
 async function controleerVersie() {
   try {
     const r = await fetch("versie.json?t=" + Date.now(), { cache: "no-store" });
@@ -602,12 +602,14 @@ document.addEventListener("click", (e) => {
 });
 
 // ── Inklokken (met GPS-geofence) ────────────────────────────────────────────
-$("inklokBtn").addEventListener("click", async () => {
-  const projectId = $("werkbon").value;
+$("inklokBtn").addEventListener("click", () => klokIn($("werkbon").value, $("gpsMelding"), $("inklokBtn")));
+
+// Losgetrokken uit de knop, want het wisselen van werkbon gebruikt hetzelfde:
+// uitklokken op de ene bon en meteen inklokken op de volgende.
+async function klokIn(projectId, gm, knop) {
   const project = (window._projecten || []).find((p) => p.id === projectId);
-  const gm = $("gpsMelding");
-  if (!project) return toonMelding(gm, "fout", "Kies eerst een werkbon. Staat er geen? Vraag de beheerder er een aan te maken.");
-  $("inklokBtn").disabled = true;
+  if (!project) { toonMelding(gm, "fout", "Kies eerst een werkbon. Staat er geen? Vraag de beheerder er een aan te maken."); return false; }
+  if (knop) knop.disabled = true;
 
   try {
     let pos = null;
@@ -637,16 +639,18 @@ $("inklokBtn").addEventListener("click", async () => {
     if (error) throw error;
     verberg(gm);
     await verversStatus();
+    return true;
   } catch (e) {
     // Bij een dubbele poging (23505) is hij in werkelijkheid wél ingeklokt:
     // het antwoord op de eerste poging kwam alleen niet terug. Meteen de echte
     // stand ophalen in plaats van "mislukt" tonen.
-    if (e && e.code === "23505") { await verversStatus(); return; }
+    if (e && e.code === "23505") { await verversStatus(); return true; }
     toonMelding(gm, "fout", netfout(e, "Inklokken mislukt."));
+    return false;
   } finally {
-    $("inklokBtn").disabled = false;
+    if (knop) knop.disabled = false;
   }
-});
+}
 
 // Het invoerveld staat op type="text" met een decimaal toetsenbord: bij
 // type="number" levert de browser voor "24,5" een lege string, waardoor een rit
@@ -658,8 +662,11 @@ function kmWaarde() {
 }
 
 // ── Uitklokken ──────────────────────────────────────────────────────────────
-$("uitklokBtn").addEventListener("click", async () => {
-  if (!openSessie) return;
+$("uitklokBtn").addEventListener("click", () => klokUit());
+
+// Ook losgetrokken: het wisselen van werkbon boekt eerst deze bon af.
+async function klokUit(daarnaWisselen = false) {
+  if (!openSessie) return false;
   $("uitklokBtn").disabled = true;
   try {
     const start = new Date(openSessie.ingeklokt_op);
@@ -738,13 +745,72 @@ $("uitklokBtn").addEventListener("click", async () => {
     sessionStorage.removeItem("uitklok-" + openSessie.id);
     $("omschrijving").value = "";
     $("km").value = "";
-    await verversStatus();
-    laadHome();
+    if (!daarnaWisselen) {
+      await verversStatus();
+      laadHome();
+    }
+    return true;
   } catch (e) {
     toon($("statusFout"), netfout(e, "Uitklokken mislukt. Probeer het opnieuw."));
+    return false;
   } finally {
     $("uitklokBtn").disabled = false;
   }
+}
+
+// ── Wisselen van werkbon ────────────────────────────────────────────────────
+//  Een monteur rijdt op één dag vaak van klus naar klus. Zonder deze knop moest
+//  hij uitklokken, wachten tot het scherm omsloeg, opnieuw een werkbon zoeken en
+//  weer inklokken — vier handelingen op een telefoon met natte handschoenen. Nu
+//  boekt hij de lopende bon af en klokt hij in één keer in op de volgende.
+$("wisselBtn").addEventListener("click", () => {
+  const paneel = $("wisselPaneel");
+  const open = !paneel.classList.contains("verborgen");
+  paneel.classList.toggle("verborgen", open);
+  if (!open) {
+    vulWisselOpties("");
+    $("wisselZoek").value = "";
+    setTimeout(() => $("wisselZoek").focus(), 40);
+  }
+});
+$("wisselZoek").addEventListener("input", (e) => vulWisselOpties(e.target.value));
+
+function vulWisselOpties(zoek) {
+  const q = (zoek || "").toLowerCase().trim();
+  // De bon waarop hij nu staat weglaten: daarnaar wisselen heeft geen zin.
+  const lijst = (window._projecten || []).filter((p) =>
+    p.id !== (openSessie && openSessie.project_id) &&
+    (!q || ((p.werkbon || "") + " " + (p.naam || "")).toLowerCase().includes(q)));
+  $("wisselOpties").innerHTML = lijst.length
+    ? lijst.map((p) => `<button type="button" class="kies-optie" data-wissel="${esc(p.id)}" style="border-left:4px solid ${esc(kleurVan(p))}">
+        ${p.werkbon ? `<span class="nr">${esc(p.werkbon)}</span>` : ""}<span class="nm">${esc(p.naam)}</span></button>`).join("")
+    : `<div class="kies-leeg">Geen andere werkbon gevonden</div>`;
+}
+
+$("wisselOpties").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-wissel]");
+  if (!b || !openSessie) return;
+  const nieuw = b.dataset.wissel;
+  const p = (window._projecten || []).find((x) => x.id === nieuw);
+  const naam = p ? ((p.werkbon ? p.werkbon + " · " : "") + p.naam) : "deze werkbon";
+  if (!confirm(`Overstappen naar ${naam}?\n\nJe huidige uren worden geboekt en je klokt meteen in op de nieuwe werkbon.`)) return;
+
+  $("wisselPaneel").classList.add("verborgen");
+  const gm = $("gpsMelding");
+  toonMelding(gm, "", "Overstappen…");
+  // Eerst afboeken. Lukt dat niet, dan niet doorgaan — anders staan er straks
+  // twee open sessies of verdwijnen de gewerkte uren.
+  const uit = await klokUit(true);
+  if (!uit) { verberg(gm); return; }
+  openSessie = null;
+  const in_ = await klokIn(nieuw, gm, $("wisselBtn"));
+  if (!in_) {
+    // Afgeboekt maar niet ingeklokt: zeg dat er niets verloren is, anders denkt
+    // hij dat zijn uren weg zijn.
+    toonMelding(gm, "fout", "Je uren zijn geboekt, maar inklokken op de nieuwe werkbon lukte niet. Klok handmatig in.");
+    await verversStatus();
+  }
+  laadHome();
 });
 
 // ── Verlof aanvragen ────────────────────────────────────────────────────────

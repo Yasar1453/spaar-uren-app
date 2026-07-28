@@ -433,3 +433,26 @@ input[type=date],input[type=time]{
   .md-maand-raster,.md-maand-kop{grid-template-columns:repeat(7,minmax(38px,1fr));overflow-x:auto}
   .md-dag{min-height:62px}
 }
+
+/* ── Medewerkervenster: rustiger indeling ────────────────────────────────── */
+.modal-breed{max-width:860px}
+.med-layout{grid-template-columns:180px 1fr;gap:26px;margin-top:18px}
+.med-tabs{border-right:1px solid var(--lijn);padding-right:10px;gap:1px}
+.med-tab{padding:10px 12px;border-radius:8px}
+.med-paneel{padding:0 4px 4px 0}
+/* Vaste kolommen in plaats van auto-fit: velden houden zo dezelfde breedte,
+   ook als er een lange naam in staat. */
+.veldrij{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px 16px}
+.veldrij label{margin-top:0}
+.med-paneel > label{display:block;margin-top:18px}
+.med-paneel > .veldrij{margin-top:16px}
+.med-paneel > .veldrij:first-child,.med-paneel > label:first-child{margin-top:0}
+.veld-hint{margin:10px 0 0;padding:9px 11px;background:var(--zacht);border-radius:8px;
+  font-size:13px;line-height:1.45;color:var(--grijs)}
+.prive-vak{margin-top:22px}
+.saldo-vak + .veld-hint,.veld-hint + .saldo-vak{margin-top:14px}
+
+/* Wisselen van werkbon: het paneel hangt onder de knop, net als bij inklokken */
+#wisselKies{position:relative}
+#wisselBtn{width:100%}
+#wisselKies .kies-paneel{top:calc(100% + 6px)}

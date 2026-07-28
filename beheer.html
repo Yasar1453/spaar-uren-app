@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=42">
+  <link rel="stylesheet" href="uren.css?v=43">
 </head>
 <body>
 
@@ -82,7 +82,8 @@
             <h2>Inplannen</h2>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
               <div><label>Monteur</label><select id="rMedewerker"></select></div>
-              <div><label>Datum</label><input id="rDatum" type="date"></div>
+              <div><label for="rDatum">Van datum</label><input id="rDatum" type="date"></div>
+              <div><label for="rTotDatum">Tot en met</label><input id="rTotDatum" type="date"></div>
               <div><label>Werkbon</label><select id="rProject"></select></div>
               <div><label for="rDagdeel">Dagdeel</label><select id="rDagdeel">
                 <option value="hele_dag">Hele dag</option>
@@ -92,6 +93,8 @@
               <div><label for="rStart">Van</label><input id="rStart" type="time" value="07:00"></div>
               <div><label for="rEind">Tot</label><input id="rEind" type="time" value="16:00"></div>
             </div>
+            <label class="vinkregel"><input type="checkbox" id="rAlleenWerkdagen" checked> Alleen werkdagen (weekend en feestdagen overslaan)</label>
+            <div id="rPlanMelding" class="melding verborgen" style="margin-top:10px"></div>
             <button id="rInplannen" class="btn btn-rood btn-klein" style="margin-top:14px">Inplannen</button>
           </div>
           <div class="kaart">
@@ -410,7 +413,7 @@
               <div><label for="medEmail">E-mail</label><input id="medEmail" type="email" autocomplete="off"></div>
               <div><label for="medTelefoon">Telefoonnummer</label><input id="medTelefoon" autocomplete="off"></div>
             </div>
-            <p class="verplicht-uitleg">De monteur maakt zijn eigen wachtwoord aan via de uitnodigingslink. Vul hier geen wachtwoord in.</p>
+            <p class="veld-hint">De monteur stelt zijn eigen wachtwoord in via de uitnodigingslink. Je hoeft hier geen wachtwoord in te vullen.</p>
           </div>
 
           <div data-mpaneel="details" class="verborgen">
@@ -428,7 +431,7 @@
               <div><label for="medGeboorteplaats">Geboorteplaats</label><input id="medGeboorteplaats" autocomplete="off"></div>
               <div><label for="medNationaliteit">Nationaliteit</label><input id="medNationaliteit" autocomplete="off"></div>
             </div>
-            <p class="verplicht-uitleg">De geboortedatum is nodig: daarmee bewijst de monteur bij het aanmelden dat hij het is.</p>
+            <p class="veld-hint">De geboortedatum is nodig: daarmee legitimeert de monteur zich bij het aanmelden.</p>
             <div class="veldrij">
               <div><label for="medDatumInDienst">Datum in dienst</label><input id="medDatumInDienst" type="date"></div>
               <div><label for="medPersoneelsnummer">Personeelsnummer</label><input id="medPersoneelsnummer" autocomplete="off"></div>
@@ -561,6 +564,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=42"></script>
+  <script type="module" src="beheer.js?v=43"></script>
 </body>
 </html>

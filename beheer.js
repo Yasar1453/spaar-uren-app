@@ -3,10 +3,10 @@
 //  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
 //  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
-import { beheerClient } from "./config.js?v=42";
+import { beheerClient } from "./config.js?v=43";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=42";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=43";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -1359,30 +1359,72 @@ $("rDagdeel").addEventListener("change", () => {
 });
 
 $("rInplannen").addEventListener("click", async () => {
+  const knop = $("rInplannen"), melding = $("rPlanMelding");
   const medewerker_id = $("rMedewerker").value, project_id = $("rProject").value;
-  const datum = $("rDatum").value, dagdeel = $("rDagdeel").value;
-  if (!medewerker_id || !project_id || !datum) return alert("Kies monteur, datum en werkbon.");
-  // niet twee keer dezelfde monteur op dezelfde dag op dezelfde werkbon
-  const { data: dubbel } = await db.from("planning").select("id")
-    .eq("medewerker_id", medewerker_id).eq("project_id", project_id)
-    .eq("datum", datum).is("verwijderd_op", null).limit(1);
-  if (dubbel && dubbel.length) return alert("Deze monteur staat die dag al op deze werkbon gepland.");
-  // Staat de monteur die dag vrij? Dan eerst waarschuwen.
-  const { data: vrij } = await db.from("afwezigheid").select("soort")
-    .eq("medewerker_id", medewerker_id).lte("van_datum", datum).gte("tot_datum", datum)
-    .is("verwijderd_op", null).neq("status", "afgekeurd").limit(1);
-  if (vrij && vrij.length) {
-    const naam = $("rMedewerker").selectedOptions[0]?.textContent || "Deze monteur";
-    const wat = typeVanCode(vrij[0].soort).naam.toLowerCase();
-    if (!confirm(`${naam} heeft die dag ${wat}. Toch inplannen?`)) return;
+  const dagdeel = $("rDagdeel").value;
+  const van = $("rDatum").value;
+  // Leeg laten betekent één dag; zo blijft het gedrag hetzelfde voor wie geen
+  // periode nodig heeft.
+  const tot = $("rTotDatum").value || van;
+  if (!medewerker_id || !project_id || !van) return toonMeld(melding, "fout", "Kies monteur, datum en werkbon.");
+  if (tot < van) return toonMeld(melding, "fout", "De einddatum ligt voor de begindatum.");
+
+  const alleenWerkdagen = $("rAlleenWerkdagen").checked;
+  const dagen = [];
+  for (const d = new Date(van + "T12:00:00"); isoDatum(d) <= tot; d.setDate(d.getDate() + 1)) {
+    const iso = isoDatum(d);
+    if (alleenWerkdagen && (d.getDay() === 0 || d.getDay() === 6)) continue;
+    if (alleenWerkdagen && feestdagen(d.getFullYear()).has(iso)) continue;
+    dagen.push(iso);
   }
-  const { error } = await db.from("planning").insert({
-    medewerker_id, project_id, datum, dagdeel,
-    start_tijd: $("rStart").value || null, eind_tijd: $("rEind").value || null,
-  });
-  if (error) return alert("Inplannen mislukt: " + error.message);
-  weekStart = maandagVan(new Date(datum + "T12:00:00"));
-  tekenWeek();
+  if (!dagen.length) return toonMeld(melding, "fout", "Er zitten geen werkdagen in deze periode.");
+  if (dagen.length > 200) return toonMeld(melding, "fout", "Dat zijn meer dan 200 dagen; kies een kortere periode.");
+
+  const naam = $("rMedewerker").selectedOptions[0]?.textContent || "Deze monteur";
+
+  // Alles vooraf ophalen in plaats van per dag te bevragen: bij een periode van
+  // een maand scheelt dat tientallen aanroepen, en de beheerder krijgt één
+  // duidelijke vraag in plaats van twintig losse bevestigingen.
+  const [{ data: bestaand, error: bf }, { data: vrij, error: vf }] = await Promise.all([
+    db.from("planning").select("datum")
+      .eq("medewerker_id", medewerker_id).eq("project_id", project_id)
+      .gte("datum", van).lte("datum", tot).is("verwijderd_op", null),
+    db.from("afwezigheid").select("soort, van_datum, tot_datum")
+      .eq("medewerker_id", medewerker_id).lte("van_datum", tot).gte("tot_datum", van)
+      .is("verwijderd_op", null).neq("status", "afgekeurd"),
+  ]);
+  if (bf || vf) return toonMeld(melding, "fout", "Controleren mislukt: " + (bf || vf).message);
+
+  const alGepland = new Set((bestaand || []).map((p) => p.datum));
+  const vrijeDagen = dagen.filter((d) => (vrij || []).some((a) => d >= a.van_datum && d <= a.tot_datum));
+  const teDoen = dagen.filter((d) => !alGepland.has(d));
+
+  if (!teDoen.length) return toonMeld(melding, "fout", naam + " staat op al deze dagen al op deze werkbon.");
+  if (vrijeDagen.length) {
+    const soort = typeVanCode((vrij[0] || {}).soort).naam.toLowerCase();
+    if (!confirm(`${naam} heeft ${vrijeDagen.length} ${vrijeDagen.length === 1 ? "dag" : "dagen"} in deze periode ${soort}.\n\nToch de hele periode inplannen?`)) return;
+  }
+
+  knop.disabled = true;
+  try {
+    const { error } = await db.from("planning").insert(teDoen.map((datum) => ({
+      medewerker_id, project_id, datum, dagdeel,
+      start_tijd: $("rStart").value || null, eind_tijd: $("rEind").value || null,
+    })));
+    if (error) return toonMeld(melding, "fout", "Inplannen mislukt: " + error.message);
+
+    const overgeslagen = dagen.length - teDoen.length;
+    toonMeld(melding, "ok", teDoen.length + (teDoen.length === 1 ? " dag ingepland" : " dagen ingepland")
+      + (overgeslagen ? ", " + overgeslagen + " overgeslagen omdat die al gepland stonden" : "") + ".");
+    weekStart = maandagVan(new Date(van + "T12:00:00"));
+    await Promise.all([tekenWeek(), laadVerlof()]);
+  } finally {
+    knop.disabled = false;
+  }
+});
+// Einddatum meelopen met de begindatum, zodat één dag inplannen niets extra's vraagt.
+$("rDatum").addEventListener("change", () => {
+  if (!$("rTotDatum").value || $("rTotDatum").value < $("rDatum").value) $("rTotDatum").value = $("rDatum").value;
 });
 $("rVorige").addEventListener("click", () => { weekStart.setDate(weekStart.getDate() - 7); tekenWeek(); });
 $("rVolgende").addEventListener("click", () => { weekStart.setDate(weekStart.getDate() + 7); tekenWeek(); });
@@ -1798,6 +1840,26 @@ function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({
 function rijLeeg(cols, msg) { return `<tr><td colspan="${cols}" class="leeg">${msg}</td></tr>`; }
 function toon(el, m) { el.textContent = m; el.classList.remove("verborgen"); }
 function verberg(el) { el.classList.add("verborgen"); }
+
+// Splitst een volledige naam in voornaam, tussenvoegsel en achternaam. Zonder
+// dit belandt "Donny Melvin van der Laan" in zijn geheel in het achternaamveld.
+const TUSSENVOEGSELS = ["van", "de", "der", "den", "het", "ten", "ter", "te", "op", "aan",
+  "bij", "in", "onder", "over", "uit", "voor", "'t", "d'", "el", "al", "bin", "ben", "da", "di", "du", "la", "le"];
+function splitsNaam(volledig) {
+  const delen = String(volledig || "").trim().split(/\s+/).filter(Boolean);
+  if (delen.length < 2) return { voornaam: delen[0] || "", tussenvoegsel: "", achternaam: "" };
+  // Eerste tussenvoegsel zoeken, maar niet op plek 0 — dat is de voornaam.
+  let i = -1;
+  for (let k = 1; k < delen.length - 1; k++) {
+    if (TUSSENVOEGSELS.includes(delen[k].toLowerCase())) { i = k; break; }
+  }
+  if (i === -1) return { voornaam: delen[0], tussenvoegsel: "", achternaam: delen.slice(1).join(" ") };
+  return {
+    voornaam: delen.slice(0, i).join(" "),
+    tussenvoegsel: delen.slice(i, delen.length - 1).join(" "),
+    achternaam: delen[delen.length - 1],
+  };
+}
 
 // ── Medewerkerdossier ───────────────────────────────────────────────────────
 //  Eén pagina per medewerker met tabbladen, zoals Shiftbase die heeft: wat er

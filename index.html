@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Spaar Electra">
-  <link rel="stylesheet" href="uren.css?v=42">
+  <link rel="stylesheet" href="uren.css?v=43">
 </head>
 <body>
   <div class="wrap smal" id="appWrap">
@@ -61,6 +61,13 @@
           <input id="km" type="text" inputmode="decimal" placeholder="Bv. 24 of 24,5">
           <div id="boekVoorbeeld" class="boek-voorbeeld verborgen"></div>
           <button id="uitklokBtn" class="btn btn-rood" style="margin-top:12px">Uitklokken</button>
+          <div class="kies" id="wisselKies" style="margin-top:10px">
+            <button type="button" id="wisselBtn" class="btn btn-grijs" aria-haspopup="listbox">Wisselen van werkbon</button>
+            <div class="kies-paneel verborgen" id="wisselPaneel">
+              <input class="kies-zoek" id="wisselZoek" placeholder="Zoek op naam of nummer…" inputmode="search" aria-label="Zoek een werkbon">
+              <div class="kies-opties" id="wisselOpties"></div>
+            </div>
+          </div>
         </div>
 
         <!-- Uitgeklokt -->
@@ -197,6 +204,6 @@
     </button>
   </nav>
 
-  <script type="module" src="monteur.js?v=42"></script>
+  <script type="module" src="monteur.js?v=43"></script>
 </body>
 </html>
