@@ -1,0 +1,181 @@
+================================================================================
+ PERIODE SLUITEN — HTML om in app/beheer.html te plakken
+================================================================================
+
+ Vier losse stukken. Ze staan hieronder in de volgorde waarin ze in het bestand
+ komen te staan. Beheer.html wordt door een andere agent bewerkt, dus dit is
+ bewust een tekstbestand gebleven.
+
+ Er hoort één wijziging in app/beheer.js bij; die staat onderaan (stuk 5).
+ Zonder dat stuk is het tabblad zichtbaar maar leeg — het scherm wordt vanuit
+ beheer.js opgebouwd, omdat db en de gedeelde hulpfuncties daar leven.
+
+--------------------------------------------------------------------------------
+ STUK 1 — stijlblad
+ WAAR: in <head>, direct ONDER de regel
+        <link rel="stylesheet" href="uren.css?v=42">
+ (periode.css bouwt op de variabelen uit uren.css, dus het moet erna komen)
+--------------------------------------------------------------------------------
+
+  <link rel="stylesheet" href="periode.css?v=42">
+
+--------------------------------------------------------------------------------
+ STUK 2 — knop in de zijbalk
+ WAAR: in <nav class="zb-nav">, direct ONDER de knop
+        <button class="nav" data-tab="rapporten"> … </button>
+ (laatste plek in de lijst: het is de handeling die je aan het eind van de
+  maand doet, na het nakijken en het rapport)
+--------------------------------------------------------------------------------
+
+        <button class="nav" data-tab="periodes"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span> Periode sluiten</button>
+
+--------------------------------------------------------------------------------
+ STUK 3 — het scherm zelf
+ WAAR: in <main>, direct ONDER de afsluitende regel van de rapportagesectie:
+        </section>          <-- van <section data-view="rapporten" …>
+       en direct BOVEN
+        </main>
+--------------------------------------------------------------------------------
+
+        <!-- Periode sluiten -->
+        <section data-view="periodes" class="verborgen">
+
+          <div class="kaart pd-sluitkaart">
+            <h2>Periode sluiten</h2>
+            <p class="pd-uitleg">
+              Sluiten zet de urenregistratie van deze dagen vast. Het slot zit in de database, niet in dit scherm:
+              ook een rechtstreekse wijziging buiten de app om stuit erop.
+            </p>
+            <ul class="pd-gevolgen">
+              <li>Niemand kan nog uren toevoegen, wijzigen of verwijderen met een datum in deze periode — jij ook niet.</li>
+              <li>Alles wat goedgekeurd is wordt gemarkeerd als <strong>verwerkt in de loonrun</strong>.</li>
+              <li>De uitbetaling per medewerker wordt onveranderlijk vastgelegd, zodat later te herleiden is wat er is doorgegeven.</li>
+              <li>Klokt een monteur daarna alsnog uit op zo'n dag, dan landt zijn regel op de eerstvolgende open dag met een aantekening. Hij blijft dus nooit ingeklokt staan.</li>
+            </ul>
+            <div class="pd-velden">
+              <div><label>Van</label><input id="pdVan" type="date"></div>
+              <div><label>Tot en met</label><input id="pdTot" type="date"></div>
+              <div class="pd-breed"><label>Reden of kenmerk (bijvoorbeeld het loonrunnummer)</label><input id="pdReden" type="text" placeholder="Loonrun juli — doorgegeven aan de administratie"></div>
+            </div>
+            <div class="pd-snelrij">
+              <button class="btn btn-grijs btn-klein pd-snel" data-pd-snel="vorige-maand">Vorige maand</button>
+              <button class="btn btn-grijs btn-klein pd-snel" data-pd-snel="deze-maand">Deze maand tot vandaag</button>
+              <button class="btn btn-grijs btn-klein pd-snel" data-pd-snel="vandaag">Alleen vandaag</button>
+            </div>
+            <div id="pdMelding" class="melding verborgen"></div>
+            <div class="pd-actierij">
+              <button id="pdSluit" class="btn btn-rood btn-klein">Periode sluiten</button>
+            </div>
+          </div>
+
+          <div class="kaart">
+            <div class="pd-kop">
+              <h2>Afgesloten periodes</h2>
+            </div>
+            <p class="pd-stand-uitleg">Heropenen kan alleen met een reden, en die wordt samen met je naam vastgelegd.</p>
+            <div class="tabelwrap"><table><thead><tr>
+              <th>Periode</th><th>Stand</th><th>Gesloten door</th><th>Gesloten op</th><th>Toelichting</th><th></th><th></th>
+            </tr></thead><tbody id="pdTbPeriodes"></tbody></table></div>
+          </div>
+
+          <div class="kaart">
+            <div class="pd-kop">
+              <h2>Gesloten urenregistratie</h2>
+              <button id="pdRapExport" class="btn btn-grijs btn-klein">Exporteren (CSV)</button>
+            </div>
+            <div class="pd-velden">
+              <div><label>Van</label><input id="pdRapVan" type="date"></div>
+              <div><label>Tot en met</label><input id="pdRapTot" type="date"></div>
+              <div><button id="pdRapToon" class="btn btn-grijs btn-klein" style="margin-top:0">Toon overzicht</button></div>
+            </div>
+            <div class="pd-legenda" style="margin-top:12px">
+              <span><i class="pd-stip pd-open"></i> open — hier kan nog gewijzigd worden</span>
+              <span><i class="pd-stip pd-op-slot"></i> gesloten — vastgezet voor de loonadministratie</span>
+            </div>
+            <div class="tabelwrap"><table><thead><tr>
+              <th>Datum</th><th>Stand</th><th>Afsluiting</th><th>Gesloten door</th><th>Gesloten op</th><th>Regels</th><th>Uren</th>
+            </tr></thead><tbody id="pdTbDagen"></tbody></table></div>
+          </div>
+
+          <div class="kaart">
+            <h2>Verschoven regels</h2>
+            <p class="pd-stand-uitleg">
+              Uren die geboekt werden op een dag die al dicht stond. Ze staan op de eerstvolgende open dag en wachten op beoordeling;
+              hoort er iets van in de oude periode thuis, heropen die dan eerst.
+            </p>
+            <div class="tabelwrap"><table><thead><tr>
+              <th>Gewerkt op</th><th>Geboekt op</th><th>Monteur</th><th>Werkbon</th><th>Uren</th><th>Omschrijving</th>
+            </tr></thead><tbody id="pdTbVerschoven"></tbody></table></div>
+          </div>
+
+        </section>
+
+--------------------------------------------------------------------------------
+ STUK 4 — venster met de vastgelegde stand
+ WAAR: bij de andere vensters onderaan <body>, naast
+        <div id="medModal" class="modal-overlay verborgen"> … </div>
+       dus BUITEN de app-shell en BOVEN de regel
+        <script type="module" src="beheer.js?v=42"></script>
+--------------------------------------------------------------------------------
+
+  <!-- Vastgelegde stand bij een afsluiting -->
+  <div id="pdStandModal" class="modal-overlay verborgen">
+    <div class="modal modal-breed pd-modal-breed">
+      <div class="modal-kop">
+        <h2 id="pdStandTitel">Vastgelegde stand</h2>
+        <button id="pdStandSluit" class="modal-x" aria-label="Sluiten">&times;</button>
+      </div>
+      <p class="pd-stand-uitleg">
+        Dit is de momentopname zoals hij bij het sluiten is bewaard, met de namen, contractvormen en uurlonen van toen.
+        Hij verandert niet meer mee met latere wijzigingen — ook niet na heropenen.
+      </p>
+      <div class="tabelwrap"><table><thead><tr>
+        <th>Monteur</th><th>Contractvorm</th><th>Regels</th><th>Gewerkt</th><th>Verlof</th>
+        <th>Contract</th><th>Uit te betalen</th><th>Plus/min</th><th>Bedrag</th>
+      </tr></thead><tbody id="pdTbStand"></tbody></table></div>
+      <div class="modal-acties" style="margin-top:14px">
+        <button id="pdStandExport" class="btn btn-grijs btn-klein">Exporteren (CSV)</button>
+      </div>
+    </div>
+  </div>
+
+--------------------------------------------------------------------------------
+ STUK 5 — aanhaken in app/beheer.js
+ Dit stuk hoort niet in beheer.html maar in beheer.js. Twee regels.
+--------------------------------------------------------------------------------
+
+ 5a. Bovenaan, bij de andere imports (naast iconen.js):
+
+        import { bouwPeriodes } from "./periode.js?v=42";
+
+ 5b. In naarDash(), ná de regel met `toonRapport();` (dus als db, ikBenId en de
+     hulpfuncties er allemaal zijn):
+
+        bouwPeriodes(db, {
+          esc, rijLeeg, toonMeld, verberg, csvDownload, urenTekst, komma, isoDatum,
+          naVerandering: laadUren,
+        });
+
+     De acht hulpfuncties zijn verplicht; ontbreekt er één, dan weigert
+     periode.js met een leesbare fout in plaats van half te werken.
+     `naVerandering` is optioneel en wordt aangeroepen na sluiten en heropenen,
+     zodat de urenlijst meteen de nieuwe stand toont.
+
+ 5c. Optioneel, maar wel netjes — in PAGINA_TITEL de regel toevoegen:
+
+        periodes: "Periode sluiten",
+
+     Zonder 5c blijft de titelbalk niet leeg: periode.js zet de titel zelf bij
+     het klikken op het tabblad. Met 5c staat het op één plek.
+
+--------------------------------------------------------------------------------
+ CONTROLE NA HET PLAKKEN
+--------------------------------------------------------------------------------
+  1. Draai eerst migraties/130-periode-sluiten.sql. De laatste regel van die
+     migratie geeft vier kolommen terug; staat er ergens `false`, dan kan geen
+     enkele monteur meer uitklokken en moet je niet verder.
+  2. Sluit een korte testperiode in het verleden en probeer daarna een regel in
+     die periode goed te keuren op het tabblad Urenregistratie: dat moet een
+     melding geven, geen stille mislukking.
+  3. Heropen de periode weer; die handeling staat daarna met naam, tijd en
+     reden in "Afgesloten periodes".

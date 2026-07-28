@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=44">
+  <link rel="stylesheet" href="uren.css?v=45">
 </head>
 <body>
 
@@ -130,6 +130,7 @@
                   <option value="goedgekeurd">Alleen goedgekeurd</option>
                   <option value="alles">Alle uren in deze periode</option>
                 </select>
+                <button id="uurNieuw" class="btn btn-rood btn-klein">Uren toevoegen</button>
                 <button id="urenExport" class="btn btn-grijs btn-klein">Exporteren (CSV)</button>
               </div>
             </div>
@@ -528,6 +529,39 @@
     </div>
   </div>
 
+  <!-- Uren handmatig toevoegen of corrigeren -->
+  <div id="uurModal" class="modal-overlay verborgen">
+    <div class="modal">
+      <div class="modal-kop">
+        <h2 id="uurTitel">Uren toevoegen</h2>
+        <button id="uurSluit" class="modal-x" aria-label="Sluiten">&times;</button>
+      </div>
+      <div id="uurMelding" class="melding verborgen"></div>
+      <div class="veldrij">
+        <div><label for="uurMedewerker">Monteur <span class="ster">*</span></label><select id="uurMedewerker"></select></div>
+        <div><label for="uurDatum">Datum <span class="ster">*</span></label><input id="uurDatum" type="date"></div>
+      </div>
+      <div class="veldrij">
+        <div><label for="uurProject">Werkbon <span class="ster">*</span></label><select id="uurProject"></select></div>
+        <div><label for="uurStart">Start <span class="ster">*</span></label><input id="uurStart" type="time" value="07:00"></div>
+        <div><label for="uurEind">Eind <span class="ster">*</span></label><input id="uurEind" type="time" value="16:00"></div>
+      </div>
+      <div class="veldrij">
+        <div><label for="uurKm">Gereden kilometers</label><input id="uurKm" type="text" inputmode="decimal" placeholder="Bv. 24 of 24,5"></div>
+      </div>
+      <label for="uurOmschrijving">Omschrijving</label>
+      <input id="uurOmschrijving" placeholder="Bv. groepenkast geplaatst">
+      <p class="veld-hint" id="uurVoorbeeld">De uren worden berekend uit start en eind, met de pauzes eraf. Dat gebeurt in de database, dus je kunt het aantal uren niet los invullen.</p>
+      <div class="modal-acties" style="margin-top:18px">
+        <button id="uurVerwijder" class="btn btn-grijs btn-klein verborgen">Verwijderen</button>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button id="uurAnnuleer" class="btn btn-grijs btn-klein">Annuleren</button>
+          <button id="uurOpslaan" class="btn btn-rood btn-klein">Opslaan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Klok-plattegrond: waar heeft de monteur ingeklokt? -->
   <div id="klokModal" class="modal-overlay verborgen">
     <div class="modal" style="max-width:760px">
@@ -576,6 +610,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=44"></script>
+  <script type="module" src="beheer.js?v=45"></script>
 </body>
 </html>

@@ -3,10 +3,10 @@
 //  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
 //  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
-import { beheerClient } from "./config.js?v=44";
+import { beheerClient } from "./config.js?v=45";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=44";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=45";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -2163,7 +2163,7 @@ async function tekenDagOverzicht() {
           r.status === "onbeslist"
             ? `<button class="btn btn-groen btn-klein" data-keur="goedgekeurd" data-id="${r.id}" title="Goedkeuren">&check;</button>
                <button class="btn btn-grijs btn-klein" data-keur="afgekeurd" data-id="${r.id}" title="Afkeuren">&times;</button>`
-            : statusBadge(r.status)}</td></tr>`;
+            : statusBadge(r.status)}${vast ? "" : `<button class="btn btn-grijs btn-klein" data-dag-bewerk="${r.id}" title="Aanpassen">&#9998;</button>`}</td></tr>`;
     }).join("");
   }).join("");
 
@@ -2174,11 +2174,10 @@ async function tekenDagOverzicht() {
 
   document.querySelectorAll("[data-keur]").forEach((b) => b.addEventListener("click", () => keur(b.dataset.id, b.dataset.keur)));
   document.querySelectorAll(".dag-veld").forEach((e) => e.addEventListener("change", () => slaDagVeldOp(e)));
-  document.querySelectorAll("[data-dag-toevoegen]").forEach((b) => b.addEventListener("click", () => {
-    // Rechtstreeks naar het verlofscherm zou verwarrend zijn; hier hoort een
-    // urenregel bij, dus stuur de beheerder naar de handmatige invoer.
-    alert("Uren handmatig toevoegen kan nog niet vanaf dit scherm. Gebruik voorlopig het klokoverzicht op het dashboard.");
-  }));
+  document.querySelectorAll("[data-dag-toevoegen]").forEach((b) => b.addEventListener("click", () =>
+    openUurVenster({ medewerker: b.dataset.dagToevoegen, datum: urenPeriode().van })));
+  document.querySelectorAll("[data-dag-bewerk]").forEach((b) => b.addEventListener("click", () =>
+    openUurVenster({ id: b.dataset.dagBewerk })));
 }
 
 // Direct opslaan bij het verlaten van het veld. De database rekent uren en
@@ -2205,3 +2204,97 @@ async function slaDagVeldOp(el) {
   el.classList.remove("mist");
   await laadUren();
 }
+
+// ── Uren handmatig toevoegen of corrigeren ──────────────────────────────────
+//  Tot nu toe kon de beheerder alleen goed- of afkeuren. Elke correctie — een
+//  vergeten klok, een verkeerde werkbon, een dag die op papier stond — moest via
+//  de database. Dat is precies het soort ingreep dat je juist wilt vastleggen.
+let uurBewerkId = null;
+
+function openUurVenster({ id = null, medewerker = "", datum: dat = "" } = {}) {
+  uurBewerkId = id;
+  vulSelect("uurMedewerker", _medewerkers.filter((m) => m.actief).map((m) => [m.id, m.naam]));
+  vulSelect("uurProject", (window._projecten || []).map((p) => [p.id, werkbonTekst(p)]));
+  verberg($("uurMelding"));
+  $("uurVerwijder").classList.toggle("verborgen", !id);
+
+  if (id) {
+    const r = _uren.find((u) => u.id === id);
+    if (!r) return;
+    $("uurTitel").textContent = "Uren aanpassen";
+    $("uurMedewerker").value = r.medewerker_id;
+    $("uurDatum").value = r.datum;
+    $("uurProject").value = r.projecten?.id || "";
+    $("uurStart").value = r.start_tijd ? tijd(r.start_tijd) : "";
+    $("uurEind").value = r.eind_tijd ? tijd(r.eind_tijd) : "";
+    $("uurKm").value = r.km != null ? komma(r.km) : "";
+    $("uurOmschrijving").value = r.omschrijving || "";
+  } else {
+    $("uurTitel").textContent = "Uren toevoegen";
+    if (medewerker) $("uurMedewerker").value = medewerker;
+    $("uurDatum").value = dat || urenPeriode().van;
+    $("uurStart").value = "07:00";
+    $("uurEind").value = "16:00";
+    $("uurKm").value = "";
+    $("uurOmschrijving").value = "";
+  }
+  $("uurModal").classList.remove("verborgen");
+}
+function sluitUurVenster() { $("uurModal").classList.add("verborgen"); }
+$("uurSluit").addEventListener("click", sluitUurVenster);
+$("uurAnnuleer").addEventListener("click", sluitUurVenster);
+$("uurModal").addEventListener("click", (e) => { if (e.target === $("uurModal")) sluitUurVenster(); });
+
+$("uurOpslaan").addEventListener("click", async () => {
+  const melding = $("uurMelding");
+  const medewerker_id = $("uurMedewerker").value, project_id = $("uurProject").value;
+  const dat = $("uurDatum").value, start = $("uurStart").value, eind = $("uurEind").value;
+  if (!medewerker_id || !project_id || !dat || !start || !eind) {
+    return toonMeld(melding, "fout", "Vul monteur, datum, werkbon, start en eind in.");
+  }
+  const startTijd = new Date(dat + "T" + start + ":00");
+  let eindTijd = new Date(dat + "T" + eind + ":00");
+  // Een dienst die na middernacht eindigt hoort bij de dag waarop hij begon.
+  if (eindTijd <= startTijd) eindTijd.setDate(eindTijd.getDate() + 1);
+  if ((eindTijd - startTijd) / 3600000 > 24) {
+    return toonMeld(melding, "fout", "Dat is meer dan 24 uur; controleer de tijden.");
+  }
+  const n = parseFloat(String($("uurKm").value).replace(",", "."));
+  const rij = {
+    medewerker_id, project_id, datum: dat,
+    start_tijd: startTijd.toISOString(), eind_tijd: eindTijd.toISOString(),
+    km: isNaN(n) || n < 0 ? 0 : Math.round(n * 10) / 10,
+    omschrijving: $("uurOmschrijving").value.trim() || null,
+    bron: "handmatig",
+  };
+
+  $("uurOpslaan").disabled = true;
+  try {
+    const { error } = uurBewerkId
+      ? await db.from("urenregels").update(rij).eq("id", uurBewerkId)
+      : await db.from("urenregels").insert({ ...rij, status: "onbeslist", aangemaakt_door: ikBenId });
+    if (error) {
+      // Deze twee komen vaak voor en zijn met een uitleg meteen op te lossen.
+      const uitleg = error.code === "23505"
+        ? "Er staat al een regel met deze starttijd voor deze monteur."
+        : error.message;
+      return toonMeld(melding, "fout", (uurBewerkId ? "Opslaan" : "Toevoegen") + " mislukt: " + uitleg);
+    }
+    sluitUurVenster();
+    await laadUren();
+  } finally {
+    $("uurOpslaan").disabled = false;
+  }
+});
+
+$("uurVerwijder").addEventListener("click", async () => {
+  if (!uurBewerkId) return;
+  if (!confirm("Deze urenregel verwijderen?\n\nHij verdwijnt uit de rapportage en uit de loonrun. De registratie blijft bewaard in de database.")) return;
+  const { error } = await db.from("urenregels")
+    .update({ verwijderd_op: new Date().toISOString() }).eq("id", uurBewerkId);
+  if (error) return toonMeld($("uurMelding"), "fout", "Verwijderen mislukt: " + error.message);
+  sluitUurVenster();
+  await laadUren();
+});
+
+$("uurNieuw").addEventListener("click", () => openUurVenster({ datum: urenPeriode().van }));

@@ -1,0 +1,141 @@
+/* ============================================================================
+   Spaar Electra — Urenregistratie · communicatie (nieuws en bestanden)
+
+   Aanvulling op uren.css; die blijft leidend voor kleuren, kaarten en knoppen.
+   Alles hier heeft het voorvoegsel cm- zodat er niets botst met wat er al staat
+   of met wat er nog bijkomt.
+
+   De monteurkant draait op een telefoon met werkhandschoenen aan: raakvlakken
+   zijn minstens 56 px hoog en de tekst blijft op 15 px of groter. Daarom staan
+   de berichten en bestanden als hele knoppen in de lijst en niet als linkje
+   achter een regel tekst.
+   ============================================================================ */
+
+/* ── Gedeeld ──────────────────────────────────────────────────────────────── */
+.cm-zwak { color: var(--grijs); font-size: 12px; font-weight: 600; }
+.cm-fragment {
+  color: var(--grijs); font-size: 12.5px; font-weight: 500; margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch;
+}
+.cm-groep {
+  font-size: 11px; font-weight: 800; color: var(--grijs); text-transform: uppercase;
+  letter-spacing: .05em; margin: 14px 0 4px;
+}
+.cm-groep:first-child { margin-top: 0; }
+
+/* Verlopen bericht blijft voor kantoor zichtbaar, maar mag niet de indruk
+   wekken dat de ploeg het nog ziet. */
+.cm-verlopen td { background: #faf9f8; color: var(--grijs); }
+.cm-verlopen .sterk { color: var(--grijs); }
+
+.cm-avatar {
+  flex: none; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--zacht); color: var(--grijs);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11.5px; font-weight: 800; letter-spacing: -.02em;
+}
+
+/* ── Reacties (kantoor en telefoon delen dezelfde opmaak) ─────────────────── */
+.cm-reactie {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 11px 0; border-bottom: 1px solid var(--lijn);
+}
+.cm-reactie:last-child { border-bottom: none; }
+.cm-reactie-body { flex: 1; min-width: 0; }
+.cm-reactie-kop {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-size: 13.5px; font-weight: 700;
+}
+.cm-reactie-tekst {
+  font-size: 15px; line-height: 1.45; margin-top: 3px;
+  /* Vrije tekst van 25 mensen: een geplakte URL zonder spaties mag de kaart
+     niet uit elkaar duwen op een smal scherm. */
+  overflow-wrap: anywhere;
+}
+.cm-reactie-acties { display: flex; gap: 14px; margin-top: 6px; }
+.cm-van-mij .cm-avatar { background: #fbe9e8; color: var(--rood-donker); }
+
+.cm-link {
+  border: none; background: none; padding: 6px 0; cursor: pointer;
+  font-family: inherit; font-size: 13.5px; font-weight: 700; color: var(--grijs);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.cm-link:hover { color: var(--rood-donker); }
+
+/* ── Nieuws op het startscherm van de monteur ─────────────────────────────── */
+.cm-telling {
+  display: inline-flex; align-items: center; background: var(--rood); color: #fff;
+  font-family: var(--mono); font-size: 11px; font-weight: 800;
+  padding: 2px 8px; border-radius: 999px; margin-left: 6px; letter-spacing: -.01em;
+}
+
+.cm-bericht {
+  display: flex; align-items: flex-start; gap: 10px; width: 100%;
+  padding: 13px 0; border: none; border-bottom: 1px solid var(--lijn);
+  background: none; font-family: inherit; text-align: left; cursor: pointer;
+  min-height: 56px;
+}
+.cm-bericht:last-child { border-bottom: none; }
+.cm-bericht-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.cm-bericht-titel { font-size: 15.5px; font-weight: 700; color: var(--inkt); }
+.cm-bericht-fragment {
+  font-size: 13.5px; color: var(--grijs);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cm-bericht-voet { font-size: 12px; color: var(--grijs); font-weight: 600; margin-top: 2px; }
+
+/* De ongelezen-markering. Niet alleen een kleurverschil: een gekleurde stip die
+   er bij gelezen berichten helemaal niet staat, want kleurenblindheid en fel
+   zonlicht op een bouwplaats maken een tint verschil onbruikbaar. */
+.cm-stip { flex: none; width: 9px; height: 9px; border-radius: 50%; margin-top: 7px; background: transparent; }
+.cm-ongelezen .cm-stip { background: var(--rood); }
+.cm-ongelezen .cm-bericht-titel { font-weight: 800; }
+
+/* ── Bestanden op de telefoon ─────────────────────────────────────────────── */
+.cm-bestand {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 12px 0; border: none; border-bottom: 1px solid var(--lijn);
+  background: none; font-family: inherit; text-align: left; cursor: pointer;
+  min-height: 58px;
+}
+.cm-bestand:last-child { border-bottom: none; }
+.cm-bestand-ico {
+  flex: none; width: 36px; height: 36px; border-radius: 9px;
+  background: var(--zacht); color: var(--grijs);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.cm-bestand-ico svg, .cm-bestand-pijl svg { width: 18px; height: 18px; }
+.cm-bestand-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.cm-bestand-titel { font-size: 15.5px; font-weight: 700; color: var(--inkt); }
+.cm-bestand-sub {
+  font-size: 12.5px; color: var(--grijs);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cm-bestand-pijl { flex: none; color: var(--grijs); }
+
+/* ── Bericht openen (venster) ─────────────────────────────────────────────── */
+.cm-venster { max-width: 620px; }
+.cm-detail-meta { font-size: 12.5px; color: var(--grijs); font-weight: 600; margin-bottom: 10px; }
+.cm-tekst {
+  font-size: 15.5px; line-height: 1.55; overflow-wrap: anywhere;
+  padding-bottom: 14px; border-bottom: 1px solid var(--lijn);
+}
+.cm-kop {
+  font-size: 13px; font-weight: 800; margin: 14px 0 4px; letter-spacing: -.01em;
+}
+.cm-reactie-veld { margin-top: 14px; }
+.cm-reactie-knoppen { display: flex; gap: 8px; margin-top: 10px; }
+
+/* ── Formulier bij kantoor ────────────────────────────────────────────────── */
+.cm-form-rij { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cm-form-breed { grid-column: 1 / -1; }
+.cm-keuze {
+  display: flex; align-items: center; gap: 9px; margin: 12px 0 2px;
+  font-size: 14px; font-weight: 600;
+}
+.cm-keuze input { width: auto; margin: 0; cursor: pointer; }
+.cm-uitleg { font-size: 12.5px; color: var(--grijs); margin: 4px 0 0; }
+
+@media (max-width: 640px) {
+  .cm-form-rij { grid-template-columns: 1fr; }
+}

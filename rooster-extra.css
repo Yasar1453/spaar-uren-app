@@ -1,0 +1,94 @@
+/* ============================================================================
+   Spaar Electra — Urenregistratie · roosteruitbreiding
+   Open diensten, beschikbaarheid, diensten ruilen, dagweergave.
+
+   Staat los van uren.css met een eigen voorvoegsel `rx-`, zodat deze
+   uitbreiding geen enkele bestaande klasse kan overschrijven. De kleuren en
+   maten komen uit dezelfde variabelen als de rest van de app.
+   ============================================================================ */
+
+/* ── Formulier: zelfde raster als de bestaande invulkaarten ───────────────── */
+.rx-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.rx-form-breed{grid-column:1/-1}
+
+/* ── Kaart per open dienst / ruilverzoek ──────────────────────────────────── */
+.rx-dienst{border:1px solid var(--lijn);border-left:4px solid var(--grijs);border-radius:9px;
+  padding:11px 13px;margin-bottom:10px;background:var(--vlak)}
+.rx-dienst-kop{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.rx-dienst-titel{font-weight:800;font-size:14px;letter-spacing:-.01em}
+.rx-dienst-meta{font-size:12.5px;color:var(--grijs);font-family:var(--mono)}
+.rx-dienst-acties{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.rx-dienst-opmerking{font-size:13px;color:var(--grijs);margin-top:5px}
+
+.rx-reacties{margin-top:9px;border-top:1px solid var(--lijn);padding-top:6px}
+.rx-reactie{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--zacht)}
+.rx-reactie:last-child{border-bottom:none}
+.rx-reactie-naam{font-size:13.5px;font-weight:600}
+.rx-reactie-knoppen{margin-left:auto;display:flex;gap:6px}
+.rx-uitnodig{display:flex;gap:8px;align-items:center;margin-top:9px}
+.rx-uitnodig select{width:auto;min-width:180px;font-size:13px;padding:6px 9px;margin:0}
+
+/* ── Beschikbaarheidsraster (kantoor) ─────────────────────────────────────── */
+#rxBsGrid{width:100%;border-collapse:collapse}
+#rxBsGrid th,#rxBsGrid td{border-bottom:1px solid var(--lijn);padding:6px 4px;text-align:center}
+.rx-naamkop,.rx-naam{text-align:left !important;font-size:13px;font-weight:600;white-space:nowrap}
+.rx-dagkop{font-size:11.5px;color:var(--grijs);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.rx-dagkop span{display:block}
+.rx-dagnr{font-family:var(--mono);font-weight:600;text-transform:none;letter-spacing:0}
+.rx-weekend{background:var(--zacht)}
+.rx-bs-cel{width:36px}
+.rx-bs-punt{display:inline-block;width:13px;height:13px;border-radius:50%;border:1px solid var(--lijn)}
+.rx-bs-punt.rx-bs-beschikbaar{background:var(--groen);border-color:var(--groen)}
+.rx-bs-punt.rx-bs-liever_niet{background:#e6b800;border-color:#b98a00}
+.rx-bs-punt.rx-bs-niet_beschikbaar{background:var(--rood);border-color:var(--rood-donker)}
+.rx-bs-punt.rx-bs-leeg{background:transparent;border-style:dashed}
+.rx-bs-telling{font-family:var(--mono);font-size:12.5px;color:var(--grijs)}
+.rx-tekort{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.rx-chip-rood{background:#fbe9e8;border-color:#f3c9c6;color:var(--rood-donker)}
+.rx-chip-rood::before{background:var(--rood)}
+.rx-legenda{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--grijs);margin-top:9px}
+.rx-legenda span{display:inline-flex;align-items:center;gap:6px}
+
+/* ── Dagweergave ──────────────────────────────────────────────────────────── */
+#rxDagTabel{width:100%;border-collapse:collapse}
+#rxDagTabel th,#rxDagTabel td{border-bottom:1px solid var(--lijn);padding:8px 6px;text-align:left;vertical-align:top;font-size:13.5px}
+#rxDagTabel th{font-size:11.5px;color:var(--grijs);text-transform:uppercase;letter-spacing:.03em}
+.rx-blok{display:inline-flex;flex-direction:column;border:1px solid var(--lijn);border-left:3px solid var(--grijs);
+  border-radius:7px;padding:4px 8px;margin:0 6px 5px 0;background:var(--zacht);max-width:100%}
+.rx-blok-naam{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rx-blok-tijd{font-size:11.5px;color:var(--grijs);font-family:var(--mono)}
+.rx-stil{color:var(--grijs);font-size:12.5px}
+.rx-dagbalk{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.rx-dagbalk input[type=date]{width:auto;margin:0;font-size:13px;padding:6px 9px}
+.rx-daglabel{font-weight:700;font-size:14px}
+
+/* ── Monteur-app: alles met een duim te bedienen ──────────────────────────── */
+.rx-mon-kaart{border:1px solid var(--lijn);border-left:4px solid var(--grijs);border-radius:11px;
+  padding:12px 14px;margin-bottom:11px;background:var(--vlak)}
+.rx-mon-titel{font-weight:800;font-size:15px;letter-spacing:-.01em}
+.rx-mon-sub{font-size:13.5px;color:var(--grijs);margin-top:3px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+/* Knoppen op de bouwplaats: volle breedte en ruim boven de 44px die een vinger
+   nodig heeft. Met handschoenen aan is een knop van 30px niet te raken. */
+.rx-mon-knop{margin-top:11px;min-height:48px}
+
+.rx-mon-week{border:1px solid var(--lijn);border-radius:11px;padding:10px 12px;margin-bottom:12px;background:var(--vlak)}
+.rx-mon-weekkop{display:flex;align-items:center;justify-content:space-between;gap:9px;
+  font-weight:800;font-size:14px;padding-bottom:7px;border-bottom:1px solid var(--lijn);margin-bottom:8px}
+.rx-mon-dag{padding:7px 0;border-bottom:1px solid var(--zacht)}
+.rx-mon-dag:last-child{border-bottom:none}
+.rx-mon-dagnaam{font-size:13px;font-weight:700;margin-bottom:5px;text-transform:capitalize}
+.rx-op-slot{opacity:.55}
+.rx-bs-knoppen{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.rx-bs-knop{min-height:46px;border:1px solid var(--lijn);background:var(--vlak);color:var(--inkt);
+  border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;padding:6px 4px}
+.rx-bs-knop:disabled{cursor:not-allowed;opacity:.6}
+.rx-bs-knop.rx-bs-beschikbaar.actief{background:var(--groen);border-color:var(--groen);color:#fff}
+.rx-bs-knop.rx-bs-liever_niet.actief{background:#f8f0dc;border-color:#c99b1a;color:#7a4e08}
+.rx-bs-knop.rx-bs-niet_beschikbaar.actief{background:var(--rood);border-color:var(--rood-donker);color:#fff}
+
+@media (max-width:560px){
+  .rx-dienst-acties{margin-left:0;width:100%}
+  .rx-uitnodig{flex-direction:column;align-items:stretch}
+  .rx-uitnodig select{min-width:0;width:100%}
+  .rx-bs-knoppen{grid-template-columns:1fr}
+}
