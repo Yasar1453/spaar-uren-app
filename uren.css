@@ -506,3 +506,6 @@ input[type=date],input[type=time]{
 .vg-kop{font-weight:700;font-size:13px;margin-bottom:8px}
 .vandaag-groep .chips{gap:6px}
 .vandaag-groep .chip em{font-style:normal;color:var(--grijs);margin-left:4px}
+
+/* Rood badge voor verzuim */
+.badge.rood{background:#fdeaea;color:var(--rood-donker)}

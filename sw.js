@@ -23,7 +23,7 @@
 //  als dit bestand ooit stukgaat — zonder dat er 25 telefoons langs hoeven.
 const NOODSTOP = false;
 
-const CACHE = "spaar-uren-v49";
+const CACHE = "spaar-uren-v50";
 const NETWERK_TIMEOUT_MS = 3000;
 
 // Wat er klaar moet staan om te kunnen starten zonder bereik.

@@ -3,13 +3,13 @@
 //  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
 //  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
-import { beheerClient } from "./config.js?v=49";
+import { beheerClient } from "./config.js?v=50";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=49";
-import { bouwNieuwsBeheer } from "./communicatie.js?v=49";
-import { bouwPeriodes } from "./periode.js?v=49";
-import { bouwRoosterExtra } from "./rooster-extra.js?v=49";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=50";
+import { bouwNieuwsBeheer } from "./communicatie.js?v=50";
+import { bouwPeriodes } from "./periode.js?v=50";
+import { bouwRoosterExtra } from "./rooster-extra.js?v=50";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -537,17 +537,24 @@ $("vToevoegen").addEventListener("click", async () => {
   if (!medewerker_id || !van) return alert("Kies een monteur en een begindatum.");
   if (tot < van) return alert("De einddatum ligt vóór de begindatum.");
   // overlapcontrole: bestaat er al (aangevraagd of goedgekeurd) verlof in deze periode?
-  const { data: overlap } = await db.from("afwezigheid")
+  // Alleen botsen op soorten die van het saldo afgaan. Een schooldag en een
+  // vakantiedag op dezelfde dag is geen fout maar een samenloop, en met veertig
+  // losse schooldagen zou anders geen week vakantie meer in te voeren zijn.
+  const { data: overlap, error: of } = await db.from("afwezigheid")
     .select("id, van_datum, tot_datum, soort")
     .eq("medewerker_id", medewerker_id).neq("status", "afgekeurd").is("verwijderd_op", null)
-    .lte("van_datum", tot).gte("tot_datum", van).limit(1);
-  if (overlap && overlap.length) {
-    const o = overlap[0];
+    .lte("van_datum", tot).gte("tot_datum", van);
+  if (of) return alert("Controleren mislukt: " + of.message);
+  const botst = (overlap || []).filter((o) => typeVanCode(o.soort).gaat_van_saldo || typeVanCode(soort).gaat_van_saldo);
+  if (botst.length) {
+    const overlapLijst = botst;
+    const o = overlapLijst[0];
     return alert(`Deze monteur heeft al ${typeVanCode(o.soort).naam.toLowerCase()} van ${datum(o.van_datum)} t/m ${datum(o.tot_datum)}. Verwijder die eerst of kies een andere periode.`);
   }
   const { error } = await db.from("afwezigheid").insert({
     medewerker_id, soort, van_datum: van, tot_datum: tot,
     reden: $("vReden").value.trim() || null, status: "goedgekeurd",
+    wachturen: parseFloat($("vWachturen").value) || 0,
   });
   if (error) return alert("Mislukt: " + error.message);
   $("vReden").value = "";
@@ -1198,17 +1205,18 @@ async function laadBeleid() {
     return `<tr${ty.actief ? "" : ' class="rij-verwerkt"'}>
       <td><span class="afw-ico-vak" style="color:${ty.kleur};background:${ty.kleur}1a">${icoon(ty, { maat: 18 })}</span></td>
       <td class="sterk">${esc(ty.naam)}</td>
-      <td><select class="mini-select" data-type-icoon="${ty.id}">${
-        ICOON_KEUZE.map(([k, n]) => `<option value="${k}"${(ty.icoon || "kalender") === k ? " selected" : ""}>${n}</option>`).join("")
-      }</select></td>
-      <td>${ty.gaat_van_saldo ? '<span class="badge amber">van saldo</span>' : '<span class="badge grijs">nee</span>'}</td>
+      <td>${ty.wordt_gerekend_als === "verzuim"
+        ? '<span class="badge rood">verzuim</span>' : '<span class="badge grijs">verlof</span>'}</td>
+      <td>${ty.gaat_van_saldo ? '<span class="badge amber">van saldo</span>' : "—"}</td>
       <td><input type="checkbox" data-type-gewerkt="${ty.id}" ${ty.telt_als_gewerkt ? "checked" : ""}
            title="Telt deze afwezigheid mee alsof er gewerkt is?"></td>
+      <td>${ty.ondersteunt_wachturen ? '<span class="badge grijs">ja</span>' : "—"}</td>
       <td><input type="checkbox" data-type-actief="${ty.id}" ${ty.actief ? "checked" : ""}></td>
+      <td><button class="btn btn-grijs btn-klein" data-type-bewerk="${ty.id}">Instellen</button></td>
       <td class="kies-cel">${vink(_beleid[0]?.id)}</td>
       <td class="kies-cel">${vink(_beleid[1]?.id)}</td>
     </tr>`;
-  }).join("") || rijLeeg(8, "Nog geen types.");
+  }).join("") || rijLeeg(9, "Nog geen types.");
 
   // Opbouwfactor aanpassen
   document.querySelectorAll("[data-factor]").forEach((i) => i.addEventListener("change", async () => {
@@ -1233,6 +1241,7 @@ async function laadBeleid() {
     if (error) return toonMeld($("beleidMelding"), "fout", "Pictogram opslaan mislukt: " + error.message);
     laadBeleid();
   }));
+  document.querySelectorAll("[data-type-bewerk]").forEach((b) => b.addEventListener("click", () => openTypeVenster(b.dataset.typeBewerk)));
   document.querySelectorAll("[data-type-gewerkt]").forEach((c) => c.addEventListener("change", async () => {
     const { error } = await db.from("afwezigheid_types")
       .update({ telt_als_gewerkt: c.checked }).eq("id", c.dataset.typeGewerkt);
@@ -2522,4 +2531,89 @@ $("vastOpslaan").addEventListener("click", async () => {
   } finally {
     $("vastOpslaan").disabled = false;
   }
+});
+
+// ── Afwezigheidstype instellen ──────────────────────────────────────────────
+//  Emirhan wil per type zelf kunnen bepalen wat het betekent. De twee vragen
+//  die daarbij door elkaar lopen zijn: gaat het van het saldo af, en telt het
+//  als gewerkte tijd? Plus de derde die daar los van staat: is het verlof of
+//  verzuim — dat bepaalt onder welke noemer het in de rapportage valt.
+let typeBewerkId = null;
+
+function openTypeVenster(id) {
+  const t = _types.find((x) => x.id === id);
+  if (!t) return;
+  typeBewerkId = id;
+  $("typeTitel").textContent = "Afwezigheidstype — " + t.naam;
+  $("typeNaam").value = t.naam || "";
+  $("typeKleur").value = t.kleur || "#6d635f";
+  $("typeVolgorde").value = t.volgorde != null ? t.volgorde : 100;
+  $("typeGerekend").value = t.wordt_gerekend_als || "verlof";
+  $("typeSaldo").checked = !!t.gaat_van_saldo;
+  $("typeGewerkt").checked = !!t.telt_als_gewerkt;
+  $("typeOpbouw").checked = !!t.bouwt_verlof_op;
+  $("typeWachturen").checked = !!t.ondersteunt_wachturen;
+  $("typeZonderEind").checked = !!t.zonder_einddatum;
+  $("typeActief").checked = !!t.actief;
+  $("typeToeslag").value = t.toeslag_pct != null ? t.toeslag_pct : 100;
+  $("typeDiensten").value = t.bij_bestaande_diensten || "laten_staan";
+  verberg($("typeMelding"));
+  toonTypeGevolg();
+  $("typeModal").classList.remove("verborgen");
+}
+
+// Wat de combinatie van vinkjes betekent, in gewone taal. De twee vlaggen
+// lijken op elkaar maar doen iets heel anders, en dat verschil kost geld.
+function toonTypeGevolg() {
+  const saldo = $("typeSaldo").checked, gewerkt = $("typeGewerkt").checked;
+  const zinnen = [];
+  zinnen.push(saldo
+    ? "Gaat van het verlofsaldo af."
+    : "Gaat niet van het verlofsaldo af.");
+  zinnen.push(gewerkt
+    ? "Telt mee alsof er gewerkt is, dus levert geen min-uren op."
+    : "Telt niet mee als gewerkte tijd; deze dagen leveren min-uren op ten opzichte van de contracturen.");
+  if ($("typeGerekend").value === "verzuim") zinnen.push("Valt onder verzuim in de rapportage.");
+  if ($("typeWachturen").checked) zinnen.push("Bij het vastleggen kun je wachturen opgeven (maximaal twee dagen, en niet nogmaals bij een hervatting binnen vier weken).");
+  $("typeGevolg").textContent = zinnen.join(" ");
+}
+["typeSaldo", "typeGewerkt", "typeGerekend", "typeWachturen"].forEach((id) =>
+  $(id).addEventListener("change", toonTypeGevolg));
+
+function sluitType() { $("typeModal").classList.add("verborgen"); }
+$("typeSluit").addEventListener("click", sluitType);
+$("typeAnnuleer").addEventListener("click", sluitType);
+$("typeModal").addEventListener("click", (e) => { if (e.target === $("typeModal")) sluitType(); });
+
+$("typeOpslaan").addEventListener("click", async () => {
+  const naam = $("typeNaam").value.trim();
+  if (!naam) return toonMeld($("typeMelding"), "fout", "De naam mag niet leeg zijn.");
+  $("typeOpslaan").disabled = true;
+  try {
+    const { error } = await db.from("afwezigheid_types").update({
+      naam, kleur: $("typeKleur").value,
+      volgorde: parseInt($("typeVolgorde").value, 10) || 100,
+      wordt_gerekend_als: $("typeGerekend").value,
+      gaat_van_saldo: $("typeSaldo").checked,
+      telt_als_gewerkt: $("typeGewerkt").checked,
+      bouwt_verlof_op: $("typeOpbouw").checked,
+      ondersteunt_wachturen: $("typeWachturen").checked,
+      zonder_einddatum: $("typeZonderEind").checked,
+      actief: $("typeActief").checked,
+      toeslag_pct: parseFloat($("typeToeslag").value) || 100,
+      bij_bestaande_diensten: $("typeDiensten").value,
+    }).eq("id", typeBewerkId);
+    if (error) return toonMeld($("typeMelding"), "fout", "Opslaan mislukt: " + error.message);
+    sluitType();
+    await Promise.all([laadBeleid(), laadVerlof()]);
+  } finally {
+    $("typeOpslaan").disabled = false;
+  }
+});
+
+// Wachturen alleen tonen bij een soort die ze ondersteunt.
+$("vSoort").addEventListener("change", () => {
+  const t = _types.find((x) => x.code === $("vSoort").value);
+  $("vWachtVak").classList.toggle("verborgen", !(t && t.ondersteunt_wachturen));
+  if (!(t && t.ondersteunt_wachturen)) $("vWachturen").value = "";
 });

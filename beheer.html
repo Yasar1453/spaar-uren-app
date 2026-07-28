@@ -9,10 +9,10 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="uren.css?v=49">
-  <link rel="stylesheet" href="communicatie.css?v=49">
-  <link rel="stylesheet" href="periode.css?v=49">
-  <link rel="stylesheet" href="rooster-extra.css?v=49">
+  <link rel="stylesheet" href="uren.css?v=50">
+  <link rel="stylesheet" href="communicatie.css?v=50">
+  <link rel="stylesheet" href="periode.css?v=50">
+  <link rel="stylesheet" href="rooster-extra.css?v=50">
 </head>
 <body>
 
@@ -282,6 +282,8 @@
               <div><label for="vSoort">Soort</label><select id="vSoort"></select></div>
               <div><label>Van</label><input id="vVan" type="date"></div>
               <div><label>Tot en met</label><input id="vTot" type="date"></div>
+              <div id="vWachtVak" class="verborgen"><label for="vWachturen">Wachturen</label>
+                <input id="vWachturen" type="number" step="0.5" min="0" placeholder="0"></div>
             </div>
             <label>Opmerking (optioneel)</label>
             <input id="vReden" placeholder="Bv. familiebezoek">
@@ -525,7 +527,7 @@
           <div class="kaart">
             <h2>Afwezigheidstypes</h2>
             <p class="verplicht-uitleg">Vink per beleid aan welke types aangevraagd mogen worden. Types met "van saldo" schrijven af van het verlofsaldo.</p>
-            <div class="tabelwrap"><table><thead><tr><th>Icoon</th><th>Type</th><th>Pictogram</th><th>Van saldo</th><th>Telt als gewerkt</th><th>Actief</th><th id="kopBeleid1"></th><th id="kopBeleid2"></th></tr></thead><tbody id="tbTypes"></tbody></table></div>
+            <div class="tabelwrap"><table><thead><tr><th>Icoon</th><th>Type</th><th>Gerekend als</th><th>Van saldo</th><th>Telt als gewerkt</th><th>Wachturen</th><th>Actief</th><th></th><th id="kopBeleid1"></th><th id="kopBeleid2"></th></tr></thead><tbody id="tbTypes"></tbody></table></div>
           </div>
         </section>
 
@@ -901,6 +903,51 @@
     </div>
   </div>
 
+  <!-- Afwezigheidstype instellen -->
+  <div id="typeModal" class="modal-overlay verborgen">
+    <div class="modal">
+      <div class="modal-kop">
+        <h2 id="typeTitel">Afwezigheidstype</h2>
+        <button id="typeSluit" class="modal-x" aria-label="Sluiten">&times;</button>
+      </div>
+      <div id="typeMelding" class="melding verborgen"></div>
+      <div class="veldrij">
+        <div><label for="typeNaam">Naam <span class="ster">*</span></label><input id="typeNaam"></div>
+        <div><label for="typeKleur">Kleur</label><input id="typeKleur" type="color"></div>
+        <div><label for="typeVolgorde">Volgorde</label><input id="typeVolgorde" type="number" step="10" min="0"></div>
+      </div>
+      <label for="typeGerekend" style="margin-top:18px">Wordt gerekend als <span class="ster">*</span></label>
+      <select id="typeGerekend">
+        <option value="verlof">Verlof — de medewerker is vrij</option>
+        <option value="verzuim">Verzuim — de medewerker is ziek</option>
+      </select>
+      <p class="veld-hint">Bepaalt onder welke noemer het in de rapportage valt en of het meetelt in het verzuimpercentage.</p>
+
+      <label class="vinkregel"><input type="checkbox" id="typeSaldo"> Schrijft af van het verlofsaldo</label>
+      <label class="vinkregel"><input type="checkbox" id="typeGewerkt"> Telt mee als gewerkte tijd (voor plus/min en contracturen)</label>
+      <label class="vinkregel"><input type="checkbox" id="typeOpbouw"> Bouwt tijdens deze afwezigheid verlof op</label>
+      <label class="vinkregel"><input type="checkbox" id="typeWachturen"> Ondersteunt wachturen</label>
+      <label class="vinkregel"><input type="checkbox" id="typeZonderEind"> Mag worden vastgelegd zonder einddatum</label>
+      <label class="vinkregel"><input type="checkbox" id="typeActief"> Actief</label>
+
+      <div class="veldrij" style="margin-top:16px">
+        <div><label for="typeToeslag">Toeslag (%)</label><input id="typeToeslag" type="number" step="0.01" min="0"></div>
+        <div><label for="typeDiensten">Bestaande diensten</label><select id="typeDiensten">
+          <option value="laten_staan">Laten staan in het rooster</option>
+          <option value="verwijderen">Uit het rooster halen</option>
+          <option value="naar_open_diensten">Naar open diensten verplaatsen</option>
+        </select></div>
+      </div>
+      <p class="veld-hint" id="typeGevolg"></p>
+      <div class="modal-acties" style="margin-top:18px">
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button id="typeAnnuleer" class="btn btn-grijs btn-klein">Annuleren</button>
+          <button id="typeOpslaan" class="btn btn-rood btn-klein">Opslaan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Klok-plattegrond: waar heeft de monteur ingeklokt? -->
   <div id="klokModal" class="modal-overlay verborgen">
     <div class="modal" style="max-width:760px">
@@ -949,6 +996,6 @@
     </div>
   </div>
 
-  <script type="module" src="beheer.js?v=49"></script>
+  <script type="module" src="beheer.js?v=50"></script>
 </body>
 </html>
