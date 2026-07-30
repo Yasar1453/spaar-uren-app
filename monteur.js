@@ -3,10 +3,10 @@
 //  Pincode → werkbon kiezen → inklokken (met GPS-check) → uitklokken.
 //  Bouwt voort op de logica uit ../../werknemer.js, nu gekoppeld aan Supabase.
 // ============================================================================
-import { monteurClient, VAPID_PUBLIC } from "./config.js?v=53";
-import { icoon } from "./iconen.js?v=53";
-import { bouwNieuwsMonteur } from "./communicatie.js?v=53";
-import { bouwRoosterMonteur } from "./rooster-extra.js?v=53";
+import { monteurClient, VAPID_PUBLIC } from "./config.js?v=54";
+import { icoon } from "./iconen.js?v=54";
+import { bouwNieuwsMonteur } from "./communicatie.js?v=54";
+import { bouwRoosterMonteur } from "./rooster-extra.js?v=54";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();   // eigen sessie, blijft bewaard tussen bezoeken
@@ -121,7 +121,7 @@ if ("serviceWorker" in navigator) {
 //  starten het versienummer op (langs de cache heen) en herladen we eenmalig
 //  als er iets nieuwers staat. De vlag in sessionStorage voorkomt een lus als
 //  het herladen om welke reden dan ook niet aanslaat.
-const APP_VERSIE = 53;
+const APP_VERSIE = 54;
 async function controleerVersie() {
   try {
     const r = await fetch("versie.json?t=" + Date.now(), { cache: "no-store" });

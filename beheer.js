@@ -3,13 +3,13 @@
 //  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
 //  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
-import { beheerClient } from "./config.js?v=53";
+import { beheerClient } from "./config.js?v=54";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=53";
-import { bouwNieuwsBeheer } from "./communicatie.js?v=53";
-import { bouwPeriodes } from "./periode.js?v=53";
-import { bouwRoosterExtra } from "./rooster-extra.js?v=53";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=54";
+import { bouwNieuwsBeheer } from "./communicatie.js?v=54";
+import { bouwPeriodes } from "./periode.js?v=54";
+import { bouwRoosterExtra } from "./rooster-extra.js?v=54";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder
@@ -1644,7 +1644,7 @@ async function toonUitbetaling(van, tot) {
   const { data, error } = await db.rpc("uitbetaling", { p_van: van, p_tot: tot });
   if (error) {
     _uitbetaling = [];
-    $("tbUitbetaling").innerHTML = rijLeeg(11, "Kon de uitbetaling niet berekenen: " + error.message);
+    $("tbUitbetaling").innerHTML = rijLeeg(12, "Kon de uitbetaling niet berekenen: " + error.message);
     return;
   }
   _uitbetaling = data || [];
@@ -1660,10 +1660,13 @@ async function toonUitbetaling(van, tot) {
       <td class="mono" style="color:${pm < 0 ? "var(--rood-donker)" : pm > 0 ? "var(--groen)" : "inherit"}">${pm ? (pm > 0 ? "+" : "\u2212") + urenTekst(Math.abs(pm)) : "—"}</td>
       <td class="mono">${Number(r.overwerk_uren) ? urenTekst(r.overwerk_uren) : "—"}</td>
       <td class="mono">${Number(r.open_uren) ? `<span class="badge amber">${urenTekst(r.open_uren)}</span>` : "—"}</td>
+      <td class="mono">${Number(r.wachturen)
+        ? `<span class="badge grijs" title="Gaat van ${esc(r.wachturen_van === "verlofsaldo" ? "het verlofsaldo" : "het loon")} af">${urenTekst(r.wachturen)}</span>`
+        : "—"}</td>
       <td class="mono">${r.uurloon != null ? "\u20ac " + komma(r.uurloon) : "—"}</td>
       <td class="mono sterk">${r.uurloon != null ? "\u20ac " + komma(r.bedrag) : "—"}</td>
     </tr>`;
-  }).join("") || rijLeeg(11, "Geen uitbetaling in deze periode.");
+  }).join("") || rijLeeg(12, "Geen uitbetaling in deze periode.");
 
   const letOp = _uitbetaling.filter((r) => r.waarschuwing).length;
   const melding = $("uitbMelding");
@@ -1678,10 +1681,11 @@ $("uitbExport").addEventListener("click", () => {
   csvDownload(
     ["Monteur", "Medewerker-id", "Contractvorm", "Basis", "Gewerkte uren", "Verlofuren",
      "Contracturen", "Uit te betalen uren", "Plus/min uren", "Overwerk uren",
-     "Nog te beoordelen", "Uurloon", "Bedrag", "Let op"],
+     "Nog te beoordelen", "Wachturen", "Wachturen van", "Uurloon", "Bedrag", "Let op"],
     _uitbetaling.map((r) => [r.naam, r.medewerker_id, r.contractvorm, r.basis,
       komma(r.gewerkt_uren), komma(r.verlof_uren), komma(r.contract_uren), komma(r.uit_te_betalen),
       komma(r.plusmin_uren), komma(r.overwerk_uren), komma(r.open_uren),
+      komma(r.wachturen), r.wachturen_van || "",
       r.uurloon != null ? komma(r.uurloon) : "", r.uurloon != null ? komma(r.bedrag) : "",
       r.waarschuwing || ""]),
     "uitbetaling-" + _rapPeriode);
@@ -1712,7 +1716,7 @@ async function toonRapport() {
     _rapMonteur = []; _uitbetaling = [];
     $("tbRapMonteur").innerHTML = rijLeeg(8, "De rapportage kon niet worden opgehaald: " + m);
     $("tbRapProject").innerHTML = rijLeeg(3, "—");
-    $("tbUitbetaling").innerHTML = rijLeeg(11, "—");
+    $("tbUitbetaling").innerHTML = rijLeeg(12, "—");
     if ($("rapWaarschuwing")) {
       $("rapWaarschuwing").textContent = "Let op: deze cijfers zijn NIET compleet — het ophalen is mislukt (" + m + ").";
       $("rapWaarschuwing").className = "melding fout";

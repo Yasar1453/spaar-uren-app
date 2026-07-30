@@ -6,7 +6,7 @@
 //  koppeling via koppel_account() — die controleert de code uit de link én de
 //  geboortedatum. Het account blijft inactief tot kantoor het vrijgeeft.
 // ============================================================================
-import { monteurClient } from "./config.js?v=53";
+import { monteurClient } from "./config.js?v=54";
 
 const $ = (id) => document.getElementById(id);
 const db = monteurClient();
