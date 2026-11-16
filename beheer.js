@@ -3,13 +3,13 @@
 //  Shiftbase-indeling (zijbalk) in Spaar-huisstijl. Dashboard, Rooster,
 //  Urenregistratie (met km/pauze), Verlof, Werkbonnen, Medewerkers, Rapportages.
 // ============================================================================
-import { beheerClient } from "./config.js?v=54";
+import { beheerClient } from "./config.js?v=55";
 
 const $ = (id) => document.getElementById(id);
-import { icoon, ICOON_KEUZE } from "./iconen.js?v=54";
-import { bouwNieuwsBeheer } from "./communicatie.js?v=54";
-import { bouwPeriodes } from "./periode.js?v=54";
-import { bouwRoosterExtra } from "./rooster-extra.js?v=54";
+import { icoon, ICOON_KEUZE } from "./iconen.js?v=55";
+import { bouwNieuwsBeheer } from "./communicatie.js?v=55";
+import { bouwPeriodes } from "./periode.js?v=55";
+import { bouwRoosterExtra } from "./rooster-extra.js?v=55";
 const db = beheerClient();
 let tikker = null;
 let ikBenId = null;        // medewerker-id van de ingelogde beheerder

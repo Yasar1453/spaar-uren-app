@@ -12,12 +12,12 @@
 // ongezien binnen. Nu een vaste versie die met de app meegaat.
 import { createClient } from "./vendor/supabase-js.js";
 
-export const SUPABASE_URL = "https://otesjqpjocauonvqngff.supabase.co";
-export const SUPABASE_ANON_KEY = "sb_publishable_7rL7nMLExoh_XuRqRj342g_yILqb6CX";
+export const SUPABASE_URL = "https://uren.ritteller.nl";
+export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzk0ODM0NDE3LCJleHAiOjE5NTI1MTQ0MTd9.A7vNColcioVLtiMbIiF7pszVqxtQx0QMezcRS4YLAzU";
 // URL van de pin-login functie: <SUPABASE_URL>/functions/v1/pin-login
 export const PIN_LOGIN_URL = SUPABASE_URL + "/functions/v1/pin-login";
 // Publieke VAPID-sleutel voor Web Push (de geheime helft leeft als Edge-secret).
-export const VAPID_PUBLIC = "BDN8IVDcU3WFHNwQU4ykPE85_o61TqIWgJykir5EibBbd4GxcYi6-8s2M91zzqWENcp1sA9vCBGjd2rhCa7lwsM";
+export const VAPID_PUBLIC = "BJuJ821Vxva6f05LV5CPEo0vWdzBp2lKmt8_pHT2fFKOc6gNM4bDpcIvWOkQcjkE7YekZSd4y6_fz4scdFI9VsE";
 
 // Anonieme client (voor het inlogscherm van de monteur en voor de beheerder-login).
 export function anonClient() {
