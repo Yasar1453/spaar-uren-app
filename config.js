@@ -12,7 +12,7 @@
 // ongezien binnen. Nu een vaste versie die met de app meegaat.
 import { createClient } from "./vendor/supabase-js.js";
 
-export const SUPABASE_URL = "https://uren.ritteller.nl";
+export const SUPABASE_URL = "https://uren-api.spaarelectra.nl";
 export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzk0ODM0NDE3LCJleHAiOjE5NTI1MTQ0MTd9.A7vNColcioVLtiMbIiF7pszVqxtQx0QMezcRS4YLAzU";
 // URL van de pin-login functie: <SUPABASE_URL>/functions/v1/pin-login
 export const PIN_LOGIN_URL = SUPABASE_URL + "/functions/v1/pin-login";
